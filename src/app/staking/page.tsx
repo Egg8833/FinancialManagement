@@ -152,7 +152,17 @@ function PledgeRatioCard({ totalBorrowValue, totalCollateralValueTWD }: { totalB
           <p className="text-[10px] text-gray-400">TWD</p>
         </div>
         <div className={`rounded-xl p-3 ${isRed ? 'bg-rose-50' : 'bg-emerald-50'}`}>
-          <p className="text-[10px] text-gray-400 mb-1">{isRed ? '追繳缺口' : '安全緩衝'}</p>
+          <div className="flex items-center gap-1 mb-1 group relative">
+            <p className="text-[10px] text-gray-400">{isRed ? '追繳缺口' : '安全緩衝'}</p>
+            <span className="text-[10px] text-gray-300 cursor-default select-none">ⓘ</span>
+            {/* Tooltip */}
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-gray-800 text-white text-[11px] leading-relaxed rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+              {isRed
+                ? '擔保品市值低於追繳門檻的差額。需補充此金額的擔保品，才能回到安全線 (維持率 130%)。'
+                : '擔保品市值跌超過此金額後，維持率將低於 130% 並觸發追繳。數字越大代表越安全。'}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+            </div>
+          </div>
           <p className={`text-sm font-bold tabular-nums ${isRed ? 'text-rose-600' : 'text-emerald-600'}`}>
             {isRed ? '-' : '+'}{(isRed ? shortage : buffer).toLocaleString()}
           </p>
