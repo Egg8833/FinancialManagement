@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Plus, TrendingUp, TrendingDown, Wallet, X, Check, Sparkles } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Wallet, X, Check } from 'lucide-react';
 import { HeroKPI } from '../components/HeroKPI';
 import { AssetCategoryCard } from '../components/AssetComponents';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
@@ -27,12 +27,7 @@ export default function DashboardPage() {
     totalAssets,
     totalLiabilities,
     netWorth,
-    clearAllData,
   } = useAppContext();
-
-  const DEMO_ASSET_IDS = ['liquid', 'investment', 'fixed', 'receivable'];
-  const isShowingDemoData = assets.length > 0 && assets.every(a => DEMO_ASSET_IDS.includes(a.id));
-  const [demoBannerDismissed, setDemoBannerDismissed] = useState(false);
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
 
@@ -118,31 +113,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      {isShowingDemoData && !demoBannerDismissed && (
-        <div className="mb-6 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
-          <Sparkles className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-800">目前顯示的是示範資料</p>
-            <p className="text-xs text-amber-700 mt-0.5">這些數字只是範例。點選「清除」可以清空所有資料，從頭開始輸入您自己的財務資訊。</p>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => { clearAllData(); setDemoBannerDismissed(true); }}
-              className="px-3 py-1.5 text-xs font-semibold bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
-            >
-              清除示範資料
-            </button>
-            <button
-              onClick={() => setDemoBannerDismissed(true)}
-              className="p-1 text-amber-400 hover:text-amber-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
+<div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">個人資產狀態總覽</h1>
           <p className="text-sm text-gray-500 mt-1">追蹤與管理您的財務狀況 (資料將保存在您的設備中)</p>

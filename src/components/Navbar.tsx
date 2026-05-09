@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { LayoutDashboard, Eye, EyeOff, BarChart3, Coins, Activity, Wallet, Menu, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { LayoutDashboard, Eye, EyeOff, BarChart3, Coins, Activity, Wallet, Menu, X, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAppContext } from '../context/AppContext';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface NavbarProps {
   showValues: boolean;
@@ -21,6 +23,20 @@ const NAV_LINKS = [
 export function Navbar({ showValues, onToggleValues }: NavbarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [assetMenuOpen, setAssetMenuOpen] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const assetMenuRef = useRef<HTMLDivElement>(null);
+  const { clearAllData } = useAppContext();
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (assetMenuRef.current && !assetMenuRef.current.contains(e.target as Node)) {
+        setAssetMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // 路由切換時自動關閉選單
   useEffect(() => {
@@ -92,11 +108,27 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                 <span className="hidden sm:inline">{showValues ? '隱藏金額' : '顯示金額'}</span>
               </button>
 
-              <div className="hidden md:flex items-center gap-3 pl-4 border-l border-gray-200">
-                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
-                  U
-                </div>
-                <span className="text-sm font-medium">我的資產庫</span>
+              <div className="hidden md:block relative pl-4 border-l border-gray-200" ref={assetMenuRef}>
+                <button
+                  onClick={() => setAssetMenuOpen(o => !o)}
+                  className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-100 transition-colors"
+                >
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
+                    U
+                  </div>
+                  <span className="text-sm font-medium">我的資產庫</span>
+                </button>
+                {assetMenuOpen && (
+                  <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+                    <button
+                      onClick={() => { setAssetMenuOpen(false); setShowClearConfirm(true); }}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      一鍵清除資料
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* 漢堡按鈕 — 僅手機顯示 */}
@@ -155,7 +187,7 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
         </nav>
 
         {/* 底部 */}
-        <div className="px-5 py-4 border-t border-gray-100">
+        <div className="px-5 py-4 border-t border-gray-100 space-y-1">
           <button
             onClick={() => { onToggleValues(); setMobileOpen(false); }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
@@ -163,8 +195,23 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
             {showValues ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             {showValues ? '隱藏所有金額' : '顯示所有金額'}
           </button>
+          <button
+            onClick={() => { setMobileOpen(false); setShowClearConfirm(true); }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors"
+          >
+            <Trash2 className="w-5 h-5" />
+            一鍵清除資料
+          </button>
         </div>
       </div>
+
+      {showClearConfirm && (
+        <ConfirmDialog
+          message="確定要清除所有資料嗎？此操作無法還原。"
+          onConfirm={() => { clearAllData(); setShowClearConfirm(false); }}
+          onCancel={() => setShowClearConfirm(false)}
+        />
+      )}
     </>
   );
 }
