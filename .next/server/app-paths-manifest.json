@@ -1,0 +1,6 @@
+{
+  "/api/quote/route": "app/api/quote/route.js",
+  "/page": "app/page.js",
+  "/staking/page": "app/staking/page.js",
+  "/cashflow/page": "app/cashflow/page.js"
+}
