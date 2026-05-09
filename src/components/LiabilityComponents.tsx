@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Building2, CreditCard, Pencil, Trash2, Plus } from 'lucide-react';
 import type { LiabilityItem } from '../types';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useToast } from '../context/ToastContext';
 
 interface EditableLiabilityRowProps {
   item: LiabilityItem;
@@ -13,12 +15,20 @@ interface EditableLiabilityRowProps {
 
 export function EditableLiabilityRow({ item, showValues, onUpdate, onDelete }: EditableLiabilityRowProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const [editAmount, setEditAmount] = useState(item.amount.toString());
+  const { toast } = useToast();
 
   const handleSave = () => {
     onUpdate(editName, Number(editAmount) || 0);
     setIsEditing(false);
+    toast('已更新負債項目');
+  };
+
+  const handleDelete = () => {
+    onDelete();
+    toast(`已刪除「${item.name}」`, 'info');
   };
 
   if (isEditing) {
@@ -63,8 +73,15 @@ export function EditableLiabilityRow({ item, showValues, onUpdate, onDelete }: E
       {!item.id.startsWith('auto-') && (
         <div className="absolute right-2 -top-3 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity bg-white shadow-sm border border-gray-100 rounded-lg p-1">
           <button onClick={() => setIsEditing(true)} className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>
-          <button onClick={onDelete} className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setConfirmDelete(true)} className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`確定要刪除「${item.name}」嗎？`}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
       )}
     </div>
   );

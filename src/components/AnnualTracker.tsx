@@ -3,6 +3,9 @@
 import { useState, useMemo } from 'react';
 import { Plus, X, Trash2, ChevronLeft, ChevronRight, RotateCcw, Pencil } from 'lucide-react';
 import { useAppContext, type AnnualEntry, type AnnualEntryCategory } from '../context/AppContext';
+import { useStickyState } from '../hooks/useStickyState';
+
+type MonthlyOverrides = Record<string, { fixedIncome?: number; fixedExpense?: number }>;
 
 // ─── 常數 ──────────────────────────────────────────────────────────────────────
 
@@ -195,10 +198,11 @@ function ClickableCell({
 export function AnnualTracker() {
   const {
     annualEntries, setAnnualEntries,
-    monthlyOverrides, setMonthlyOverrides,
     incomeItems, expenseItems,
     showValues,
   } = useAppContext();
+
+  const [monthlyOverrides, setMonthlyOverrides] = useStickyState<MonthlyOverrides>({}, 'app-monthly-overrides-v1');
 
   const currentYear = new Date().getFullYear();
   const [year, setYear] = useState(currentYear);

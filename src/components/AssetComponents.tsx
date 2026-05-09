@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Pencil, Trash2, Check, X, Plus } from 'lucide-react';
 import type { AssetItem, AssetCategory } from '../types';
+import { ConfirmDialog } from './ConfirmDialog';
+import { useToast } from '../context/ToastContext';
 
 interface EditableAssetRowProps {
   item: AssetItem;
@@ -13,12 +15,20 @@ interface EditableAssetRowProps {
 
 export function EditableAssetRow({ item, showValues, onUpdate, onDelete }: EditableAssetRowProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [editName, setEditName] = useState(item.name);
   const [editAmount, setEditAmount] = useState(item.amount.toString());
+  const { toast } = useToast();
 
   const handleSave = () => {
     onUpdate(editName, Number(editAmount) || 0);
     setIsEditing(false);
+    toast('已更新資產項目');
+  };
+
+  const handleDelete = () => {
+    onDelete();
+    toast(`已刪除「${item.name}」`, 'info');
   };
 
   if (isEditing) {
@@ -63,8 +73,15 @@ export function EditableAssetRow({ item, showValues, onUpdate, onDelete }: Edita
       <span className="font-medium text-gray-900 mx-4">{showValues ? item.amount.toLocaleString('en-US') : '****'}</span>
       <div className={`flex gap-1 transition-opacity ${item.id.startsWith('auto-') ? 'invisible' : 'opacity-0 group-hover:opacity-100'}`}>
         <button onClick={() => setIsEditing(true)} className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>
-        <button onClick={onDelete} className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
+        <button onClick={() => setConfirmDelete(true)} className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`確定要刪除「${item.name}」嗎？`}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
     </div>
   );
 }

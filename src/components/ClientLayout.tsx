@@ -2,7 +2,9 @@
 
 import { ReactNode } from 'react';
 import { Navbar } from './Navbar';
+import { DataManager } from './DataManager';
 import { AppProvider, useAppContext } from '../context/AppContext';
+import { ToastProvider } from '../context/ToastContext';
 
 function ClientLayoutContent({ children }: { children: ReactNode }) {
   const { showValues, setShowValues } = useAppContext();
@@ -10,7 +12,10 @@ function ClientLayoutContent({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50/50 font-sans text-gray-900 pb-24">
       <Navbar showValues={showValues} onToggleValues={() => setShowValues(!showValues)} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 flex justify-end">
+        <DataManager />
+      </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         {children}
       </main>
     </div>
@@ -20,7 +25,9 @@ function ClientLayoutContent({ children }: { children: ReactNode }) {
 export function ClientLayout({ children }: { children: ReactNode }) {
   return (
     <AppProvider>
-      <ClientLayoutContent>{children}</ClientLayoutContent>
+      <ToastProvider>
+        <ClientLayoutContent>{children}</ClientLayoutContent>
+      </ToastProvider>
     </AppProvider>
   );
 }

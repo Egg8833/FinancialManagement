@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useMemo } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useEffect, useState } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
 import type { AssetCategory, LiabilityItem } from '../types';
 
@@ -117,7 +117,7 @@ const initialStakingData: StakingItem[] = [
 
 const initialLoans: LoanItem[] = [
   { id: 'loan1', name: '信貸A', bank: '樂天', principal: 800000, initialPrincipal: 800000, interestRate: 2.08, monthlyPayment: 10242, paymentDay: 11, remainingPeriods: 68, loanType: 'installment', originalPeriods: 84, nextPaymentDate: '2026-05-11' },
-  { id: 'loan2', name: '信貸B', bank: '王道', principal: 550000, interestRate: 3.20, monthlyPayment: 7274, paymentDay: 15, remainingPeriods: 70, loanType: 'installment', originalPeriods: 70 },
+  { id: 'loan2', name: '信貸B', bank: '王道', principal: 550000, initialPrincipal: 550000, interestRate: 3.20, monthlyPayment: 7274, paymentDay: 15, remainingPeriods: 70, loanType: 'installment', originalPeriods: 70 },
 ];
 
 export type AssetSnapshot = {
@@ -131,14 +131,18 @@ export type AssetSnapshot = {
 export type StockItem = {
   id: string;
   symbol: string;
+  platform?: string;
   shares: number;
   avgCost: number;
+  collateralShares?: number;
+  notes?: string;
 };
 
 export type StockQuote = {
   price: number;
   changePercent: number;
   currency: string;
+  shortName?: string;
 };
 
 const initialStockData: StockItem[] = [
@@ -165,8 +169,6 @@ export type AnnualEntry = {
   category: AnnualEntryCategory;
 };
 
-// Key: `${year}-${month}`, allows per-month override of fixed income/expense
-export type MonthlyOverrides = Record<string, { fixedIncome?: number; fixedExpense?: number }>;
 
 const initialIncomeData: CashFlowItem[] = [
   { id: 'in1', name: '薪資收入', amount: 80000, category: 'Salary', isRecurring: true },
@@ -197,8 +199,6 @@ interface AppContextType {
   setExpenseItems: (items: CashFlowItem[] | ((prev: CashFlowItem[]) => CashFlowItem[])) => void;
   annualEntries: AnnualEntry[];
   setAnnualEntries: (entries: AnnualEntry[] | ((prev: AnnualEntry[]) => AnnualEntry[])) => void;
-  monthlyOverrides: MonthlyOverrides;
-  setMonthlyOverrides: (val: MonthlyOverrides | ((prev: MonthlyOverrides) => MonthlyOverrides)) => void;
   borrowingLimit: number;
   setBorrowingLimit: (limit: number | ((prev: number) => number)) => void;
   snapshots: AssetSnapshot[];
@@ -215,6 +215,7 @@ interface AppContextType {
   totalMonthlyExpense: number;
   monthlyNetCashFlow: number;
   netWorth: number;
+  clearAllData: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -226,8 +227,6 @@ export function useAppContext() {
   }
   return context;
 }
-
-import { useEffect, useState } from 'react';
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [showValues, setShowValues] = useStickyState<boolean>(true, 'app-show-values');
@@ -242,8 +241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [incomeItems, setIncomeItems] = useStickyState<CashFlowItem[]>(initialIncomeData, 'app-income-v1');
   const [expenseItems, setExpenseItems] = useStickyState<CashFlowItem[]>(initialExpenseData, 'app-expense-v1');
   const [annualEntries, setAnnualEntries] = useStickyState<AnnualEntry[]>([], 'app-annual-v1');
-  const [monthlyOverrides, setMonthlyOverrides] = useStickyState<MonthlyOverrides>({}, 'app-monthly-overrides-v1');
-  const [loans, setLoans] = useStickyState<LoanItem[]>(initialLoans, 'app-loans-v4');
+  const [loans, setLoans] = useStickyState<LoanItem[]>(initialLoans, 'app-loans-v5');
 
   const refreshQuotes = async () => {
     const symbols = new Set(stockItems.map(item => item.symbol));
@@ -305,12 +303,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const recordLoanPayment = (id: string) => {
     setLoans(prev => prev.map(loan => {
       if (loan.id !== id || loan.loanType !== 'installment' || loan.remainingPeriods <= 0) return loan;
-      const monthlyInterest = loan.principal * loan.interestRate / 100 / 12;
-      const principalReduction = Math.max(0, loan.monthlyPayment - monthlyInterest);
+      let nextDate: string | undefined = undefined;
+      if (loan.nextPaymentDate) {
+        const d = new Date(loan.nextPaymentDate);
+        d.setMonth(d.getMonth() + 1);
+        nextDate = d.toISOString().split('T')[0];
+      }
+      
+      const interest = Math.round(loan.principal * loan.interestRate / 100 / 12);
+      const principalReduction = loan.monthlyPayment - interest;
+
       return {
         ...loan,
         principal: Math.max(0, Math.round(loan.principal - principalReduction)),
         remainingPeriods: loan.remainingPeriods - 1,
+        nextPaymentDate: nextDate,
       };
     }));
   };
@@ -318,12 +325,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const undoLoanPayment = (id: string) => {
     setLoans(prev => prev.map(loan => {
       if (loan.id !== id || loan.loanType !== 'installment') return loan;
-      const r = loan.interestRate / 100 / 12;
-      const oldPrincipal = Math.round((loan.principal + loan.monthlyPayment) / (1 + r));
+      let prevDate: string | undefined = undefined;
+      if (loan.nextPaymentDate) {
+        const d = new Date(loan.nextPaymentDate);
+        d.setMonth(d.getMonth() - 1);
+        prevDate = d.toISOString().split('T')[0];
+      }
+      
+      const interest = Math.round(loan.principal * loan.interestRate / 100 / 12);
+      const principalReduction = loan.monthlyPayment - interest;
+
       return {
         ...loan,
-        principal: oldPrincipal,
+        principal: Math.round(loan.principal + principalReduction),
         remainingPeriods: loan.remainingPeriods + 1,
+        nextPaymentDate: prevDate,
       };
     }));
   };
@@ -397,8 +413,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const netWorth = totalAssets - totalLiabilities;
 
+  const clearAllData = () => {
+    setAssets([]);
+    setLiabilities([]);
+    setStakingItems([]);
+    setLoans([]);
+    setStockItems([]);
+    setIncomeItems([]);
+    setExpenseItems([]);
+    setAnnualEntries([]);
+    setSnapshots([]);
+  };
+
   return (
-    <AppContext.Provider value={{ 
+    <AppContext.Provider value={{
       showValues, 
       setShowValues, 
       assets, 
@@ -418,8 +446,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setExpenseItems,
       annualEntries,
       setAnnualEntries,
-      monthlyOverrides,
-      setMonthlyOverrides,
       borrowingLimit,
       setBorrowingLimit,
       snapshots,
@@ -435,7 +461,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       totalMonthlyIncome,
       totalMonthlyExpense,
       monthlyNetCashFlow,
-      netWorth
+      netWorth,
+      clearAllData,
     }}>
       {children}
     </AppContext.Provider>

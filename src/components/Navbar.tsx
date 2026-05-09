@@ -1,6 +1,7 @@
 "use client";
 
-import { LayoutDashboard, Eye, EyeOff, BarChart3, Coins, Activity, Wallet } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { LayoutDashboard, Eye, EyeOff, BarChart3, Coins, Activity, Wallet, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -9,8 +10,32 @@ interface NavbarProps {
   onToggleValues: () => void;
 }
 
+const NAV_LINKS = [
+  { href: '/',          label: '總覽',       Icon: LayoutDashboard },
+  { href: '/chart',     label: '資產狀態圖', Icon: BarChart3 },
+  { href: '/staking',   label: '借貸 & 活儲', Icon: Coins },
+  { href: '/stocks',    label: '投資追蹤',   Icon: Activity },
+  { href: '/cashflow',  label: '收支管理',   Icon: Wallet },
+];
+
 export function Navbar({ showValues, onToggleValues }: NavbarProps) {
   const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // 路由切換時自動關閉選單
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // 鎖定 body scroll
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
 
   const getNavClass = (path: string) => {
     const isActive = pathname === path;
@@ -21,65 +46,125 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
     }`;
   };
 
+  const getMobileNavClass = (path: string) => {
+    const isActive = pathname === path;
+    return `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+      isActive
+        ? 'bg-indigo-50 text-indigo-700'
+        : 'text-gray-700 hover:bg-gray-100'
+    }`;
+  };
+
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 items-center">
-          
-          <div className="flex items-center gap-8">
-            {/* Logo */}
-            <div className="flex items-center gap-3 mr-4">
-              <div className="bg-indigo-600 p-2 rounded-lg text-white">
-                <LayoutDashboard className="w-5 h-5" />
+    <>
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+
+            <div className="flex items-center gap-8">
+              {/* Logo */}
+              <div className="flex items-center gap-3 mr-4">
+                <div className="bg-indigo-600 p-2 rounded-lg text-white">
+                  <LayoutDashboard className="w-5 h-5" />
+                </div>
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+                  AssetDash
+                </span>
               </div>
-              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
-                AssetDash
-              </span>
+
+              {/* 桌機導覽 */}
+              <div className="hidden md:flex items-center gap-2">
+                {NAV_LINKS.map(({ href, label, Icon }) => (
+                  <Link key={href} href={href} className={getNavClass(href)}>
+                    <Icon className="w-4 h-4" />
+                    {label}
+                  </Link>
+                ))}
+              </div>
             </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-2">
-              <Link href="/" className={getNavClass('/')}>
-                <LayoutDashboard className="w-4 h-4" />
-                總覽
-              </Link>
-              <Link href="/chart" className={getNavClass('/chart')}>
-                <BarChart3 className="w-4 h-4" />
-                資產狀態圖
-              </Link>
-              <Link href="/staking" className={getNavClass('/staking')}>
-                <Coins className="w-4 h-4" />
-                借貸管理
-              </Link>
-              <Link href="/stocks" className={getNavClass('/stocks')}>
-                <Activity className="w-4 h-4" />
-                投資追蹤
-              </Link>
-              <Link href="/cashflow" className={getNavClass('/cashflow')}>
-                <Wallet className="w-4 h-4" />
-                收支管理
-              </Link>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-6">
-            <button 
-              onClick={onToggleValues}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors text-gray-600"
-            >
-              {showValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              {showValues ? '隱藏金額' : '顯示金額'}
-            </button>
-            <div className="flex items-center gap-3 pl-4 border-l border-gray-200 hidden md:flex">
-              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
-                U
-              </div>
-              <span className="text-sm font-medium">我的資產庫</span>
-            </div>
-          </div>
+            <div className="flex items-center gap-2 sm:gap-4">
+              <button
+                onClick={onToggleValues}
+                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors text-gray-600"
+              >
+                {showValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span className="hidden sm:inline">{showValues ? '隱藏金額' : '顯示金額'}</span>
+              </button>
 
+              <div className="hidden md:flex items-center gap-3 pl-4 border-l border-gray-200">
+                <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
+                  U
+                </div>
+                <span className="text-sm font-medium">我的資產庫</span>
+              </div>
+
+              {/* 漢堡按鈕 — 僅手機顯示 */}
+              <button
+                onClick={() => setMobileOpen(o => !o)}
+                className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+                aria-label="開啟導覽選單"
+              >
+                {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </nav>
+
+      {/* 手機側欄遮罩 */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* 手機側欄 */}
+      <div
+        className={`fixed top-0 right-0 h-full w-72 bg-white z-50 shadow-2xl transform transition-transform duration-300 ease-in-out md:hidden flex flex-col ${
+          mobileOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        {/* 側欄 header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
+              <LayoutDashboard className="w-4 h-4" />
+            </div>
+            <span className="font-bold text-gray-900">AssetDash</span>
+          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100"
+            aria-label="關閉選單"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* 導覽連結 */}
+        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          {NAV_LINKS.map(({ href, label, Icon }) => (
+            <Link key={href} href={href} className={getMobileNavClass(href)}>
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* 底部 */}
+        <div className="px-5 py-4 border-t border-gray-100">
+          <button
+            onClick={() => { onToggleValues(); setMobileOpen(false); }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            {showValues ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            {showValues ? '隱藏所有金額' : '顯示所有金額'}
+          </button>
         </div>
       </div>
-    </nav>
+    </>
   );
 }

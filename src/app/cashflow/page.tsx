@@ -2,8 +2,11 @@
 
 import { useState } from 'react';
 import { Wallet, Plus, Trash2, Pencil, Check, X, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
-import { useAppContext, type CashFlowItem } from '../../context/AppContext';
+import { useAppContext, type CashFlowItem, type LoanItem } from '../../context/AppContext';
+import { formatCurrency as _fmt } from '../../lib/utils';
 import { AnnualTracker } from '../../components/AnnualTracker';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useToast } from '../../context/ToastContext';
 
 export default function CashFlowPage() {
   const { 
@@ -16,10 +19,7 @@ export default function CashFlowPage() {
   const [isAddingIncome, setIsAddingIncome] = useState(false);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
 
-  const formatCurrency = (amount: number) => {
-    if (!showValues) return '****';
-    return amount.toLocaleString('en-US');
-  };
+  const formatCurrency = (amount: number) => _fmt(amount, showValues);
 
   const handleAddItem = (type: 'income' | 'expense', name: string, amount: number) => {
     const newItem: CashFlowItem = {
@@ -123,7 +123,14 @@ export default function CashFlowPage() {
               ))}
               {/* Auto Staking Interest (Display Only) */}
               <AutoStakingExpenseRow />
+              {/* Auto Loan Payments (Display Only) */}
+              <AutoLoanExpenseRow />
               {expenseItems.length === 0 && !isAddingExpense && <div className="p-8 text-center text-gray-400 text-sm">尚無手動支出項目</div>}
+            </div>
+            {/* Total */}
+            <div className="border-t-2 border-gray-100 px-4 py-3 flex items-center justify-between bg-gray-50">
+              <span className="text-sm font-bold text-gray-600">支出合計</span>
+              <span className="text-base font-bold text-rose-600">{formatCurrency(totalMonthlyExpense)}</span>
             </div>
           </div>
         </div>
@@ -136,12 +143,20 @@ export default function CashFlowPage() {
 
 function CashFlowRow({ item, onUpdate, onDelete, showValues }: { item: CashFlowItem, onUpdate: (n: string, a: number) => void, onDelete: () => void, showValues: boolean }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState(item.name);
   const [amount, setAmount] = useState(item.amount.toString());
+  const { toast } = useToast();
 
   const handleSave = () => {
     onUpdate(name, Number(amount) || 0);
     setIsEditing(false);
+    toast('已更新項目');
+  };
+
+  const handleDelete = () => {
+    onDelete();
+    toast(`已刪除「${item.name}」`, 'info');
   };
 
   if (isEditing) {
@@ -165,9 +180,16 @@ function CashFlowRow({ item, onUpdate, onDelete, showValues }: { item: CashFlowI
         <span className="font-bold text-gray-900 text-sm">{showValues ? item.amount.toLocaleString() : '****'}</span>
         <div className="opacity-0 group-hover:opacity-100 flex gap-1">
           <button onClick={() => setIsEditing(true)} className="p-1 text-gray-400 hover:text-indigo-600"><Pencil className="w-3.5 h-3.5" /></button>
-          <button onClick={onDelete} className="p-1 text-gray-400 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setConfirmDelete(true)} className="p-1 text-gray-400 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
         </div>
       </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`確定要刪除「${item.name}」嗎？`}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
     </div>
   );
 }
@@ -209,6 +231,35 @@ function AutoStakingIncomeRow() {
         </div>
       </div>
     </div>
+  );
+}
+
+function AutoLoanExpenseRow() {
+  const { loans, showValues } = useAppContext();
+  const activeLoans = loans.filter(l => l.principal > 0);
+  if (activeLoans.length === 0) return null;
+
+  return (
+    <>
+      {activeLoans.map((loan: LoanItem) => (
+        <div key={loan.id} className="p-4 flex items-center justify-between bg-rose-50/30">
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-gray-700">{loan.name}（{loan.bank}）月繳</span>
+            <span className="text-[10px] text-rose-500 flex items-center gap-1">
+              <span className="px-1 py-0.5 bg-rose-100 text-rose-500 text-[9px] font-bold rounded uppercase animate-pulse">Auto</span>
+              同步自借貸管理分頁
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="font-bold text-rose-700 text-sm">{showValues ? loan.monthlyPayment.toLocaleString('en-US') : '****'}</span>
+            <div className="invisible flex gap-1">
+              <button className="p-1"><Pencil className="w-3.5 h-3.5" /></button>
+              <button className="p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 

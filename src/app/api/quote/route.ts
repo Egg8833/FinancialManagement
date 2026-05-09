@@ -16,12 +16,13 @@ export async function GET(request: Request) {
   try {
     const quotes = await yf.quote(symbols, { return: 'object' });
 
-    const result: Record<string, { price: number; changePercent: number; currency: string }> = {};
+    const result: Record<string, { price: number; changePercent: number; currency: string; shortName?: string }> = {};
     for (const [symbol, quote] of Object.entries(quotes)) {
       result[symbol] = {
         price: quote.regularMarketPrice ?? 0,
         changePercent: quote.regularMarketChangePercent ?? 0,
         currency: quote.currency ?? 'USD',
+        shortName: quote.shortName ?? quote.longName ?? undefined,
       };
     }
 

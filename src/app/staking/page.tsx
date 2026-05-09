@@ -3,15 +3,87 @@
 import { useState } from 'react';
 import {
   Coins, Plus, Check, X, Trash2, Pencil, RefreshCw,
-  CreditCard, TrendingUp, TrendingDown, ShieldCheck, Zap,
+  CreditCard, ShieldCheck, ChevronDown,
 } from 'lucide-react';
 import {
   useAppContext,
   type StakingItem, type StakingType,
   type LoanItem, type LoanType,
 } from '../../context/AppContext';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useToast } from '../../context/ToastContext';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
+
+function calcEndDate(nextPaymentDate: string | undefined, remainingPeriods: number): string {
+  if (remainingPeriods <= 0) return '已到期';
+  const base = nextPaymentDate ? new Date(nextPaymentDate) : new Date();
+  base.setMonth(base.getMonth() + remainingPeriods - 1);
+  return `${base.getFullYear()}/${base.getMonth() + 1}/${base.getDate()}`;
+}
+
+type ScheduleRow = {
+  period: number;
+  date: string;
+  payment: number;
+  principal: number;
+  interest: number;
+  beginningBalance: number;
+  endingBalance: number;
+  isPaid: boolean
+};
+
+function generateSchedule(loan: LoanItem): ScheduleRow[] {
+  const paidCount = loan.originalPeriods - loan.remainingPeriods;
+  const initP = loan.initialPrincipal ?? loan.principal;
+  const rows: ScheduleRow[] = [];
+  let currentBalance = initP;
+
+  for (let i = 0; i < loan.originalPeriods; i++) {
+    let dateStr = '—';
+    if (loan.nextPaymentDate) {
+      const d = new Date(loan.nextPaymentDate);
+      d.setMonth(d.getMonth() + (i - paidCount));
+      dateStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    const beginningBalance = currentBalance;
+    const interest = Math.round(beginningBalance * loan.interestRate / 100 / 12);
+    let principal = loan.monthlyPayment - interest;
+
+    // Adjust for last payment or if balance is smaller than principal
+    if (beginningBalance < principal || i === loan.originalPeriods - 1) {
+      principal = beginningBalance;
+    }
+
+    currentBalance = Math.max(0, beginningBalance - principal);
+
+    // 關鍵錨點：強制讓「已繳」的最後一期還款後餘額等於目前輸入的 principal
+    // 這樣下一期（本期）的起點就會完全正確
+    if (i === paidCount - 1) {
+      currentBalance = loan.principal;
+    }
+
+    rows.push({
+      period: i + 1,
+      date: dateStr,
+      payment: principal + interest,
+      principal,
+      interest,
+      beginningBalance,
+      endingBalance: currentBalance,
+      isPaid: i < paidCount
+    });
+
+    if (currentBalance <= 0 && i >= paidCount) break;
+  }
+  return rows;
+}
+
+function isPaymentDue(nextPaymentDate: string | undefined): boolean {
+  if (!nextPaymentDate) return false;
+  return new Date(nextPaymentDate) <= new Date();
+}
 
 function SectionHeader({ title, color, children }: { title: string; color: string; children?: React.ReactNode }) {
   return (
@@ -33,29 +105,34 @@ export default function BorrowingPage() {
     stakingItems, setStakingItems,
     borrowingLimit, setBorrowingLimit,
   } = useAppContext();
+  const { toast } = useToast();
+
+  const [deleteTarget, setDeleteTarget] = useState<{ label: string; action: () => void } | null>(null);
 
   const installmentLoans = loans.filter(l => l.loanType === 'installment');
-  const revolvingLoans   = loans.filter(l => l.loanType === 'revolving');
-  const borrowStaking    = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow');
-  const earnStaking      = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'earn');
+  const revolvingLoans = loans.filter(l => l.loanType === 'revolving');
+  const borrowStaking = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow');
+  const earnStaking = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'earn');
 
   // KPI
-  const totalLoanPrincipal  = loans.reduce((s, l) => s + l.principal, 0);
-  const totalLoanMonthly    = loans.reduce((s, l) => s + l.monthlyPayment, 0);
-  const totalBorrowValue    = borrowStaking.reduce((s, i) => s + i.value, 0);
+  const totalLoanPrincipal = loans.reduce((s, l) => s + l.principal, 0);
+  const totalLoanMonthly = loans.reduce((s, l) => s + l.monthlyPayment, 0);
+  const totalBorrowValue = borrowStaking.reduce((s, i) => s + i.value, 0);
   const totalBorrowInterest = borrowStaking.reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0);
-  const totalEarnValue      = earnStaking.reduce((s, i) => s + i.value, 0);
-  const totalEarnIncome     = earnStaking.reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0);
+  const totalEarnValue = earnStaking.reduce((s, i) => s + i.value, 0);
+  const totalEarnIncome = earnStaking.reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0);
 
-  // Loan handlers
-  const handleDeleteLoan = (id: string) => setLoans(prev => prev.filter(l => l.id !== id));
+  // Loan handlers — 刪除透過確認對話框
+  const handleDeleteLoan = (id: string, name: string) =>
+    setDeleteTarget({ label: name, action: () => { setLoans(prev => prev.filter(l => l.id !== id)); toast(`已刪除「${name}」`, 'info'); } });
   const handleUpdateLoan = (id: string, data: Partial<LoanItem>) =>
     setLoans(prev => prev.map(l => l.id === id ? { ...l, ...data } : l));
   const handleAddLoan = (loan: Omit<LoanItem, 'id'>) =>
     setLoans(prev => [...prev, { ...loan, id: Date.now().toString() }]);
 
-  // Staking handlers
-  const handleDeleteStaking = (id: string) => setStakingItems(prev => prev.filter(i => i.id !== id));
+  // Staking handlers — 刪除透過確認對話框
+  const handleDeleteStaking = (id: string, name: string) =>
+    setDeleteTarget({ label: name, action: () => { setStakingItems(prev => prev.filter(i => i.id !== id)); toast(`已刪除「${name}」`, 'info'); } });
   const handleUpdateStaking = (id: string, data: Partial<StakingItem>) =>
     setStakingItems(prev => prev.map(i => i.id === id ? { ...i, ...data } : i));
   const handleAddStaking = (item: Omit<StakingItem, 'id'>) =>
@@ -141,6 +218,13 @@ export default function BorrowingPage() {
         onUpdate={handleUpdateStaking}
         onDelete={handleDeleteStaking}
       />
+      {deleteTarget && (
+        <ConfirmDialog
+          message={`確定要刪除「${deleteTarget.label}」嗎？`}
+          onConfirm={() => { deleteTarget.action(); setDeleteTarget(null); }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </>
   );
 }
@@ -153,7 +237,7 @@ function LoanSection({ installmentLoans, revolvingLoans, onRecord, onDelete, onU
   installmentLoans: LoanItem[];
   revolvingLoans: LoanItem[];
   onRecord: (id: string) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
   onUpdate: (id: string, data: Partial<LoanItem>) => void;
   onAdd: (loan: Omit<LoanItem, 'id'>) => void;
 }) {
@@ -210,7 +294,7 @@ function LoanSection({ installmentLoans, revolvingLoans, onRecord, onDelete, onU
             <span className="text-sm font-medium text-gray-700">類型：</span>
             <div className="flex rounded-lg overflow-hidden border border-rose-200 text-xs font-medium">
               <button onClick={() => setNewLoanType('installment')} className={`px-3 py-1.5 ${newLoanType === 'installment' ? 'bg-rose-500 text-white' : 'bg-white text-gray-600 hover:bg-rose-50'}`}>分期還款</button>
-              <button onClick={() => setNewLoanType('revolving')}   className={`px-3 py-1.5 ${newLoanType === 'revolving'   ? 'bg-rose-500 text-white' : 'bg-white text-gray-600 hover:bg-rose-50'}`}>循環借款</button>
+              <button onClick={() => setNewLoanType('revolving')} className={`px-3 py-1.5 ${newLoanType === 'revolving' ? 'bg-rose-500 text-white' : 'bg-white text-gray-600 hover:bg-rose-50'}`}>循環借款</button>
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -236,10 +320,10 @@ function LoanSection({ installmentLoans, revolvingLoans, onRecord, onDelete, onU
 
       <div className="space-y-3">
         {installmentLoans.map(l => (
-          <InstallmentLoanCard key={l.id} loan={l} onRecord={() => onRecord(l.id)} onDelete={() => onDelete(l.id)} onUpdate={data => onUpdate(l.id, data)} />
+          <InstallmentLoanCard key={l.id} loan={l} onRecord={() => onRecord(l.id)} onDelete={() => onDelete(l.id, `${l.name}（${l.bank}）`)} onUpdate={data => onUpdate(l.id, data)} />
         ))}
         {revolvingLoans.map(l => (
-          <RevolvingLoanCard key={l.id} loan={l} onDelete={() => onDelete(l.id)} onUpdate={data => onUpdate(l.id, data)} />
+          <RevolvingLoanCard key={l.id} loan={l} onDelete={() => onDelete(l.id, `${l.name}（${l.bank}）`)} onUpdate={data => onUpdate(l.id, data)} />
         ))}
         {loans_empty(installmentLoans, revolvingLoans) && !isAdding && (
           <div className="py-8 text-center text-gray-400 text-sm bg-white rounded-2xl border border-dashed border-gray-200">尚無信貸項目</div>
@@ -257,20 +341,27 @@ function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
   loan: LoanItem; onRecord: () => void; onDelete: () => void; onUpdate: (d: Partial<LoanItem>) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [ep,   setEp]   = useState(loan.principal.toString());
-  const [eip,  setEip]  = useState((loan.initialPrincipal ?? '').toString());
-  const [er,   setEr]   = useState(loan.interestRate.toString());
-  const [em,   setEm]   = useState(loan.monthlyPayment.toString());
-  const [ed,   setEd]   = useState(loan.paymentDay.toString());
-  const [ek,   setEk]   = useState(loan.remainingPeriods.toString());
-  const [eop,  setEop]  = useState(loan.originalPeriods.toString());
+  const [ep, setEp] = useState(loan.principal.toString());
+  const [eip, setEip] = useState((loan.initialPrincipal ?? '').toString());
+  const [er, setEr] = useState(loan.interestRate.toString());
+  const [em, setEm] = useState(loan.monthlyPayment.toString());
+  const [ed, setEd] = useState(loan.paymentDay.toString());
+  const [ek, setEk] = useState(loan.remainingPeriods.toString());
+  const [eop, setEop] = useState(loan.originalPeriods.toString());
   const [enpd, setEnpd] = useState(loan.nextPaymentDate ?? '');
 
-  const interest  = loan.principal * loan.interestRate / 100 / 12;
-  const principal = Math.max(0, loan.monthlyPayment - interest);
-  const progress  = loan.originalPeriods > 0 ? ((loan.originalPeriods - loan.remainingPeriods) / loan.originalPeriods) * 100 : 0;
+  const interest = Math.round(loan.principal * loan.interestRate / 100 / 12);
+  const principalPart = loan.monthlyPayment - interest;
+  const afterPay = Math.max(0, loan.principal - principalPart);
+  const progress = loan.originalPeriods > 0 ? ((loan.originalPeriods - loan.remainingPeriods) / loan.originalPeriods) * 100 : 0;
   const isPaidOff = loan.principal <= 0 || loan.remainingPeriods <= 0;
+  const endDate = calcEndDate(loan.nextPaymentDate, loan.remainingPeriods);
+  const isDue = !isPaidOff && isPaymentDue(loan.nextPaymentDate);
+  const schedule = isExpanded ? generateSchedule(loan) : [];
+  const paidCount = loan.originalPeriods - loan.remainingPeriods;
 
   const handleSave = () => {
     onUpdate({
@@ -311,57 +402,147 @@ function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
 
   return (
     <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${isPaidOff ? 'border-emerald-200' : 'border-gray-100'}`}>
+      {/* Progress bar */}
       <div className="h-1.5 bg-gray-100">
-        <div className="h-1.5 bg-rose-400 transition-all" style={{ width: `${progress}%` }} />
+        <div className="h-1.5 bg-rose-400 transition-all duration-500" style={{ width: `${progress}%` }} />
       </div>
-      <div className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center shrink-0">
-            <CreditCard className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-gray-900">{loan.name}</span>
-              <span className="text-xs text-gray-400">{loan.bank}</span>
-              <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full">分期</span>
-              {isPaidOff && <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">已清償</span>}
-            </div>
-            <div className="flex flex-wrap gap-3 mt-1.5 text-sm">
-              {loan.initialPrincipal && (
-                <span className="text-gray-500">初始 <b className="text-gray-700">{loan.initialPrincipal.toLocaleString('en-US')}</b></span>
-              )}
-              <span className="text-gray-500">餘額 <b className="text-gray-900">{loan.principal.toLocaleString('en-US')}</b></span>
-              <span className="text-gray-500">利率 <b className="text-amber-600">{loan.interestRate}%</b></span>
-              <span className="text-gray-500">月繳 <b className="text-gray-900">{loan.monthlyPayment.toLocaleString('en-US')}</b>{loan.paymentDay > 0 && <span className="text-gray-400 text-xs ml-1">（{loan.paymentDay}日）</span>}</span>
-              <span className="text-gray-500">期數 <b className="text-indigo-600">{loan.remainingPeriods}</b><span className="text-gray-400">/{loan.originalPeriods}</span></span>
-              {loan.nextPaymentDate && (
-                <span className="text-gray-500">下次還款 <b className="text-indigo-600">{loan.nextPaymentDate}</b></span>
-              )}
-            </div>
-            <div className="flex gap-3 mt-1 text-xs text-gray-400">
-              <span>本月利息 <span className="text-rose-500 font-medium">{Math.round(interest).toLocaleString('en-US')}</span></span>
-              <span>攤本 <span className="text-indigo-500 font-medium">{Math.round(principal).toLocaleString('en-US')}</span></span>
-              <span className="text-gray-300">→ 還款後餘額 <span className="text-gray-500 font-medium">{Math.max(0, Math.round(loan.principal - principal)).toLocaleString('en-US')}</span></span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"><Pencil className="w-4 h-4" /></button>
 
-          {!isPaidOff && (
-            confirming ? (
-              <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-sm">
-                <span className="text-rose-700 font-medium">負債 −{Math.round(principal).toLocaleString()}</span>
-                <button onClick={() => { onRecord(); setConfirming(false); }} className="text-rose-600 hover:text-rose-800"><Check className="w-4 h-4" /></button>
-                <button onClick={() => setConfirming(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
-              </div>
-            ) : (
-              <button onClick={() => setConfirming(true)} className="flex items-center gap-1.5 px-3 py-2 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 transition-colors">
-                <RefreshCw className="w-3.5 h-3.5" /> 記錄還款
-              </button>
-            )
-          )}
+      <div className="p-5">
+        {/* ── Top row ── */}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="w-9 h-9 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center shrink-0">
+              <CreditCard className="w-4 h-4" />
+            </div>
+            <span className="font-bold text-gray-900">{loan.name}</span>
+            <span className="text-xs text-gray-400">{loan.bank}</span>
+            <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full">分期</span>
+            {isPaidOff
+              ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">已清償</span>
+              : <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-bold rounded-full">{Math.round(progress)}% 已還</span>
+            }
+            {isDue && <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full animate-pulse">還款日已到</span>}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!isPaidOff && (
+              confirming ? (
+                <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 text-sm">
+                  <span className="text-rose-700 font-medium">負債 −{loan.monthlyPayment.toLocaleString()}</span>
+                  <button onClick={() => { onRecord(); setConfirming(false); }} className="text-rose-600 hover:text-rose-800"><Check className="w-4 h-4" /></button>
+                  <button onClick={() => setConfirming(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirming(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 text-white rounded-lg text-sm font-medium hover:bg-rose-700 transition-colors">
+                  <RefreshCw className="w-3.5 h-3.5" /> 記錄還款
+                </button>
+              )
+            )}
+            <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg"><Pencil className="w-4 h-4" /></button>
+            <button onClick={() => setIsExpanded(v => !v)} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
         </div>
+
+        {/* ── Key metrics (always visible) ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-gray-50 rounded-xl p-3">
+            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-0.5">初始貸款</p>
+            <p className="font-bold text-gray-700">{(loan.initialPrincipal ?? loan.principal).toLocaleString('en-US')}</p>
+          </div>
+          <div className="bg-rose-50 rounded-xl p-3">
+            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-0.5">目前餘額</p>
+            <p className="font-bold text-rose-600">{loan.principal.toLocaleString('en-US')}</p>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-3">
+            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-0.5">每月還款</p>
+            <p className="font-bold text-gray-700">{loan.monthlyPayment.toLocaleString('en-US')}</p>
+          </div>
+          <div className="bg-indigo-50 rounded-xl p-3">
+            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide mb-0.5">預計到期</p>
+            <p className="font-bold text-indigo-600">{endDate}</p>
+          </div>
+        </div>
+
+        {/* ── Expandable details ── */}
+        {isExpanded && (
+          <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+            {/* Detail grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">年利率</span>
+                <b className="text-amber-600">{loan.interestRate}%</b>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">繳款日</span>
+                <b>每月 {loan.paymentDay} 日</b>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">下次還款</span>
+                <b className={isDue ? 'text-amber-600' : 'text-indigo-600'}>{loan.nextPaymentDate || '—'}</b>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">剩餘 / 總期數</span>
+                <b>{loan.remainingPeriods}<span className="text-gray-400 font-normal"> / {loan.originalPeriods}</span></b>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">本月利息</span>
+                <b className="text-rose-500">{interest.toLocaleString('en-US')}</b>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">還款後餘額</span>
+                <b className="text-gray-700">{afterPay.toLocaleString('en-US')}</b>
+              </div>
+            </div>
+
+            {/* Amortization schedule */}
+            <div className="rounded-xl border border-gray-100 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">攤還表</span>
+                <div className="flex items-center gap-3 text-xs text-gray-500">
+                  {paidCount > 0 && (
+                    <button onClick={() => setShowHistory(v => !v)} className="text-indigo-500 hover:text-indigo-700 font-medium">
+                      {showHistory ? '隱藏已還' : `顯示已還 ${paidCount} 期`}
+                    </button>
+                  )}
+                  <span>{loan.remainingPeriods} 期待還</span>
+                </div>
+              </div>
+              <div className="overflow-y-auto max-h-64">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-white border-b border-gray-100">
+                    <tr className="text-gray-400">
+                      <th className="px-4 py-2 text-left font-medium">期別</th>
+                      <th className="px-4 py-2 text-left font-medium">還款日</th>
+                      <th className="px-4 py-2 text-right font-medium">貸款餘額</th>
+                      <th className="px-4 py-2 text-right font-medium">每月應付 (本金/利息)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {schedule
+                      .filter(row => showHistory || !row.isPaid)
+                      .map(row => (
+                        <tr key={row.period} className={row.isPaid ? 'opacity-40' : row.period === paidCount + 1 ? 'bg-amber-50' : ''}>
+                          <td className="px-4 py-2 font-medium text-gray-700">
+                            {String(row.period).padStart(4, '0')}
+                            {row.isPaid && <span className="ml-1 text-emerald-500 text-[10px]">✓</span>}
+                            {row.period === paidCount + 1 && !row.isPaid && <span className="ml-1 text-amber-500 text-[10px]">← 本期</span>}
+                          </td>
+                          <td className="px-4 py-2 text-gray-500">{row.date}</td>
+                          <td className="px-4 py-2 text-right text-gray-700 font-medium">${row.endingBalance.toLocaleString('en-US')}</td>
+                          <td className="px-4 py-2 text-right">
+                            <div className="font-bold text-gray-900">${row.payment.toLocaleString('en-US')}</div>
+                            <div className="text-[10px] text-gray-400">${row.principal.toLocaleString('en-US')} / ${row.interest.toLocaleString('en-US')}</div>
+                          </td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -436,7 +617,7 @@ function StakingSection({ title, accentColor, type, items, onAdd, onUpdate, onDe
   items: StakingItem[];
   onAdd: (item: Omit<StakingItem, 'id'>) => void;
   onUpdate: (id: string, data: Partial<StakingItem>) => void;
-  onDelete: (id: string) => void;
+  onDelete: (id: string, name: string) => void;
   extra?: React.ReactNode;
 }) {
   const [isAdding, setIsAdding] = useState(false);
@@ -489,7 +670,7 @@ function StakingSection({ title, accentColor, type, items, onAdd, onUpdate, onDe
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {items.map(item => (
-          <StakingRow key={item.id} item={item} type={type} onUpdate={data => onUpdate(item.id, data)} onDelete={() => onDelete(item.id)} />
+          <StakingRow key={item.id} item={item} type={type} onUpdate={data => onUpdate(item.id, data)} onDelete={() => onDelete(item.id, item.name)} />
         ))}
         {items.length === 0 && !isAdding && (
           <div className="py-8 text-center text-gray-400 text-sm">尚無項目</div>
@@ -515,7 +696,7 @@ function StakingRow({ item, type, onUpdate, onDelete }: {
   const [eRepayDate, setERepayDate] = useState(item.repayDate || '');
 
   const isBorrow = type === 'borrow';
-  const monthly  = Math.round(item.value * item.apy / 100 / 12);
+  const monthly = Math.round(item.value * item.apy / 100 / 12);
 
   const handleSave = () => {
     onUpdate({ name: eName, protocol: eProtocol, amount: Number(eAmount) || 0, value: Number(eValue) || 0, apy: Number(eApy) || 0, borrowDate: eBorrowDate, repayDate: eRepayDate });
