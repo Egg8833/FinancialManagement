@@ -445,12 +445,14 @@ function StockRow({
   const editNamePreview = useNameLookup(editSymbolRaw ? editSymbolFull : '');
 
   const handleSave = () => {
+    const totalShares = Number(editShares) || 0;
+    const collateral = Math.min(unitToShares(Number(editCollateralShares) || 0, editMarket), totalShares);
     onUpdate({
       symbol: editSymbolFull,
       platform: editPlatform.trim(),
-      shares: Number(editShares) || 0,
+      shares: totalShares,
       avgCost: Number(editAvgCost) || 0,
-      collateralShares: unitToShares(Number(editCollateralShares) || 0, editMarket),
+      collateralShares: collateral,
       notes: editNotes.trim(),
     });
     setIsEditing(false);
@@ -530,9 +532,15 @@ function StockRow({
             <input
               type="number"
               min="0"
+              step="1"
+              max={sharesToUnit(Number(editShares) || 0, editMarket).value}
               placeholder="0"
               value={editCollateralShares}
-              onChange={e => setEditCollateralShares(e.target.value)}
+              onChange={e => {
+                const max = sharesToUnit(Number(editShares) || 0, editMarket).value;
+                const val = Math.min(Math.floor(Number(e.target.value) || 0), Math.floor(max));
+                setEditCollateralShares(val.toString());
+              }}
               className="w-full border rounded p-2 text-sm"
             />
           </div>
@@ -678,8 +686,14 @@ function StockRow({
                 <input
                   type="number"
                   min="0"
+                  step="1"
+                  max={sharesToUnit(item.shares, market).value}
                   value={sharesToUnit(item.collateralShares ?? 0, market).value}
-                  onChange={e => onUpdate({ collateralShares: unitToShares(Number(e.target.value) || 0, market) })}
+                  onChange={e => {
+                    const maxRaw = item.shares;
+                    const raw = Math.min(unitToShares(Math.floor(Number(e.target.value) || 0), market), maxRaw);
+                    onUpdate({ collateralShares: raw });
+                  }}
                   className="w-20 border rounded px-2 py-1 text-sm font-semibold text-amber-700 bg-amber-50 border-amber-200"
                 />
                 <span className="text-xs text-gray-500">{sharesToUnit(0, market).unit}</span>

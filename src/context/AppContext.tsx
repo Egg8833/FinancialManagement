@@ -216,6 +216,14 @@ interface AppContextType {
   monthlyNetCashFlow: number;
   netWorth: number;
   clearAllData: () => void;
+  // 備份提醒
+  lastExportDate: string;
+  setLastExportDate: (date: string) => void;
+  // 淨資產目標
+  netWorthGoal: number;
+  setNetWorthGoal: (goal: number | ((prev: number) => number)) => void;
+  // 質押擔保品市值
+  totalCollateralValueTWD: number;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -242,6 +250,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [expenseItems, setExpenseItems] = useStickyState<CashFlowItem[]>(initialExpenseData, 'app-expense-v1');
   const [annualEntries, setAnnualEntries] = useStickyState<AnnualEntry[]>([], 'app-annual-v1');
   const [loans, setLoans] = useStickyState<LoanItem[]>(initialLoans, 'app-loans-v5');
+  const [lastExportDate, setLastExportDate] = useStickyState<string>('', 'app-last-export-v1');
+  const [netWorthGoal, setNetWorthGoal] = useStickyState<number>(0, 'app-net-worth-goal-v1');
 
   const refreshQuotes = async () => {
     const symbols = new Set(stockItems.map(item => item.symbol));
@@ -268,6 +278,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const interval = setInterval(refreshQuotes, 60000); // Update every minute
     return () => clearInterval(interval);
   }, [stockItems]);
+
+  // Compute Collateral Market Value (for pledge ratio)
+  const totalCollateralValueTWD = useMemo(() => {
+    const usdToTwd = stockQuotes['TWD=X']?.price || 32;
+    return stockItems.reduce((sum, item) => {
+      if (!item.collateralShares) return sum;
+      const quote = stockQuotes[item.symbol];
+      if (!quote) return sum;
+      const value = quote.price * item.collateralShares;
+      return sum + (quote.currency === 'USD' ? value * usdToTwd : value);
+    }, 0);
+  }, [stockItems, stockQuotes]);
 
   // Compute Stock Total
   const totalStockValueTWD = useMemo(() => {
@@ -463,6 +485,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       monthlyNetCashFlow,
       netWorth,
       clearAllData,
+      lastExportDate,
+      setLastExportDate,
+      netWorthGoal,
+      setNetWorthGoal,
+      totalCollateralValueTWD,
     }}>
       {children}
     </AppContext.Provider>

@@ -27,6 +27,8 @@ export default function DashboardPage() {
     totalAssets,
     totalLiabilities,
     netWorth,
+    netWorthGoal,
+    setNetWorthGoal,
   } = useAppContext();
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
@@ -203,11 +205,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <HeroKPI 
+      <HeroKPI
         netWorth={netWorth}
         totalAssets={totalAssets}
         totalLiabilities={totalLiabilities}
         formatCurrency={formatCurrency}
+        netWorthGoal={netWorthGoal}
+        setNetWorthGoal={setNetWorthGoal}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

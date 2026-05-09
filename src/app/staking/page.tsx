@@ -10,6 +10,7 @@ import {
   type StakingItem, type StakingType,
   type LoanItem, type LoanType,
 } from '../../context/AppContext';
+import { AlertTriangle, AlertOctagon, ShieldCheck as ShieldOk } from 'lucide-react';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 
@@ -97,6 +98,103 @@ function SectionHeader({ title, color, children }: { title: string; color: strin
   );
 }
 
+// ─── 質押維持率卡片 ───────────────────────────────────────────────────────────────
+
+function PledgeRatioCard({ totalBorrowValue, totalCollateralValueTWD }: { totalBorrowValue: number; totalCollateralValueTWD: number }) {
+  if (totalBorrowValue <= 0 || totalCollateralValueTWD <= 0) return null;
+
+  // 維持率 = (擔保品股票總市值 ÷ 融資借款金額) × 100%，低於 130% 觸發追繳
+  const ratio    = (totalCollateralValueTWD / totalBorrowValue) * 100;
+  const isRed    = ratio < 130;
+  const isYellow = ratio >= 130 && ratio < 166;
+
+  const borderClass = isRed ? 'border-rose-200' : isYellow ? 'border-amber-200' : 'border-emerald-100';
+  const textClass   = isRed ? 'text-rose-600'   : isYellow ? 'text-amber-600'   : 'text-emerald-600';
+  const badgeBg     = isRed ? 'bg-rose-100'     : isYellow ? 'bg-amber-100'     : 'bg-emerald-100';
+  const Icon        = isRed ? AlertOctagon       : isYellow ? AlertTriangle      : ShieldOk;
+  const statusText  = isRed ? '危險' : isYellow ? '警戒' : '安全';
+
+  // 進度條範圍 100%~200%（超出則夾至邊界）
+  const BAR_MIN = 100, BAR_MAX = 200;
+  const toBarPct = (v: number) => Math.min(Math.max((v - BAR_MIN) / (BAR_MAX - BAR_MIN) * 100, 0), 100);
+  const barPct    = toBarPct(ratio);
+  const dangerPct = toBarPct(130); // 30%
+  const warnPct   = toBarPct(166); // 66%
+
+  const buffer   = Math.round(totalCollateralValueTWD - totalBorrowValue * 1.30);
+  const shortage = Math.round(totalBorrowValue * 1.30 - totalCollateralValueTWD);
+
+  return (
+    <div className={`mt-4 bg-white rounded-2xl border ${borderClass} p-5`}>
+
+      {/* ── 第一列：狀態 + 大數字 ── */}
+      <div className="flex items-center justify-between gap-4 mb-5">
+        <div className="flex items-center gap-2.5">
+          <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${badgeBg} ${textClass}`}>
+            <Icon className="w-3.5 h-3.5" />
+            {statusText}
+          </span>
+          <span className="text-sm font-semibold text-gray-700">質押維持率</span>
+        </div>
+        <p className={`text-3xl font-bold tabular-nums ${textClass}`}>{ratio.toFixed(1)}%</p>
+      </div>
+
+      {/* ── 第二列：三個關鍵數據 ── */}
+      <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="bg-gray-50 rounded-xl p-3">
+          <p className="text-[10px] text-gray-400 mb-1">擔保品市值</p>
+          <p className="text-sm font-bold text-gray-800 tabular-nums">{Math.round(totalCollateralValueTWD).toLocaleString()}</p>
+          <p className="text-[10px] text-gray-400">TWD</p>
+        </div>
+        <div className="bg-gray-50 rounded-xl p-3">
+          <p className="text-[10px] text-gray-400 mb-1">融資借款</p>
+          <p className="text-sm font-bold text-gray-800 tabular-nums">{totalBorrowValue.toLocaleString()}</p>
+          <p className="text-[10px] text-gray-400">TWD</p>
+        </div>
+        <div className={`rounded-xl p-3 ${isRed ? 'bg-rose-50' : 'bg-emerald-50'}`}>
+          <p className="text-[10px] text-gray-400 mb-1">{isRed ? '追繳缺口' : '安全緩衝'}</p>
+          <p className={`text-sm font-bold tabular-nums ${isRed ? 'text-rose-600' : 'text-emerald-600'}`}>
+            {isRed ? '-' : '+'}{(isRed ? shortage : buffer).toLocaleString()}
+          </p>
+          <p className="text-[10px] text-gray-400">TWD</p>
+        </div>
+      </div>
+
+      {/* ── 第三列：進度條 ── */}
+      <div>
+        {/* 進度條本體 + 標記線 */}
+        <div className="relative h-4 rounded-full overflow-visible bg-gray-100">
+          {/* 色帶：危險 / 警戒 / 安全 */}
+          <div className="absolute inset-0 rounded-full overflow-hidden flex">
+            <div className="h-full bg-rose-200"  style={{ width: `${dangerPct}%` }} />
+            <div className="h-full bg-amber-100" style={{ width: `${warnPct - dangerPct}%` }} />
+            <div className="h-full bg-emerald-100 flex-1" />
+          </div>
+          {/* 目前維持率指標（實心圓點） */}
+          <div
+            className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-white shadow-md transition-all ${isRed ? 'bg-rose-500' : isYellow ? 'bg-amber-400' : 'bg-emerald-500'}`}
+            style={{ left: `${barPct}%` }}
+          />
+          {/* 標記線：130% 追繳 */}
+          <div className="absolute top-0 bottom-0 w-0.5 bg-rose-400" style={{ left: `${dangerPct}%` }} />
+          {/* 標記線：166% 警戒 */}
+          <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400" style={{ left: `${warnPct}%` }} />
+        </div>
+
+        {/* 標記文字（僅在標記線下方） */}
+        <div className="relative h-5 mt-1">
+          <span className="absolute -translate-x-1/2 text-[10px] text-rose-500 font-medium" style={{ left: `${dangerPct}%` }}>
+            ▲ 130%<br />追繳線
+          </span>
+          <span className="absolute -translate-x-1/2 text-[10px] text-amber-500 font-medium" style={{ left: `${warnPct}%` }}>
+            ▲ 166%<br />警戒線
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function BorrowingPage() {
@@ -104,6 +202,7 @@ export default function BorrowingPage() {
     loans, setLoans, recordLoanPayment, undoLoanPayment,
     stakingItems, setStakingItems,
     borrowingLimit, setBorrowingLimit,
+    totalCollateralValueTWD,
   } = useAppContext();
   const { toast } = useToast();
 
@@ -189,6 +288,7 @@ export default function BorrowingPage() {
       <div className="my-8 border-t border-gray-100" />
 
       {/* ════════════ 質押借款 ════════════ */}
+
       <StakingSection
         title="質押借款"
         accentColor="bg-indigo-500"
@@ -205,6 +305,8 @@ export default function BorrowingPage() {
           />
         }
       />
+      {/* ════════════ 質押維持率 ════════════ */}
+      <PledgeRatioCard totalBorrowValue={totalBorrowValue} totalCollateralValueTWD={totalCollateralValueTWD} />
 
       <div className="my-8 border-t border-gray-100" />
 

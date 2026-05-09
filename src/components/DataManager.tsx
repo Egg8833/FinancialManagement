@@ -33,6 +33,7 @@ export function DataManager() {
     a.download = `assetdash-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    ctx.setLastExportDate(new Date().toISOString());
     toast('資料已匯出');
   };
 

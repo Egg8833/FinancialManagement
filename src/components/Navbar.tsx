@@ -13,11 +13,11 @@ interface NavbarProps {
 }
 
 const NAV_LINKS = [
-  { href: '/',          label: '總覽',       Icon: LayoutDashboard },
-  { href: '/chart',     label: '資產狀態圖', Icon: BarChart3 },
-  { href: '/staking',   label: '借貸 & 活儲', Icon: Coins },
-  { href: '/stocks',    label: '投資追蹤',   Icon: Activity },
-  { href: '/cashflow',  label: '收支管理',   Icon: Wallet },
+  { href: '/', label: '總覽', Icon: LayoutDashboard },
+  { href: '/cashflow', label: '收支管理', Icon: Wallet },
+  { href: '/staking', label: '借貸 & 活儲', Icon: Coins },
+  { href: '/stocks', label: '投資追蹤', Icon: Activity },
+  { href: '/chart', label: '資產狀態圖', Icon: BarChart3 },
 ];
 
 export function Navbar({ showValues, onToggleValues }: NavbarProps) {
@@ -55,20 +55,18 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
 
   const getNavClass = (path: string) => {
     const isActive = pathname === path;
-    return `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-      isActive
+    return `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
         ? 'bg-indigo-50 text-indigo-700'
         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-    }`;
+      }`;
   };
 
   const getMobileNavClass = (path: string) => {
     const isActive = pathname === path;
-    return `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-      isActive
+    return `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${isActive
         ? 'bg-indigo-50 text-indigo-700'
         : 'text-gray-700 hover:bg-gray-100'
-    }`;
+      }`;
   };
 
   return (
@@ -155,9 +153,8 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
 
       {/* 手機側欄 */}
       <div
-        className={`fixed top-0 right-0 h-full w-72 bg-white z-50 shadow-2xl transform transition-transform duration-300 ease-in-out md:hidden flex flex-col ${
-          mobileOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        className={`fixed top-0 right-0 h-full w-72 bg-white z-50 shadow-2xl transform transition-transform duration-300 ease-in-out md:hidden flex flex-col ${mobileOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
       >
         {/* 側欄 header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
