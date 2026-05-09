@@ -199,8 +199,8 @@ interface AppContextType {
   setExpenseItems: (items: CashFlowItem[] | ((prev: CashFlowItem[]) => CashFlowItem[])) => void;
   annualEntries: AnnualEntry[];
   setAnnualEntries: (entries: AnnualEntry[] | ((prev: AnnualEntry[]) => AnnualEntry[])) => void;
-  borrowingLimit: number;
-  setBorrowingLimit: (limit: number | ((prev: number) => number)) => void;
+  borrowingLimits: Record<string, number>;
+  setBorrowingLimits: (limits: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void;
   snapshots: AssetSnapshot[];
   setSnapshots: (s: AssetSnapshot[] | ((prev: AssetSnapshot[]) => AssetSnapshot[])) => void;
   loans: LoanItem[];
@@ -242,7 +242,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [liabilities, setLiabilities] = useStickyState<LiabilityItem[]>(initialLiabilities, 'app-liabilities-v1');
   const [stakingItems, setStakingItems] = useStickyState<StakingItem[]>(initialStakingData, 'app-staking-v5');
   const [snapshots, setSnapshots] = useStickyState<AssetSnapshot[]>([], 'app-snapshots-v1');
-  const [borrowingLimit, setBorrowingLimit] = useStickyState<number>(2500000, 'app-borrowing-limit-v1');
+  const [borrowingLimits, setBorrowingLimits] = useStickyState<Record<string, number>>({}, 'app-borrowing-limits-v1');
   const [stockItems, setStockItems] = useStickyState<StockItem[]>(initialStockData, 'app-stocks-v1');
   const [stockQuotes, setStockQuotes] = useState<Record<string, StockQuote>>({});
   const [lastUpdated, setLastUpdated] = useState<string>('');
@@ -468,8 +468,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setExpenseItems,
       annualEntries,
       setAnnualEntries,
-      borrowingLimit,
-      setBorrowingLimit,
+      borrowingLimits,
+      setBorrowingLimits,
       snapshots,
       setSnapshots,
       loans,

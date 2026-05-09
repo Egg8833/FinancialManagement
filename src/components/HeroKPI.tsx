@@ -75,7 +75,7 @@ export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrenc
                 </span>
               ) : (
                 <span className="text-gray-400">
-                  距目標還差 {formatCurrency(netWorthGoal - netWorth)}
+                  距目標還差 {((netWorthGoal - netWorth) / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬
                 </span>
               )}
             </p>

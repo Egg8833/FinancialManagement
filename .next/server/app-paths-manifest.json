@@ -1,3 +1,8 @@
 {
-  "/api/quote/route": "app/api/quote/route.js"
+  "/api/quote/route": "app/api/quote/route.js",
+  "/page": "app/page.js",
+  "/cashflow/page": "app/cashflow/page.js",
+  "/staking/page": "app/staking/page.js",
+  "/chart/page": "app/chart/page.js",
+  "/stocks/page": "app/stocks/page.js"
 }

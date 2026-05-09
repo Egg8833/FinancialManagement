@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Coins, Plus, Check, X, Trash2, Pencil, RefreshCw,
   CreditCard, ShieldCheck, ChevronDown,
@@ -98,10 +98,97 @@ function SectionHeader({ title, color, children }: { title: string; color: strin
   );
 }
 
+// ─── 質押借款主區塊（按平台分組）─────────────────────────────────────────────────
+
+function BorrowSection({ pledgePlatforms, borrowByPlatform, collateralByPlatform, borrowingLimits, setBorrowingLimits, onAdd, onUpdate, onDelete }: {
+  pledgePlatforms: string[];
+  borrowByPlatform: Record<string, StakingItem[]>;
+  collateralByPlatform: Record<string, number>;
+  borrowingLimits: Record<string, number>;
+  setBorrowingLimits: (v: Record<string, number> | ((p: Record<string, number>) => Record<string, number>)) => void;
+  onAdd: (item: Omit<StakingItem, 'id'>) => void;
+  onUpdate: (id: string, data: Partial<StakingItem>) => void;
+  onDelete: (id: string, name: string) => void;
+}) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [protocol, setProtocol] = useState('');
+  const [amount, setAmount] = useState('');
+  const [value, setValue] = useState('');
+  const [apy, setApy] = useState('');
+  const [borrowDate, setBorrowDate] = useState('');
+  const [repayDate, setRepayDate] = useState('');
+
+  const handleAdd = () => {
+    if (!name.trim() || !value) return;
+    onAdd({ name, protocol: protocol || '未分類', amount: Number(amount) || 0, value: Number(value) || 0, apy: Number(apy) || 0, stakingType: 'borrow', borrowDate, repayDate });
+    setName(''); setProtocol(''); setAmount(''); setValue(''); setApy(''); setBorrowDate(''); setRepayDate('');
+    setIsAdding(false);
+  };
+
+  return (
+    <div>
+      <SectionHeader title="質押借款" color="bg-indigo-500">
+        <button onClick={() => setIsAdding(v => !v)} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium hover:bg-indigo-100 transition-colors">
+          <Plus className="w-3.5 h-3.5" /> 新增
+        </button>
+      </SectionHeader>
+
+      {isAdding && (
+        <div className="mb-6 rounded-2xl border bg-indigo-50/50 border-indigo-100 p-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            <div className="col-span-2 lg:col-span-1"><label className="block text-xs text-gray-500 mb-1">名稱</label><input autoFocus type="text" value={name} onChange={e => setName(e.target.value)} placeholder="名稱" className="w-full border rounded-lg p-2 text-sm" /></div>
+            <div><label className="block text-xs text-gray-500 mb-1">平台</label><input type="text" value={protocol} onChange={e => setProtocol(e.target.value)} placeholder="元大" className="w-full border rounded-lg p-2 text-sm" /></div>
+            <div><label className="block text-xs text-gray-500 mb-1">數量</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="數量" className="w-full border rounded-lg p-2 text-sm" /></div>
+            <div><label className="block text-xs text-gray-500 mb-1">借款金額</label><input type="number" value={value} onChange={e => setValue(e.target.value)} placeholder="TWD" className="w-full border rounded-lg p-2 text-sm" /></div>
+            <div><label className="block text-xs text-gray-500 mb-1">借款利率 (%)</label><input type="number" value={apy} onChange={e => setApy(e.target.value)} placeholder="APY" className="w-full border rounded-lg p-2 text-sm" /></div>
+            <div><label className="block text-xs text-gray-500 mb-1">借款日</label><input type="date" value={borrowDate} onChange={e => setBorrowDate(e.target.value)} className="w-full border rounded-lg p-2 text-sm text-gray-600" /></div>
+            <div><label className="block text-xs text-gray-500 mb-1">最後償還日</label><input type="date" value={repayDate} onChange={e => setRepayDate(e.target.value)} className="w-full border rounded-lg p-2 text-sm text-gray-600" /></div>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button onClick={handleAdd} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm flex items-center gap-1 hover:bg-indigo-700"><Check className="w-4 h-4" /> 確認新增</button>
+            <button onClick={() => setIsAdding(false)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm">取消</button>
+          </div>
+        </div>
+      )}
+
+      {pledgePlatforms.length === 0 && !isAdding && (
+        <div className="py-8 text-center text-gray-400 text-sm bg-white rounded-2xl border border-dashed border-gray-200">尚無質押借款項目</div>
+      )}
+
+      {pledgePlatforms.map(platform => {
+        const items = borrowByPlatform[platform];
+        const platformBorrow = items.reduce((s, i) => s + i.value, 0);
+        const platformCollateral = collateralByPlatform[platform] || 0;
+        const platformLimit = borrowingLimits[platform] || 0;
+        return (
+          <div key={platform} className="mb-8">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-sm font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">{platform}</span>
+              <div className="flex-1 h-px bg-gray-100" />
+            </div>
+            <QuotaBar
+              limit={platformLimit}
+              setLimit={v => setBorrowingLimits(prev => ({ ...prev, [platform]: v }))}
+              totalBorrow={platformBorrow}
+            />
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-3">
+              {items.map(item => (
+                <StakingRow key={item.id} item={item} type="borrow" onUpdate={data => onUpdate(item.id, data)} onDelete={() => onDelete(item.id, item.name)} />
+              ))}
+            </div>
+            <PledgeRatioCard platformName={platform} totalBorrowValue={platformBorrow} totalCollateralValueTWD={platformCollateral} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── 質押維持率卡片 ───────────────────────────────────────────────────────────────
 
-function PledgeRatioCard({ totalBorrowValue, totalCollateralValueTWD }: { totalBorrowValue: number; totalCollateralValueTWD: number }) {
-  if (totalBorrowValue <= 0 || totalCollateralValueTWD <= 0) return null;
+function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueTWD }: { platformName: string; totalBorrowValue: number; totalCollateralValueTWD: number }) {
+  if (totalBorrowValue <= 0) return null;
 
   // 維持率 = (擔保品股票總市值 ÷ 融資借款金額) × 100%，低於 130% 觸發追繳
   const ratio    = (totalCollateralValueTWD / totalBorrowValue) * 100;
@@ -129,15 +216,23 @@ function PledgeRatioCard({ totalBorrowValue, totalCollateralValueTWD }: { totalB
 
       {/* ── 第一列：狀態 + 大數字 ── */}
       <div className="flex items-center justify-between gap-4 mb-5">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${badgeBg} ${textClass}`}>
             <Icon className="w-3.5 h-3.5" />
             {statusText}
           </span>
           <span className="text-sm font-semibold text-gray-700">質押維持率</span>
+          {platformName && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{platformName}</span>}
         </div>
-        <p className={`text-3xl font-bold tabular-nums ${textClass}`}>{ratio.toFixed(1)}%</p>
+        <p className={`text-3xl font-bold tabular-nums ${totalCollateralValueTWD <= 0 ? 'text-gray-300' : textClass}`}>
+          {totalCollateralValueTWD <= 0 ? '—' : `${ratio.toFixed(1)}%`}
+        </p>
       </div>
+      {totalCollateralValueTWD <= 0 && (
+        <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">
+          尚未設定此平台的擔保品股票。請至「股票」頁面，在對應股票的「平台」欄位填入「{platformName}」並設定擔保股數。
+        </p>
+      )}
 
       {/* ── 第二列：三個關鍵數據 ── */}
       <div className="grid grid-cols-3 gap-3 mb-5">
@@ -211,8 +306,8 @@ export default function BorrowingPage() {
   const {
     loans, setLoans, recordLoanPayment, undoLoanPayment,
     stakingItems, setStakingItems,
-    borrowingLimit, setBorrowingLimit,
-    totalCollateralValueTWD,
+    borrowingLimits, setBorrowingLimits,
+    stockItems, stockQuotes,
   } = useAppContext();
   const { toast } = useToast();
 
@@ -230,6 +325,35 @@ export default function BorrowingPage() {
   const totalBorrowInterest = borrowStaking.reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0);
   const totalEarnValue = earnStaking.reduce((s, i) => s + i.value, 0);
   const totalEarnIncome = earnStaking.reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0);
+
+  // 按平台分組借款
+  const borrowByPlatform = useMemo(() => {
+    const map: Record<string, StakingItem[]> = {};
+    for (const item of borrowStaking) {
+      const p = (item.protocol || '未分類').trim();
+      if (!map[p]) map[p] = [];
+      map[p].push(item);
+    }
+    return map;
+  }, [borrowStaking]);
+
+  const pledgePlatforms = useMemo(() => Object.keys(borrowByPlatform), [borrowByPlatform]);
+
+  // 按平台分組擔保品市值
+  const collateralByPlatform = useMemo(() => {
+    const usdToTwd = stockQuotes['TWD=X']?.price || 32;
+    const map: Record<string, number> = {};
+    for (const item of stockItems) {
+      if (!item.collateralShares) continue;
+      const quote = stockQuotes[item.symbol];
+      if (!quote) continue;
+      const value = quote.price * item.collateralShares;
+      const twdValue = quote.currency === 'USD' ? value * usdToTwd : value;
+      const p = (item.platform || '未分類').trim();
+      map[p] = (map[p] || 0) + twdValue;
+    }
+    return map;
+  }, [stockItems, stockQuotes]);
 
   // Loan handlers — 刪除透過確認對話框
   const handleDeleteLoan = (id: string, name: string) =>
@@ -297,26 +421,17 @@ export default function BorrowingPage() {
 
       <div className="my-8 border-t border-gray-100" />
 
-      {/* ════════════ 質押借款 ════════════ */}
-
-      <StakingSection
-        title="質押借款"
-        accentColor="bg-indigo-500"
-        type="borrow"
-        items={borrowStaking}
+      {/* ════════════ 質押借款（按平台分組）════════════ */}
+      <BorrowSection
+        pledgePlatforms={pledgePlatforms}
+        borrowByPlatform={borrowByPlatform}
+        collateralByPlatform={collateralByPlatform}
+        borrowingLimits={borrowingLimits}
+        setBorrowingLimits={setBorrowingLimits}
         onAdd={handleAddStaking}
         onUpdate={handleUpdateStaking}
         onDelete={handleDeleteStaking}
-        extra={
-          <QuotaBar
-            borrowingLimit={borrowingLimit}
-            setBorrowingLimit={setBorrowingLimit}
-            totalBorrow={totalBorrowValue}
-          />
-        }
       />
-      {/* ════════════ 質押維持率 ════════════ */}
-      <PledgeRatioCard totalBorrowValue={totalBorrowValue} totalCollateralValueTWD={totalCollateralValueTWD} />
 
       <div className="my-8 border-t border-gray-100" />
 
@@ -838,7 +953,7 @@ function StakingRow({ item, type, onUpdate, onDelete }: {
   );
 
   return (
-    <div className="p-5 flex flex-col xl:flex-row xl:items-center justify-between hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+    <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
       <div className="flex items-start gap-3 mb-3 xl:mb-0">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 ${isBorrow ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
           {item.name.charAt(0)}
@@ -856,14 +971,16 @@ function StakingRow({ item, type, onUpdate, onDelete }: {
           )}
         </div>
       </div>
-      <div className="flex flex-wrap gap-6 items-center">
-        <div><p className="text-xs text-gray-500">數量</p><p className="font-medium">{item.amount.toLocaleString()}</p></div>
-        <div><p className="text-xs text-gray-500">{isBorrow ? '借款金額' : '存入金額'}</p><p className="font-medium">{item.value.toLocaleString()}</p></div>
-        <div><p className="text-xs text-gray-500">{isBorrow ? '借款利率' : '收益率'}</p><p className={`font-bold ${isBorrow ? 'text-rose-600' : 'text-emerald-600'}`}>{item.apy}%</p></div>
-        <div><p className="text-xs text-gray-500">{isBorrow ? '月利息支出' : '月收益'}</p><p className={`font-bold ${isBorrow ? 'text-rose-600' : 'text-emerald-600'}`}>{monthly.toLocaleString()}</p></div>
-        <button onClick={() => setIsEditing(true)} className="px-3 py-1.5 border border-indigo-200 text-indigo-600 rounded-lg text-sm hover:bg-indigo-50 flex items-center gap-1">
-          <Pencil className="w-3.5 h-3.5" /> 管理
-        </button>
+      <div className="flex items-center gap-0 shrink-0">
+        <div className="w-16 px-2"><p className="text-xs text-gray-500">數量</p><p className="font-medium tabular-nums">{item.amount.toLocaleString()}</p></div>
+        <div className="w-28 px-2"><p className="text-xs text-gray-500">{isBorrow ? '借款金額' : '存入金額'}</p><p className="font-medium tabular-nums">{(item.value / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬</p></div>
+        <div className="w-20 px-2"><p className="text-xs text-gray-500">{isBorrow ? '借款利率' : '收益率'}</p><p className={`font-bold ${isBorrow ? 'text-rose-600' : 'text-emerald-600'}`}>{item.apy}%</p></div>
+        <div className="w-24 px-2"><p className="text-xs text-gray-500">{isBorrow ? '月利息支出' : '月收益'}</p><p className={`font-bold tabular-nums ${isBorrow ? 'text-rose-600' : 'text-emerald-600'}`}>{monthly.toLocaleString()}</p></div>
+        <div className="px-2">
+          <button onClick={() => setIsEditing(true)} className="px-3 py-1.5 border border-indigo-200 text-indigo-600 rounded-lg text-sm hover:bg-indigo-50 flex items-center gap-1">
+            <Pencil className="w-3.5 h-3.5" /> 管理
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -871,32 +988,39 @@ function StakingRow({ item, type, onUpdate, onDelete }: {
 
 // ─── Quota Bar ────────────────────────────────────────────────────────────────
 
-function QuotaBar({ borrowingLimit, setBorrowingLimit, totalBorrow }: {
-  borrowingLimit: number; setBorrowingLimit: (v: number | ((p: number) => number)) => void; totalBorrow: number;
+function QuotaBar({ limit, setLimit, totalBorrow }: {
+  limit: number; setLimit: (v: number) => void; totalBorrow: number;
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const [input, setInput] = useState(borrowingLimit.toString());
-  const available = borrowingLimit - totalBorrow;
+  const [input, setInput] = useState((limit / 10000).toString());
+  const available = limit - totalBorrow;
+  const availableWan = (Math.abs(available) / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 });
+  const limitWan = (limit / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 });
 
   return (
     <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-2 text-indigo-600">
         <ShieldCheck className="w-4 h-4" />
         <span className="text-sm font-medium">剩餘可借款額度</span>
-        <span className={`text-lg font-bold ${available < 0 ? 'text-rose-600' : 'text-indigo-700'}`}>
-          {available < 0 && '−'}{Math.abs(available).toLocaleString('en-US')}
-        </span>
+        {limit > 0 && (
+          <span className={`text-lg font-bold ${available < 0 ? 'text-rose-600' : 'text-indigo-700'}`}>
+            {available < 0 && '−'}{availableWan} 萬
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-2 text-sm text-indigo-500">
         <span>總額度：</span>
         {isEditing ? (
           <>
-            <input type="number" value={input} onChange={e => setInput(e.target.value)} className="w-28 border border-indigo-200 rounded-lg px-2 py-1 text-sm bg-white outline-none" autoFocus />
-            <button onClick={() => { setBorrowingLimit(Number(input) || 0); setIsEditing(false); }} className="text-indigo-600"><Check className="w-4 h-4" /></button>
+            <input type="number" value={input} onChange={e => setInput(e.target.value)} className="w-20 border border-indigo-200 rounded-lg px-2 py-1 text-sm bg-white outline-none" autoFocus placeholder="萬" />
+            <span className="text-xs text-indigo-400">萬</span>
+            <button onClick={() => { setLimit((Number(input) || 0) * 10000); setIsEditing(false); }} className="text-indigo-600"><Check className="w-4 h-4" /></button>
             <button onClick={() => setIsEditing(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
           </>
         ) : (
-          <button onClick={() => setIsEditing(true)} className="font-bold text-indigo-700 hover:underline">{borrowingLimit.toLocaleString('en-US')}</button>
+          <button onClick={() => { setInput((limit / 10000).toString()); setIsEditing(true); }} className="font-bold text-indigo-700 hover:underline">
+            {limit > 0 ? `${limitWan} 萬` : '點擊設定'}
+          </button>
         )}
       </div>
     </div>

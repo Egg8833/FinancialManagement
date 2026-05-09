@@ -24,7 +24,7 @@ export function DataManager() {
       expenseItems: ctx.expenseItems,
       annualEntries: ctx.annualEntries,
       snapshots: ctx.snapshots,
-      borrowingLimit: ctx.borrowingLimit,
+      borrowingLimits: ctx.borrowingLimits,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -54,7 +54,7 @@ export function DataManager() {
         if (data.expenseItems)  ctx.setExpenseItems(data.expenseItems);
         if (data.annualEntries) ctx.setAnnualEntries(data.annualEntries);
         if (data.snapshots)     ctx.setSnapshots(data.snapshots);
-        if (data.borrowingLimit != null) ctx.setBorrowingLimit(data.borrowingLimit);
+        if (data.borrowingLimits != null) ctx.setBorrowingLimits(data.borrowingLimits);
         toast('資料匯入成功');
       } catch {
         toast('匯入失敗：檔案格式不正確', 'error');

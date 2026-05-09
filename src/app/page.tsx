@@ -80,6 +80,14 @@ export default function DashboardPage() {
     }));
   };
 
+  const handleUpdateCategory = (id: string, title: string, description: string, colorClass: string, bgClass: string) => {
+    setAssets(prev => prev.map(cat => cat.id === id ? { ...cat, title, description, colorClass, bgClass, updatedAt: nowTs() } : cat));
+  };
+
+  const handleDeleteCategory = (id: string) => {
+    setAssets(prev => prev.filter(cat => cat.id !== id));
+  };
+
   const handleAddAsset = (categoryId: string, name: string, amount: number) => {
     if (!name.trim()) return;
     setAssets(prev => prev.map(cat => {
@@ -115,61 +123,10 @@ export default function DashboardPage() {
 
   return (
     <>
-<div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">個人資產狀態總覽</h1>
-          <p className="text-sm text-gray-500 mt-1">追蹤與管理您的財務狀況 (資料將保存在您的設備中)</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsAddingCategory(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
-          >
-            <Plus className="w-4 h-4" />
-            新增資產大類
-          </button>
-        </div>
+<div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">個人資產狀態總覽</h1>
+        <p className="text-sm text-gray-500 mt-1">追蹤與管理您的財務狀況 (資料將保存在您的設備中)</p>
       </div>
-
-      {isAddingCategory && (
-        <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-2xl p-5 flex flex-col sm:flex-row gap-3 items-end">
-          <div className="flex-1">
-            <label className="block text-xs text-gray-500 mb-1">類別名稱 *</label>
-            <input
-              type="text"
-              value={newCategoryName}
-              onChange={e => setNewCategoryName(e.target.value)}
-              placeholder="例：保險、退休金"
-              className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 bg-white"
-              autoFocus
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-xs text-gray-500 mb-1">說明（選填）</label>
-            <input
-              type="text"
-              value={newCategoryDesc}
-              onChange={e => setNewCategoryDesc(e.target.value)}
-              placeholder="簡短描述此類別"
-              className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 bg-white"
-            />
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={handleAddCategory}
-              className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
-            >
-              <Check className="w-4 h-4" /> 新增
-            </button>
-            <button
-              onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); setNewCategoryDesc(''); }}
-              className="flex items-center gap-1 px-3 py-2 bg-white text-gray-500 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="mb-6 flex flex-wrap gap-4">
         <div className="flex-1 bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
@@ -216,12 +173,60 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            資產分佈
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-gray-900">資產分佈</h3>
+            <button
+              onClick={() => setIsAddingCategory(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
+            >
+              <Plus className="w-4 h-4" />
+              新增大類
+            </button>
+          </div>
+
+          {isAddingCategory && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 items-end">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">類別名稱 *</label>
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={e => setNewCategoryName(e.target.value)}
+                  placeholder="例：保險、退休金"
+                  className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 bg-white"
+                  autoFocus
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-gray-500 mb-1">說明（選填）</label>
+                <input
+                  type="text"
+                  value={newCategoryDesc}
+                  onChange={e => setNewCategoryDesc(e.target.value)}
+                  placeholder="簡短描述此類別"
+                  className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 bg-white"
+                />
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={handleAddCategory}
+                  className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+                >
+                  <Check className="w-4 h-4" /> 新增
+                </button>
+                <button
+                  onClick={() => { setIsAddingCategory(false); setNewCategoryName(''); setNewCategoryDesc(''); }}
+                  className="flex items-center gap-1 px-3 py-2 bg-white text-gray-500 border border-gray-200 rounded-lg text-sm hover:bg-gray-50"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {combinedAssets.map((category) => (
-              <AssetCategoryCard 
+              <AssetCategoryCard
                 key={category.id}
                 category={category}
                 showValues={showValues}
@@ -229,6 +234,8 @@ export default function DashboardPage() {
                 onUpdateAsset={handleUpdateAsset}
                 onDeleteAsset={handleDeleteAsset}
                 onAddAsset={handleAddAsset}
+                onUpdateCategory={handleUpdateCategory}
+                onDeleteCategory={handleDeleteCategory}
               />
             ))}
           </div>

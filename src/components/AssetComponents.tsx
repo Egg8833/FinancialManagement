@@ -145,6 +145,17 @@ export function AddAssetRow({ onAdd }: AddAssetRowProps) {
   );
 }
 
+const CARD_COLOR_OPTIONS = [
+  { colorClass: 'bg-emerald-400', bgClass: 'bg-emerald-50' },
+  { colorClass: 'bg-violet-400',  bgClass: 'bg-violet-50'  },
+  { colorClass: 'bg-orange-400',  bgClass: 'bg-orange-50'  },
+  { colorClass: 'bg-teal-400',    bgClass: 'bg-teal-50'    },
+  { colorClass: 'bg-pink-400',    bgClass: 'bg-pink-50'    },
+  { colorClass: 'bg-yellow-400',  bgClass: 'bg-yellow-50'  },
+  { colorClass: 'bg-blue-400',    bgClass: 'bg-blue-50'    },
+  { colorClass: 'bg-rose-400',    bgClass: 'bg-rose-50'    },
+];
+
 interface AssetCategoryCardProps {
   category: AssetCategory;
   showValues: boolean;
@@ -152,39 +163,134 @@ interface AssetCategoryCardProps {
   onUpdateAsset: (categoryId: string, itemId: string, name: string, amount: number) => void;
   onDeleteAsset: (categoryId: string, itemId: string) => void;
   onAddAsset: (categoryId: string, name: string, amount: number) => void;
+  onUpdateCategory?: (id: string, title: string, description: string, colorClass: string, bgClass: string) => void;
+  onDeleteCategory?: (id: string) => void;
 }
 
-export function AssetCategoryCard({ category, showValues, formatCurrency, onUpdateAsset, onDeleteAsset, onAddAsset }: AssetCategoryCardProps) {
+export function AssetCategoryCard({ category, showValues, formatCurrency, onUpdateAsset, onDeleteAsset, onAddAsset, onUpdateCategory, onDeleteCategory }: AssetCategoryCardProps) {
+  const [isEditingCard, setIsEditingCard] = useState(false);
+  const [confirmDeleteCard, setConfirmDeleteCard] = useState(false);
+  const [editTitle, setEditTitle] = useState(category.title);
+  const [editDesc, setEditDesc] = useState(category.description);
+  const [editColor, setEditColor] = useState({ colorClass: category.colorClass, bgClass: category.bgClass });
+  const { toast } = useToast();
+
   const categoryTotal = category.items.reduce((sum, item) => sum + item.amount, 0);
+
+  const handleSaveCard = () => {
+    if (!editTitle.trim()) return;
+    onUpdateCategory?.(category.id, editTitle.trim(), editDesc.trim() || '自訂資產類別', editColor.colorClass, editColor.bgClass);
+    setIsEditingCard(false);
+    toast('已更新資產類別');
+  };
+
+  const handleCancelEdit = () => {
+    setEditTitle(category.title);
+    setEditDesc(category.description);
+    setEditColor({ colorClass: category.colorClass, bgClass: category.bgClass });
+    setIsEditingCard(false);
+  };
+
+  const handleDeleteCard = () => {
+    onDeleteCategory?.(category.id);
+    toast(`已刪除「${category.title}」`, 'info');
+  };
 
   return (
     <div className="group relative bg-white rounded-2xl p-6 shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)] transition-all duration-300 overflow-hidden flex flex-col">
-      <div className={`absolute top-0 left-0 right-0 h-1.5 ${category.colorClass}`}></div>
-      
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <div className={`inline-block px-3 py-1 rounded-full ${category.bgClass} text-xs font-medium text-gray-700 mb-2 border border-white/50`}>
-            {category.title}
+      <div className={`absolute top-0 left-0 right-0 h-1.5 ${isEditingCard ? editColor.colorClass : category.colorClass}`}></div>
+
+      {isEditingCard ? (
+        <div className="mb-4 space-y-2">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">類別名稱</label>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500"
+              autoFocus
+            />
           </div>
-          <h4 className="font-bold text-2xl text-gray-900">{formatCurrency(categoryTotal)}</h4>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">說明</label>
+            <input
+              type="text"
+              value={editDesc}
+              onChange={e => setEditDesc(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-500"
+              placeholder="簡短描述此類別"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">顏色</label>
+            <div className="flex gap-2 flex-wrap">
+              {CARD_COLOR_OPTIONS.map(opt => (
+                <button
+                  key={opt.colorClass}
+                  onClick={() => setEditColor(opt)}
+                  className={`w-6 h-6 rounded-full ${opt.colorClass} transition-transform ${editColor.colorClass === opt.colorClass ? 'ring-2 ring-offset-1 ring-gray-400 scale-110' : 'hover:scale-110'}`}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button onClick={handleSaveCard} className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700">
+              <Check className="w-3.5 h-3.5" /> 儲存
+            </button>
+            <button onClick={handleCancelEdit} className="flex items-center gap-1 px-3 py-1.5 bg-white text-gray-500 border border-gray-200 rounded-lg text-xs hover:bg-gray-50">
+              <X className="w-3.5 h-3.5" /> 取消
+            </button>
+          </div>
         </div>
-      </div>
-      
-      <p className="text-sm text-gray-500 mb-4">{category.description}</p>
-      
+      ) : (
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <div className={`inline-block px-3 py-1 rounded-full ${category.bgClass} text-xs font-medium text-gray-700 mb-2 border border-white/50`}>
+              {category.title}
+            </div>
+            <h4 className="font-bold text-2xl text-gray-900">{formatCurrency(categoryTotal)}</h4>
+          </div>
+          {(onUpdateCategory || onDeleteCategory) && (
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+              {onUpdateCategory && (
+                <button onClick={() => setIsEditingCard(true)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {onDeleteCategory && (
+                <button onClick={() => setConfirmDeleteCard(true)} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isEditingCard && <p className="text-sm text-gray-500 mb-4">{category.description}</p>}
+
       <div className="space-y-1 pt-4 border-t border-gray-50 flex-grow">
         {category.items.map(item => (
-          <EditableAssetRow 
-            key={item.id} 
-            item={item} 
+          <EditableAssetRow
+            key={item.id}
+            item={item}
             showValues={showValues}
             onUpdate={(name, amount) => onUpdateAsset(category.id, item.id, name, amount)}
             onDelete={() => onDeleteAsset(category.id, item.id)}
           />
         ))}
-        
+
         <AddAssetRow onAdd={(name, amount) => onAddAsset(category.id, name, amount)} />
       </div>
+
+      {confirmDeleteCard && (
+        <ConfirmDialog
+          message={`確定要刪除「${category.title}」整個類別及其所有項目嗎？`}
+          onConfirm={handleDeleteCard}
+          onCancel={() => setConfirmDeleteCard(false)}
+        />
+      )}
     </div>
   );
 }

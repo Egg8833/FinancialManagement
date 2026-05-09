@@ -33,7 +33,7 @@ export function BackupBanner() {
       expenseItems: ctx.expenseItems,
       annualEntries: ctx.annualEntries,
       snapshots: ctx.snapshots,
-      borrowingLimit: ctx.borrowingLimit,
+      borrowingLimits: ctx.borrowingLimits,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
