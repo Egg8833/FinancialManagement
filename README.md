@@ -1,73 +1,47 @@
-# React + TypeScript + Vite
+# 個人資產管理系統 (Personal Financial Management Dashboard)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一個基於 Next.js 15 開發的個人財務管理儀表板，旨在幫助使用者追蹤資產、負債、現金流以及投資表現。
 
-Currently, two official plugins are available:
+## 🚀 核心功能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **📊 資產概覽儀表板**: 透過視覺化圖表整合所有財務數據，即時掌握淨資產狀況。
+- **📈 股票追蹤**: 整合 Yahoo Finance API，提供即時美股/台股價格更新與損益分析。
+- **💸 貸款與質押管理**: 紀錄貸款進度、利率，並監控證券質押的維持率與到期日。
+- **📅 現金流分析**: 追蹤每月收支，並生成年度財務報表。
+- **💡 決策支援**: 提供財務健康度分析，幫助使用者做出更好的理財決策。
 
-## React Compiler
+## 🛠️ 技術棧
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+- **Library**: [React 19](https://reactjs.org/)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
+- **Charts**: [Recharts](https://recharts.org/)
+- **Icons**: [Lucide React](https://lucide.dev/)
+- **Data**: Yahoo Finance API
 
-## Expanding the ESLint configuration
+## 🏁 快速開始
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1. 安裝依賴
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 2. 啟動開發伺服器
+```bash
+npm run dev
 ```
+打開 [http://localhost:3000](http://localhost:3000) 即可查看結果。
+
+## 🗺️ 未來開發路線圖 (Roadmap)
+
+- [ ] **身分驗證**: 整合 Google 登入，並提供本地/雲端模式切換以保護隱私。
+- [ ] **資料持久化**: 導入雲端資料庫以實現多裝置同步。
+- [ ] **匯入/匯出**: 支援 Excel 格式的資料批量處理。
+- [ ] **自動化通知**:
+    - 質押到期或維持率過低提醒。
+    - 每月自動寄送資產報表至電子信箱。
+- [ ] **社群整合**: 導入 Line Notify，自動記錄帳單與支出費用。
+
+---
+*本專案僅供個人財務管理參考，不構成任何投資建議。*
