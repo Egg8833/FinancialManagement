@@ -356,7 +356,16 @@ export default function StocksPage() {
               groups.get(key)!.push(item);
             }
 
-            return Array.from(groups.entries()).map(([platform, items]) => {
+            const PLATFORM_COLORS = [
+              { bar: 'bg-indigo-400', text: 'text-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+              { bar: 'bg-emerald-400', text: 'text-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+              { bar: 'bg-blue-400',    text: 'text-blue-700',    bg: 'bg-blue-50',    border: 'border-blue-100'    },
+              { bar: 'bg-violet-400',  text: 'text-violet-700',  bg: 'bg-violet-50',  border: 'border-violet-100'  },
+              { bar: 'bg-orange-400',  text: 'text-orange-700',  bg: 'bg-orange-50',  border: 'border-orange-100'  },
+              { bar: 'bg-rose-400',    text: 'text-rose-700',    bg: 'bg-rose-50',    border: 'border-rose-100'    },
+            ];
+
+            return Array.from(groups.entries()).map(([platform, items], groupIdx) => {
               // 計算該平台小計
               let gValueTWD = 0, gCostTWD = 0;
               for (const item of items) {
@@ -368,12 +377,16 @@ export default function StocksPage() {
               }
               const gProfit = gValueTWD - gCostTWD;
               const gProfitPct = gCostTWD > 0 ? (gProfit / gCostTWD) * 100 : 0;
+              const color = PLATFORM_COLORS[groupIdx % PLATFORM_COLORS.length];
 
               return (
-                <div key={platform}>
+                <div key={platform} className={groupIdx > 0 ? 'mt-4' : ''}>
                   {/* 平台標頭 */}
-                  <div className="px-6 py-2.5 bg-gray-50 border-y border-gray-100 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-gray-600 tracking-wide">{platform}</span>
+                  <div className={`flex items-center justify-between px-6 py-2.5 ${color.bg} border-y ${color.border}`}>
+                    <div className="flex items-center gap-2.5">
+                      <span className={`w-1 h-4 rounded-full ${color.bar} inline-block`} />
+                      <span className={`text-xs font-semibold ${color.text} tracking-wide`}>{platform}</span>
+                    </div>
                     <div className="flex items-center gap-6 text-xs tabular-nums">
                       <span className="text-gray-500">
                         市值 <span className="font-semibold text-gray-700">{Math.round(gValueTWD).toLocaleString()}</span>
