@@ -1,9 +1,0 @@
-{
-  "/api/quote/route": "app/api/quote/route.js",
-  "/api/twse-name/route": "app/api/twse-name/route.js",
-  "/page": "app/page.js",
-  "/cashflow/page": "app/cashflow/page.js",
-  "/staking/page": "app/staking/page.js",
-  "/stocks/page": "app/stocks/page.js",
-  "/chart/page": "app/chart/page.js"
-}
