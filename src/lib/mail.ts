@@ -123,7 +123,7 @@ export function generateAssetReportHtml(data: ReportPayload): string {
   const totalStockValue = data.stockItems.reduce((s, i) => s + i.marketValueTWD, 0);
   const totalUnrealizedPnL = data.stockItems.reduce((s, i) => s + i.unrealizedPnL, 0);
 
-  return `
+  const raw = `
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -360,4 +360,5 @@ export function generateAssetReportHtml(data: ReportPayload): string {
 </body>
 </html>
   `.trim();
+  return raw.replace(/>\s+</g, '><').replace(/\s{2,}/g, ' ');
 }
