@@ -188,9 +188,11 @@ function BorrowSection({ pledgePlatforms, borrowByPlatform, collateralByPlatform
 // ─── 質押維持率卡片 ───────────────────────────────────────────────────────────────
 
 function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueTWD }: { platformName: string; totalBorrowValue: number; totalCollateralValueTWD: number }) {
+  const [dropPct, setDropPct] = useState(0);
+
   if (totalBorrowValue <= 0) return null;
 
-  // 維持率 = (擔保品股票總市值 ÷ 融資借款金額) × 100%，低於 130% 觸發追繳
+  // ── 真實數值 ──
   const ratio    = (totalCollateralValueTWD / totalBorrowValue) * 100;
   const isRed    = ratio < 130;
   const isYellow = ratio >= 130 && ratio < 166;
@@ -200,19 +202,32 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
   const badgeBg     = isRed ? 'bg-rose-100'     : isYellow ? 'bg-amber-100'     : 'bg-emerald-100';
   const Icon        = isRed ? AlertOctagon       : isYellow ? AlertTriangle      : ShieldOk;
   const statusText  = isRed ? '危險' : isYellow ? '警戒' : '安全';
-
-  // 進度條範圍 100%~200%（超出則夾至邊界）
-  const BAR_MIN = 100, BAR_MAX = 200;
-  const toBarPct = (v: number) => Math.min(Math.max((v - BAR_MIN) / (BAR_MAX - BAR_MIN) * 100, 0), 100);
-  const barPct    = toBarPct(ratio);
-  const dangerPct = toBarPct(130); // 30%
-  const warnPct   = toBarPct(166); // 66%
-
   const buffer   = Math.round(totalCollateralValueTWD - totalBorrowValue * 1.30);
   const shortage = Math.round(totalBorrowValue * 1.30 - totalCollateralValueTWD);
 
+  // ── 模擬數值 ──
+  const simCollateral = totalCollateralValueTWD * (1 - dropPct / 100);
+  const simRatio      = totalBorrowValue > 0 ? (simCollateral / totalBorrowValue) * 100 : 0;
+  const simIsRed      = simRatio < 130;
+  const simIsYellow   = simRatio >= 130 && simRatio < 166;
+  const simBuffer     = Math.round(simCollateral - totalBorrowValue * 1.30);
+  const simShortage   = Math.round(totalBorrowValue * 1.30 - simCollateral);
+  const simTextClass  = simIsRed ? 'text-rose-600' : simIsYellow ? 'text-amber-600' : 'text-emerald-600';
+  const simBadgeBg    = simIsRed ? 'bg-rose-100'   : simIsYellow ? 'bg-amber-100'   : 'bg-emerald-100';
+  const SimIcon       = simIsRed ? AlertOctagon     : simIsYellow ? AlertTriangle    : ShieldOk;
+  const simStatusText = simIsRed ? '危險' : simIsYellow ? '警戒' : '安全';
+  const isSimulating  = dropPct > 0;
+
+  // ── 進度條範圍 100%~200% ──
+  const BAR_MIN = 100, BAR_MAX = 200;
+  const toBarPct  = (v: number) => Math.min(Math.max((v - BAR_MIN) / (BAR_MAX - BAR_MIN) * 100, 0), 100);
+  const barPct    = toBarPct(ratio);
+  const simBarPct = toBarPct(simRatio);
+  const dangerPct = toBarPct(130);
+  const warnPct   = toBarPct(166);
+
   return (
-    <div className={`mt-4 bg-white rounded-2xl border ${borderClass} p-5`}>
+    <div className={`mt-4 bg-white rounded-2xl border ${isSimulating ? 'border-violet-200' : borderClass} p-5 transition-colors`}>
 
       {/* ── 第一列：狀態 + 大數字 ── */}
       <div className="flex items-center justify-between gap-4 mb-5">
@@ -228,6 +243,7 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
           {totalCollateralValueTWD <= 0 ? '—' : `${ratio.toFixed(1)}%`}
         </p>
       </div>
+
       {totalCollateralValueTWD <= 0 && (
         <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-4">
           尚未設定此平台的擔保品股票。請至「股票」頁面，在對應股票的「平台」欄位填入「{platformName}」並設定擔保股數。
@@ -250,7 +266,6 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
           <div className="flex items-center gap-1 mb-1 group relative">
             <p className="text-[10px] text-gray-400">{isRed ? '追繳缺口' : '安全緩衝'}</p>
             <span className="text-[10px] text-gray-300 cursor-default select-none">ⓘ</span>
-            {/* Tooltip */}
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-gray-800 text-white text-[11px] leading-relaxed rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
               {isRed
                 ? '擔保品市值低於追繳門檻的差額。需補充此金額的擔保品，才能回到安全線 (維持率 130%)。'
@@ -265,28 +280,37 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
         </div>
       </div>
 
-      {/* ── 第三列：進度條 ── */}
-      <div>
-        {/* 進度條本體 + 標記線 */}
+      {/* ── 進度條 ── */}
+      <div className="mb-5">
         <div className="relative h-4 rounded-full overflow-visible bg-gray-100">
-          {/* 色帶：危險 / 警戒 / 安全 */}
           <div className="absolute inset-0 rounded-full overflow-hidden flex">
             <div className="h-full bg-rose-200"  style={{ width: `${dangerPct}%` }} />
             <div className="h-full bg-amber-100" style={{ width: `${warnPct - dangerPct}%` }} />
             <div className="h-full bg-emerald-100 flex-1" />
           </div>
-          {/* 目前維持率指標（實心圓點） */}
+          {/* 模擬後位置（空心圓 + 虛線連接） */}
+          {isSimulating && (
+            <>
+              {/* 模擬位置線 */}
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-violet-400 opacity-60"
+                style={{ left: `${simBarPct}%` }}
+              />
+              {/* 模擬指標（空心圓） */}
+              <div
+                className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 bg-white transition-all ${simIsRed ? 'border-rose-500' : simIsYellow ? 'border-amber-400' : 'border-emerald-500'}`}
+                style={{ left: `${simBarPct}%` }}
+              />
+            </>
+          )}
+          {/* 目前維持率指標（實心圓） */}
           <div
             className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-white shadow-md transition-all ${isRed ? 'bg-rose-500' : isYellow ? 'bg-amber-400' : 'bg-emerald-500'}`}
             style={{ left: `${barPct}%` }}
           />
-          {/* 標記線：130% 追繳 */}
           <div className="absolute top-0 bottom-0 w-0.5 bg-rose-400" style={{ left: `${dangerPct}%` }} />
-          {/* 標記線：166% 警戒 */}
           <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400" style={{ left: `${warnPct}%` }} />
         </div>
-
-        {/* 標記文字（僅在標記線下方） */}
         <div className="relative h-5 mt-1">
           <span className="absolute -translate-x-1/2 text-[10px] text-rose-500 font-medium" style={{ left: `${dangerPct}%` }}>
             ▲ 130%<br />追繳線
@@ -295,6 +319,100 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
             ▲ 166%<br />警戒線
           </span>
         </div>
+      </div>
+
+      {/* ── 模擬跌幅滑桿 ── */}
+      <div className="border-t border-gray-100 pt-4">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-semibold text-gray-500 flex items-center gap-1.5">
+            <span className="text-base">📉</span> 跌幅模擬
+          </span>
+          <div className="flex items-center gap-2">
+            {isSimulating && (
+              <button
+                onClick={() => setDropPct(0)}
+                className="text-[10px] text-violet-500 hover:text-violet-700 font-medium transition-colors"
+              >
+                重置
+              </button>
+            )}
+            <span className={`text-sm font-bold tabular-nums min-w-[3rem] text-right ${isSimulating ? 'text-violet-600' : 'text-gray-400'}`}>
+              {dropPct === 0 ? '無模擬' : `-${dropPct}%`}
+            </span>
+          </div>
+        </div>
+
+        <input
+          type="range"
+          min={0}
+          max={60}
+          step={1}
+          value={dropPct}
+          onChange={e => setDropPct(Number(e.target.value))}
+          className="w-full h-1.5 rounded-full appearance-none cursor-pointer accent-violet-500 bg-gray-200"
+        />
+        <div className="flex justify-between text-[10px] text-gray-400 mt-1 px-0.5">
+          <span>0%</span>
+          <span>-15%</span>
+          <span>-30%</span>
+          <span>-45%</span>
+          <span>-60%</span>
+        </div>
+
+        {/* 模擬結果面板 */}
+        {isSimulating && (
+          <div className={`mt-4 rounded-xl border p-4 ${simIsRed ? 'bg-rose-50 border-rose-200' : simIsYellow ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-100'}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${simBadgeBg} ${simTextClass}`}>
+                  <SimIcon className="w-3 h-3" />
+                  {simStatusText}
+                </span>
+                <span className="text-xs text-gray-500">
+                  若持股整體下跌 <span className="font-bold text-violet-600">{dropPct}%</span>
+                </span>
+              </div>
+              <span className={`text-2xl font-bold tabular-nums ${simTextClass}`}>
+                {simRatio.toFixed(1)}%
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="bg-white/70 rounded-lg p-2.5">
+                <p className="text-[10px] text-gray-400 mb-0.5">模擬擔保品市值</p>
+                <p className={`text-xs font-bold tabular-nums ${simTextClass}`}>{Math.round(simCollateral).toLocaleString()}</p>
+                <p className="text-[10px] text-gray-400">
+                  TWD <span className="text-rose-500">▼ {Math.round(totalCollateralValueTWD - simCollateral).toLocaleString()}</span>
+                </p>
+              </div>
+              <div className="bg-white/70 rounded-lg p-2.5">
+                <p className="text-[10px] text-gray-400 mb-0.5">融資借款</p>
+                <p className="text-xs font-bold text-gray-700 tabular-nums">{totalBorrowValue.toLocaleString()}</p>
+                <p className="text-[10px] text-gray-400">TWD（不變）</p>
+              </div>
+              <div className="bg-white/70 rounded-lg p-2.5">
+                <p className="text-[10px] text-gray-400 mb-0.5">{simIsRed ? '追繳缺口' : '安全緩衝'}</p>
+                <p className={`text-xs font-bold tabular-nums ${simIsRed ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  {simIsRed ? '-' : '+'}{(simIsRed ? simShortage : simBuffer).toLocaleString()}
+                </p>
+                <p className="text-[10px] text-gray-400">TWD</p>
+              </div>
+            </div>
+
+            {simIsRed && !isRed && (
+              <p className="mt-3 text-xs text-rose-600 bg-rose-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                <AlertOctagon className="w-3.5 h-3.5 shrink-0" />
+                持股下跌 {dropPct}% 後將觸發追繳，需補充擔保品 {simShortage.toLocaleString()} TWD 才能回到安全線。
+              </p>
+            )}
+            {simIsYellow && !isRed && !isYellow && (
+              <p className="mt-3 text-xs text-amber-600 bg-amber-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                持股下跌 {dropPct}% 後將進入警戒區間，請留意維持率變化。
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -341,7 +459,7 @@ export default function BorrowingPage() {
 
   // 按平台分組擔保品市值
   const collateralByPlatform = useMemo(() => {
-    const usdToTwd = stockQuotes['TWD=X']?.price || 32;
+    const usdToTwd = 32;
     const map: Record<string, number> = {};
     for (const item of stockItems) {
       if (!item.collateralShares) continue;
