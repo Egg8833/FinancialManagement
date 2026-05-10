@@ -360,5 +360,5 @@ export function generateAssetReportHtml(data: ReportPayload): string {
 </body>
 </html>
   `.trim();
-  return raw.replace(/>\s+</g, '><').replace(/\s{2,}/g, ' ');
+  return raw.replace(/>\s+</g, '><');
 }
