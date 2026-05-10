@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Eye, EyeOff, BarChart3, Coins, Activity, Wallet, Menu, X, Trash2 } from 'lucide-react';
+import { LayoutDashboard, Eye, EyeOff, BarChart3, Coins, Activity, Wallet, Menu, X, Trash2, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppContext } from '../context/AppContext';
@@ -26,7 +26,7 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
   const [assetMenuOpen, setAssetMenuOpen] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const assetMenuRef = useRef<HTMLDivElement>(null);
-  const { clearAllData } = useAppContext();
+  const { clearAllData, userName } = useAppContext();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -112,12 +112,21 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                   className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-100 transition-colors"
                 >
                   <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
-                    U
+                    {userName ? userName.charAt(0).toUpperCase() : 'U'}
                   </div>
-                  <span className="text-sm font-medium">我的資產庫</span>
+                  <span className="text-sm font-medium">{userName || '我的資產庫'}</span>
                 </button>
                 {assetMenuOpen && (
-                  <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+                  <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+                    <Link
+                      href="/settings"
+                      onClick={() => setAssetMenuOpen(false)}
+                      className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      個人資訊設定
+                    </Link>
+                    <div className="border-t border-gray-100 my-1"></div>
                     <button
                       onClick={() => { setAssetMenuOpen(false); setShowClearConfirm(true); }}
                       className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
@@ -185,6 +194,14 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
 
         {/* 底部 */}
         <div className="px-5 py-4 border-t border-gray-100 space-y-1">
+          <Link
+            href="/settings"
+            onClick={() => setMobileOpen(false)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <Settings className="w-5 h-5" />
+            個人資訊設定
+          </Link>
           <button
             onClick={() => { onToggleValues(); setMobileOpen(false); }}
             className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"

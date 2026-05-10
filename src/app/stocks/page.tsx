@@ -142,7 +142,7 @@ export default function StocksPage() {
   const newSymbolFull = toSymbol(newSymbolRaw, newMarket);
   const newNamePreview = useNameLookup(newSymbolRaw ? newSymbolFull : '');
 
-  const usdToTwd = stockQuotes['TWD=X']?.price || 32;
+  const usdToTwd = 32;
 
   let totalCostTWD = 0;
   let totalValueTWD = 0;
@@ -251,7 +251,6 @@ export default function StocksPage() {
             <span className="font-medium">股票總市值 (TWD)</span>
           </div>
           <h2 className="text-4xl font-bold">{Math.round(totalValueTWD).toLocaleString('en-US')}</h2>
-          <p className="text-xs text-indigo-200 mt-2">USD/TWD: {usdToTwd.toFixed(2)}</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100">
@@ -470,7 +469,7 @@ function StockRow({
   const valueTWD = isUSD ? totalValue * usdToTwd : totalValue;
   const changePercent = quote?.changePercent || 0;
   const market = getMarket(item.symbol);
-  const displayName = useNameLookup(item.symbol) || quote?.shortName || '';
+  const displayName = quote?.shortName || item.symbol;
 
   const symbolPlaceholder: Record<Market, string> = {
     '台股': '如: 0050, 2330',

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useMemo, useEffect, useState } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useEffect, useRef, useState } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
 import type { AssetCategory, LiabilityItem } from '../types';
 
@@ -224,6 +224,11 @@ interface AppContextType {
   setNetWorthGoal: (goal: number | ((prev: number) => number)) => void;
   // 質押擔保品市值
   totalCollateralValueTWD: number;
+  // 個人資訊
+  userName: string;
+  setUserName: (name: string | ((prev: string) => string)) => void;
+  userEmail: string;
+  setUserEmail: (email: string | ((prev: string) => string)) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -252,14 +257,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loans, setLoans] = useStickyState<LoanItem[]>(initialLoans, 'app-loans-v5');
   const [lastExportDate, setLastExportDate] = useStickyState<string>('', 'app-last-export-v1');
   const [netWorthGoal, setNetWorthGoal] = useStickyState<number>(0, 'app-net-worth-goal-v1');
+  const [userName, setUserName] = useStickyState<string>('', 'app-user-name-v1');
+  const [userEmail, setUserEmail] = useStickyState<string>('', 'app-user-email-v1');
+
+  // ref so the interval always calls the latest version without restarting
+  const refreshRef = useRef<() => Promise<void>>(undefined);
+  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshQuotes = async () => {
     const symbols = new Set(stockItems.map(item => item.symbol));
-    symbols.add('TWD=X');
-    
     const symbolsParam = Array.from(symbols).join(',');
     if (!symbolsParam) return;
-
     try {
       const res = await fetch(`/api/quote?symbols=${symbolsParam}`);
       if (res.ok) {
@@ -272,16 +280,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Fetch Quotes
+  refreshRef.current = refreshQuotes;
+
+  // Stable 60-second interval — never restarted
   useEffect(() => {
-    refreshQuotes();
-    const interval = setInterval(refreshQuotes, 60000); // Update every minute
+    const interval = setInterval(() => refreshRef.current?.(), 60000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Immediate refresh when stock list changes — debounced to collapse rapid hydration updates into one call
+  useEffect(() => {
+    if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
+    refreshDebounceRef.current = setTimeout(() => refreshRef.current?.(), 150);
+    return () => { if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current); };
   }, [stockItems]);
 
   // Compute Collateral Market Value (for pledge ratio)
   const totalCollateralValueTWD = useMemo(() => {
-    const usdToTwd = stockQuotes['TWD=X']?.price || 32;
+    const usdToTwd = 32;
     return stockItems.reduce((sum, item) => {
       if (!item.collateralShares) return sum;
       const quote = stockQuotes[item.symbol];
@@ -294,7 +310,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Compute Stock Total
   const totalStockValueTWD = useMemo(() => {
     let total = 0;
-    const usdToTwd = stockQuotes['TWD=X']?.price || 32; // Default fallback
+    const usdToTwd = 32;
     
     for (const item of stockItems) {
       const quote = stockQuotes[item.symbol];
@@ -490,6 +506,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       netWorthGoal,
       setNetWorthGoal,
       totalCollateralValueTWD,
+      userName,
+      setUserName,
+      userEmail,
+      setUserEmail,
     }}>
       {children}
     </AppContext.Provider>
