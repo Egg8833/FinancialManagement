@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Plus, TrendingUp, TrendingDown, Wallet, X, Check } from 'lucide-react';
 import { HeroKPI } from '../components/HeroKPI';
+import { NetWorthChart } from '../components/NetWorthChart';
 import { AssetCategoryCard } from '../components/AssetComponents';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
 import { useAppContext } from '../context/AppContext';
@@ -29,6 +30,7 @@ export default function DashboardPage() {
     netWorth,
     netWorthGoal,
     setNetWorthGoal,
+    snapshots,
   } = useAppContext();
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
@@ -169,6 +171,12 @@ export default function DashboardPage() {
         formatCurrency={formatCurrency}
         netWorthGoal={netWorthGoal}
         setNetWorthGoal={setNetWorthGoal}
+      />
+
+      <NetWorthChart
+        snapshots={snapshots}
+        showValues={showValues}
+        formatCurrency={formatCurrency}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
