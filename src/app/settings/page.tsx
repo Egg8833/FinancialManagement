@@ -1,17 +1,35 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { User, Mail, Save, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { User, Mail, Save, CheckCircle, DollarSign, Download, Upload, Database } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 
 export default function SettingsPage() {
-  const { userName, setUserName, userEmail, setUserEmail } = useAppContext();
+  const {
+    userName, setUserName,
+    userEmail, setUserEmail,
+    usdToTwd, setUsdToTwd,
+    assets, setAssets,
+    liabilities, setLiabilities,
+    stakingItems, setStakingItems,
+    stockItems, setStockItems,
+    incomeItems, setIncomeItems,
+    expenseItems, setExpenseItems,
+    annualEntries, setAnnualEntries,
+    loans, setLoans,
+    snapshots, setSnapshots,
+    borrowingLimits, setBorrowingLimits,
+    netWorthGoal, setNetWorthGoal,
+    setLastExportDate,
+  } = useAppContext();
   const { toast } = useToast();
 
   const [localName, setLocalName] = useState(userName);
   const [localEmail, setLocalEmail] = useState(userEmail);
+  const [localUsdRate, setLocalUsdRate] = useState(usdToTwd.toString());
   const [saved, setSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!saved) return;
@@ -22,11 +40,81 @@ export default function SettingsPage() {
   const handleSave = () => {
     setUserName(localName.trim());
     setUserEmail(localEmail.trim());
+    const rate = parseFloat(localUsdRate);
+    if (!isNaN(rate) && rate > 0) setUsdToTwd(rate);
     setSaved(true);
     toast('個人資訊已儲存');
   };
 
-  const hasChanges = localName !== userName || localEmail !== userEmail;
+  const hasChanges =
+    localName !== userName ||
+    localEmail !== userEmail ||
+    parseFloat(localUsdRate) !== usdToTwd;
+
+  const handleExport = () => {
+    const backup = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      assets,
+      liabilities,
+      stakingItems,
+      stockItems,
+      incomeItems,
+      expenseItems,
+      annualEntries,
+      loans,
+      snapshots,
+      borrowingLimits,
+      netWorthGoal,
+      usdToTwd,
+      userName,
+      userEmail,
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `assetdash-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setLastExportDate(new Date().toISOString().split('T')[0]);
+    toast('備份已下載');
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        if (!data.version || !data.assets) {
+          toast('無效的備份檔案');
+          return;
+        }
+        if (!confirm('匯入備份將覆蓋目前所有資料，是否繼續？')) return;
+        if (data.assets) setAssets(data.assets);
+        if (data.liabilities) setLiabilities(data.liabilities);
+        if (data.stakingItems) setStakingItems(data.stakingItems);
+        if (data.stockItems) setStockItems(data.stockItems);
+        if (data.incomeItems) setIncomeItems(data.incomeItems);
+        if (data.expenseItems) setExpenseItems(data.expenseItems);
+        if (data.annualEntries) setAnnualEntries(data.annualEntries);
+        if (data.loans) setLoans(data.loans);
+        if (data.snapshots) setSnapshots(data.snapshots);
+        if (data.borrowingLimits) setBorrowingLimits(data.borrowingLimits);
+        if (typeof data.netWorthGoal === 'number') setNetWorthGoal(data.netWorthGoal);
+        if (typeof data.usdToTwd === 'number') { setUsdToTwd(data.usdToTwd); setLocalUsdRate(data.usdToTwd.toString()); }
+        if (data.userName) { setUserName(data.userName); setLocalName(data.userName); }
+        if (data.userEmail) { setUserEmail(data.userEmail); setLocalEmail(data.userEmail); }
+        toast('備份已成功匯入');
+      } catch {
+        toast('解析備份失敗，請確認檔案格式');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   return (
     <>
@@ -86,6 +174,27 @@ export default function SettingsPage() {
               <p className="text-xs text-gray-400 mt-1.5">寄送資產報表時將自動使用此信箱作為收件人</p>
             </div>
 
+            {/* USD/TWD Rate Field */}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                <DollarSign className="w-4 h-4 text-gray-400" />
+                USD / TWD 匯率
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={localUsdRate}
+                  onChange={e => setLocalUsdRate(e.target.value)}
+                  placeholder="32"
+                  className="w-40 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                />
+                <span className="text-sm text-gray-500">1 USD = {localUsdRate || '32'} TWD</span>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">用於換算美股市值與質押擔保品（TWD）</p>
+            </div>
+
             {/* Save Button */}
             <div className="flex items-center justify-between pt-2">
               <div>
@@ -105,6 +214,40 @@ export default function SettingsPage() {
                 儲存設定
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Backup Card */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Database className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-base font-bold text-gray-900">資料備份與還原</h3>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">將所有資產、負債、質押、股票等資料匯出為 JSON 檔案</p>
+          </div>
+          <div className="p-6 flex flex-col sm:flex-row gap-4">
+            <button
+              onClick={handleExport}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
+            >
+              <Download className="w-4 h-4" />
+              匯出備份 (JSON)
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white text-gray-700 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              匯入備份
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleImport}
+              className="hidden"
+            />
           </div>
         </div>
 
