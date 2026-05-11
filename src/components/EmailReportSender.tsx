@@ -22,6 +22,33 @@ export function EmailReportSender() {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (ctx.reportSchedule === 'none' || !ctx.userEmail) return;
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+
+    if (ctx.lastReportSent === todayStr) return;
+
+    const shouldSend =
+      (ctx.reportSchedule === 'weekly' && today.getDay() === 1) ||
+      (ctx.reportSchedule === 'monthly' && today.getDate() === 1);
+
+    if (!shouldSend) return;
+
+    ctx.setLastReportSent(todayStr);
+
+    fetch('/api/cron/send-asset-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipientEmail: ctx.userEmail,
+        reportData: buildReportData(),
+      }),
+    }).catch(() => {/* silent fail */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx.reportSchedule, ctx.lastReportSent, ctx.userEmail]);
+
   const buildReportData = (): ReportPayload => {
     const usdToTwd = ctx.usdToTwd;
 
