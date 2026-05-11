@@ -3,9 +3,8 @@ const STATIC_ASSETS = ['/', '/favicon.ico'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -29,7 +28,7 @@ self.addEventListener('fetch', (event) => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         return response;
-      });
+      }).catch(() => caches.match('/'));
     })
   );
 });
