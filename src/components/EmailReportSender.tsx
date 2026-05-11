@@ -148,6 +148,7 @@ export function EmailReportSender() {
       if (res.ok && data.success) {
         setResult({ success: true, message: data.message || '報表寄送成功！' });
         toast('📧 資產報表已寄出');
+        ctx.setLastReportSent(new Date().toISOString());
       } else {
         setResult({ success: false, message: data.error || '寄送失敗' });
         toast(data.error || '寄送失敗', 'error');

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { User, Mail, Save, CheckCircle, DollarSign, Download, Upload, Database } from 'lucide-react';
+import { User, Mail, Save, CheckCircle, DollarSign, Download, Upload, Database, Bell } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 
@@ -23,6 +23,8 @@ export default function SettingsPage() {
     borrowingLimits, setBorrowingLimits,
     netWorthGoal, setNetWorthGoal,
     setLastExportDate,
+    reportSchedule, setReportSchedule,
+    lastReportSent,
   } = useAppContext();
   const { toast } = useToast();
 
@@ -308,6 +310,58 @@ export default function SettingsPage() {
               onChange={handleImport}
               className="hidden"
             />
+          </div>
+        </div>
+
+        {/* Report Schedule Card */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Bell className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-base font-bold text-gray-900">自動報表排程</h3>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">設定定期自動寄送資產報表至您的信箱</p>
+          </div>
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">寄送頻率</label>
+              <div className="flex gap-3 flex-wrap">
+                {(['none', 'weekly', 'monthly'] as const).map(opt => {
+                  const labels = { none: '不自動寄送', weekly: '每週', monthly: '每月' };
+                  const isSelected = reportSchedule === opt;
+                  return (
+                    <button
+                      key={opt}
+                      onClick={() => setReportSchedule(opt)}
+                      className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-200'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50'
+                      }`}
+                    >
+                      {labels[opt]}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-400 mt-2">
+                {reportSchedule === 'none' && '目前不會自動寄送報表。'}
+                {reportSchedule === 'weekly' && '每週一自動寄送報表至您的信箱。'}
+                {reportSchedule === 'monthly' && '每月 1 日自動寄送報表至您的信箱。'}
+              </p>
+            </div>
+            {lastReportSent && (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                上次寄送時間：{new Date(lastReportSent).toLocaleString('zh-TW')}
+              </div>
+            )}
+            {reportSchedule !== 'none' && !userEmail && (
+              <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-700">
+                <span>⚠️</span>
+                <span>請先在上方設定個人信箱，否則自動報表無法寄出。</span>
+              </div>
+            )}
           </div>
         </div>
 

@@ -236,6 +236,10 @@ interface AppContextType {
   setUserEmail: (email: string | ((prev: string) => string)) => void;
   extraRates: { EUR: number; JPY: number; HKD: number };
   setExtraRates: (rates: { EUR: number; JPY: number; HKD: number }) => void;
+  reportSchedule: 'none' | 'weekly' | 'monthly';
+  setReportSchedule: (s: 'none' | 'weekly' | 'monthly') => void;
+  lastReportSent: string;
+  setLastReportSent: (d: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -275,6 +279,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     { EUR: 35, JPY: 0.21, HKD: 4.1 },
     'app-extra-rates-v1'
   );
+  const [reportSchedule, setReportSchedule] = useStickyState<'none' | 'weekly' | 'monthly'>('none', 'app-report-schedule-v1');
+  const [lastReportSent, setLastReportSent] = useStickyState('', 'app-last-report-sent-v1');
 
   // ref so the interval always calls the latest version without restarting
   const refreshRef = useRef<() => Promise<void>>(undefined);
@@ -541,6 +547,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUserEmail,
       extraRates,
       setExtraRates,
+      reportSchedule,
+      setReportSchedule,
+      lastReportSent,
+      setLastReportSent,
     }}>
       {children}
     </AppContext.Provider>
