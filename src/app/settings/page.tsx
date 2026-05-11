@@ -346,8 +346,8 @@ export default function SettingsPage() {
               </div>
               <p className="text-xs text-gray-400 mt-2">
                 {reportSchedule === 'none' && '目前不會自動寄送報表。'}
-                {reportSchedule === 'weekly' && '每週一自動寄送報表至您的信箱。'}
-                {reportSchedule === 'monthly' && '每月 1 日自動寄送報表至您的信箱。'}
+                {reportSchedule === 'weekly' && `每週一自動寄送報表至 ${userEmail || '（尚未設定信箱）'}。`}
+                {reportSchedule === 'monthly' && `每月 1 日自動寄送報表至 ${userEmail || '（尚未設定信箱）'}。`}
               </p>
             </div>
             {lastReportSent && (
