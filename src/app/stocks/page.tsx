@@ -627,6 +627,7 @@ export default function StocksPage() {
                       item={item}
                       quote={stockQuotes[item.symbol]}
                       usdToTwd={usdToTwd}
+                      totalPortfolioTWD={totalValueTWD}
                       onUpdate={(data) => handleUpdate(item.id, data)}
                       onDelete={() => handleDelete(item.id, item.symbol)}
                     />
@@ -655,12 +656,14 @@ function StockRow({
   item,
   quote,
   usdToTwd,
+  totalPortfolioTWD,
   onUpdate,
   onDelete
 }: {
   item: StockItem,
   quote?: StockQuote,
   usdToTwd: number,
+  totalPortfolioTWD: number,
   onUpdate: (data: Partial<StockItem>) => void,
   onDelete: () => void
 }) {
@@ -706,6 +709,7 @@ function StockRow({
   const profitPercent = totalCost > 0 ? (profit / totalCost) * 100 : 0;
 
   const valueTWD = isUSD ? totalValue * usdToTwd : totalValue;
+  const portfolioWeight = totalPortfolioTWD > 0 ? (valueTWD / totalPortfolioTWD) * 100 : 0;
   const changePercent = quote?.changePercent || 0;
   const market = getMarket(item.symbol);
   const displayName = quote?.shortName || item.symbol;
@@ -854,7 +858,7 @@ function StockRow({
           <div className="w-36">
             <p className="text-xs text-gray-400 mb-1">總市值 (TWD)</p>
             <p className="text-base font-semibold text-gray-900 tabular-nums">{Math.round(valueTWD).toLocaleString()}</p>
-            <p className="text-sm text-transparent mt-0.5">-</p>
+            <p className="text-sm text-gray-400 mt-0.5 tabular-nums">{portfolioWeight.toFixed(1)}%</p>
           </div>
 
           <div className="w-36">
