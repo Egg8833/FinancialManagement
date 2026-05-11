@@ -136,6 +136,7 @@ export type StockItem = {
   avgCost: number;
   collateralShares?: number;
   notes?: string;
+  purchaseDate?: string; // YYYY-MM-DD
 };
 
 export type StockQuote = {
@@ -224,6 +225,10 @@ interface AppContextType {
   setNetWorthGoal: (goal: number | ((prev: number) => number)) => void;
   // 質押擔保品市值
   totalCollateralValueTWD: number;
+  usdToTwd: number;
+  setUsdToTwd: (v: number | ((prev: number) => number)) => void;
+  pledgeAlertLastSent: Record<'warning' | 'danger', string>;
+  setPledgeAlertLastSent: (v: Record<'warning' | 'danger', string> | ((prev: Record<'warning' | 'danger', string>) => Record<'warning' | 'danger', string>)) => void;
   // 個人資訊
   userName: string;
   setUserName: (name: string | ((prev: string) => string)) => void;
@@ -259,6 +264,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [netWorthGoal, setNetWorthGoal] = useStickyState<number>(0, 'app-net-worth-goal-v1');
   const [userName, setUserName] = useStickyState<string>('', 'app-user-name-v1');
   const [userEmail, setUserEmail] = useStickyState<string>('', 'app-user-email-v1');
+  const [usdToTwd, setUsdToTwd] = useStickyState<number>(32, 'app-usd-twd-v1');
+  const [pledgeAlertLastSent, setPledgeAlertLastSent] = useStickyState<Record<'warning' | 'danger', string>>(
+    { warning: '', danger: '' },
+    'app-pledge-alert-v1'
+  );
 
   // ref so the interval always calls the latest version without restarting
   const refreshRef = useRef<() => Promise<void>>(undefined);
@@ -297,7 +307,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Compute Collateral Market Value (for pledge ratio)
   const totalCollateralValueTWD = useMemo(() => {
-    const usdToTwd = 32;
     return stockItems.reduce((sum, item) => {
       if (!item.collateralShares) return sum;
       const quote = stockQuotes[item.symbol];
@@ -305,26 +314,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const value = quote.price * item.collateralShares;
       return sum + (quote.currency === 'USD' ? value * usdToTwd : value);
     }, 0);
-  }, [stockItems, stockQuotes]);
+  }, [stockItems, stockQuotes, usdToTwd]);
 
   // Compute Stock Total
   const totalStockValueTWD = useMemo(() => {
     let total = 0;
-    const usdToTwd = 32;
-    
     for (const item of stockItems) {
       const quote = stockQuotes[item.symbol];
       if (quote) {
         const value = quote.price * item.shares;
-        if (quote.currency === 'USD') {
-          total += value * usdToTwd;
-        } else {
-          total += value;
-        }
+        total += quote.currency === 'USD' ? value * usdToTwd : value;
       }
     }
     return total;
-  }, [stockItems, stockQuotes]);
+  }, [stockItems, stockQuotes, usdToTwd]);
 
   // 借款型質押（borrow）：借款本金 → 負債，利息 → 支出
   // 收益型質押（earn）：存入金額 → 資產，收益 → 收入
@@ -451,6 +454,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const netWorth = totalAssets - totalLiabilities;
 
+  // Auto daily snapshot — fires after quotes load (or immediately if no stocks)
+  useEffect(() => {
+    if (stockItems.length > 0 && !lastUpdated) return;
+    const today = new Date().toISOString().split('T')[0];
+    setSnapshots(prev => {
+      const last = prev[prev.length - 1];
+      if (last?.date === today) return prev;
+      if (totalAssets === 0 && netWorth === 0) return prev;
+      return [
+        ...prev.slice(-364),
+        { id: `snap-${Date.now()}`, date: today, totalAssets, totalLiabilities, netWorth },
+      ];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastUpdated, totalAssets, totalLiabilities, netWorth]);
+
   const clearAllData = () => {
     setAssets([]);
     setLiabilities([]);
@@ -506,6 +525,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       netWorthGoal,
       setNetWorthGoal,
       totalCollateralValueTWD,
+      usdToTwd,
+      setUsdToTwd,
+      pledgeAlertLastSent,
+      setPledgeAlertLastSent,
       userName,
       setUserName,
       userEmail,
