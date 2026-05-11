@@ -171,6 +171,7 @@ export default function DashboardPage() {
         formatCurrency={formatCurrency}
         netWorthGoal={netWorthGoal}
         setNetWorthGoal={setNetWorthGoal}
+        monthlyNetCashFlow={monthlyNetCashFlow}
       />
 
       <NetWorthChart

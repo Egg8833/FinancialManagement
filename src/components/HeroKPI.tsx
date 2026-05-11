@@ -10,9 +10,10 @@ interface HeroKPIProps {
   formatCurrency: (amount: number) => string;
   netWorthGoal: number;
   setNetWorthGoal: (goal: number) => void;
+  monthlyNetCashFlow: number;
 }
 
-export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrency, netWorthGoal, setNetWorthGoal }: HeroKPIProps) {
+export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrency, netWorthGoal, setNetWorthGoal, monthlyNetCashFlow }: HeroKPIProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState('');
 
@@ -21,6 +22,19 @@ export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrenc
   const rawPct     = hasGoal ? (netWorth / netWorthGoal) * 100 : 0;
   const barPct     = Math.min(rawPct, 100);
   const overPct    = rawPct - 100; // 超標百分比
+
+  const monthsToGoal =
+    hasGoal && !achieved && monthlyNetCashFlow > 0
+      ? Math.ceil((netWorthGoal - netWorth) / monthlyNetCashFlow)
+      : null;
+  const goalETA =
+    monthsToGoal !== null
+      ? (() => {
+          const d = new Date();
+          d.setMonth(d.getMonth() + monthsToGoal);
+          return `${d.getFullYear()}年${d.getMonth() + 1}月`;
+        })()
+      : null;
 
   // 輸入單位為「萬」，儲存時 × 10000
   const handleSaveGoal = () => {
@@ -76,6 +90,11 @@ export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrenc
               ) : (
                 <span className="text-gray-400">
                   距目標還差 {((netWorthGoal - netWorth) / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬
+                  {goalETA && (
+                    <span className="block text-indigo-500 mt-0.5">
+                      預估 {monthsToGoal} 個月達成（{goalETA}）
+                    </span>
+                  )}
                 </span>
               )}
             </p>
