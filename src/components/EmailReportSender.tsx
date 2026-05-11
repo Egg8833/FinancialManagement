@@ -20,13 +20,13 @@ export function EmailReportSender() {
     } else {
       setResult(null);
     }
-  }, [isOpen]);
+  }, [isOpen, ctx.userEmail]);
 
   useEffect(() => {
     if (ctx.reportSchedule === 'none' || !ctx.userEmail) return;
 
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = today.toLocaleDateString('en-CA');
 
     if (ctx.lastReportSent === todayStr) return;
 
@@ -36,8 +36,6 @@ export function EmailReportSender() {
 
     if (!shouldSend) return;
 
-    ctx.setLastReportSent(todayStr);
-
     fetch('/api/cron/send-asset-report', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -45,7 +43,9 @@ export function EmailReportSender() {
         recipientEmail: ctx.userEmail,
         reportData: buildReportData(),
       }),
-    }).catch(() => {/* silent fail */});
+    })
+      .then(res => { if (res.ok) ctx.setLastReportSent(todayStr); })
+      .catch(() => toast('自動報表寄送失敗', 'error'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx.reportSchedule, ctx.lastReportSent, ctx.userEmail]);
 
@@ -175,7 +175,7 @@ export function EmailReportSender() {
       if (res.ok && data.success) {
         setResult({ success: true, message: data.message || '報表寄送成功！' });
         toast('📧 資產報表已寄出');
-        ctx.setLastReportSent(new Date().toISOString());
+        ctx.setLastReportSent(new Date().toLocaleDateString('en-CA'));
       } else {
         setResult({ success: false, message: data.error || '寄送失敗' });
         toast(data.error || '寄送失敗', 'error');

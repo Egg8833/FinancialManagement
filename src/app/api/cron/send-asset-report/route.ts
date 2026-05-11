@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     const result = await sendEmail({
       to: recipientEmail,
-      subject: `📊 AssetDash 每週資產報表 - ${new Date().toLocaleDateString('zh-TW')}`,
+      subject: `📊 AssetDash 資產報表 - ${new Date().toLocaleDateString('zh-TW')}`,
       html,
     });
 
