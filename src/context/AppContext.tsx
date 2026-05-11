@@ -234,6 +234,8 @@ interface AppContextType {
   setUserName: (name: string | ((prev: string) => string)) => void;
   userEmail: string;
   setUserEmail: (email: string | ((prev: string) => string)) => void;
+  extraRates: { EUR: number; JPY: number; HKD: number };
+  setExtraRates: (rates: { EUR: number; JPY: number; HKD: number }) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -268,6 +270,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [pledgeAlertLastSent, setPledgeAlertLastSent] = useStickyState<Record<'warning' | 'danger', string>>(
     { warning: '', danger: '' },
     'app-pledge-alert-v1'
+  );
+  const [extraRates, setExtraRates] = useStickyState<{ EUR: number; JPY: number; HKD: number }>(
+    { EUR: 35, JPY: 0.21, HKD: 4.1 },
+    'app-extra-rates-v1'
   );
 
   // ref so the interval always calls the latest version without restarting
@@ -533,6 +539,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUserName,
       userEmail,
       setUserEmail,
+      extraRates,
+      setExtraRates,
     }}>
       {children}
     </AppContext.Provider>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendEmail } from '../../../../lib/mail';
+import { sendEmail } from '../../../lib/mail';
 
 type PledgeData = {
   platform: string;
