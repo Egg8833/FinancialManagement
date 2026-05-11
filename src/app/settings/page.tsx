@@ -49,9 +49,11 @@ export default function SettingsPage() {
     const eur = parseFloat(localEUR);
     const jpy = parseFloat(localJPY);
     const hkd = parseFloat(localHKD);
-    if (!isNaN(eur) && eur > 0 && !isNaN(jpy) && jpy > 0 && !isNaN(hkd) && hkd > 0) {
-      setExtraRates({ EUR: eur, JPY: jpy, HKD: hkd });
-    }
+    setExtraRates({
+      EUR: (!isNaN(eur) && eur > 0) ? eur : extraRates.EUR,
+      JPY: (!isNaN(jpy) && jpy > 0) ? jpy : extraRates.JPY,
+      HKD: (!isNaN(hkd) && hkd > 0) ? hkd : extraRates.HKD,
+    });
     setSaved(true);
     toast('個人資訊已儲存');
   };
@@ -80,6 +82,7 @@ export default function SettingsPage() {
       borrowingLimits,
       netWorthGoal,
       usdToTwd,
+      extraRates,
       userName,
       userEmail,
     };
@@ -120,6 +123,7 @@ export default function SettingsPage() {
         if (typeof data.usdToTwd === 'number') { setUsdToTwd(data.usdToTwd); setLocalUsdRate(data.usdToTwd.toString()); }
         if (data.userName) { setUserName(data.userName); setLocalName(data.userName); }
         if (data.userEmail) { setUserEmail(data.userEmail); setLocalEmail(data.userEmail); }
+        if (data.extraRates) { setExtraRates(data.extraRates); }
         toast('備份已成功匯入');
       } catch {
         toast('解析備份失敗，請確認檔案格式');
@@ -220,7 +224,7 @@ export default function SettingsPage() {
                     step="0.01"
                     value={localEUR}
                     onChange={e => setLocalEUR(e.target.value)}
-                    className="w-32 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                    className="w-32 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
                   />
                   <span className="text-sm text-gray-500">1 EUR = {localEUR || '35'} TWD</span>
                 </div>
@@ -232,7 +236,7 @@ export default function SettingsPage() {
                     step="0.001"
                     value={localJPY}
                     onChange={e => setLocalJPY(e.target.value)}
-                    className="w-32 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                    className="w-32 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
                   />
                   <span className="text-sm text-gray-500">1 JPY = {localJPY || '0.21'} TWD</span>
                 </div>
@@ -244,7 +248,7 @@ export default function SettingsPage() {
                     step="0.01"
                     value={localHKD}
                     onChange={e => setLocalHKD(e.target.value)}
-                    className="w-32 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                    className="w-32 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
                   />
                   <span className="text-sm text-gray-500">1 HKD = {localHKD || '4.1'} TWD</span>
                 </div>
