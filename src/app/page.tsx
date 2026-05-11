@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Plus, TrendingUp, TrendingDown, Wallet, X, Check } from 'lucide-react';
 import { HeroKPI } from '../components/HeroKPI';
 import { NetWorthChart } from '../components/NetWorthChart';
+import { AssetAllocationChart } from '../components/AssetAllocationChart';
 import { AssetCategoryCard } from '../components/AssetComponents';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
 import { useAppContext } from '../context/AppContext';
@@ -178,6 +179,12 @@ export default function DashboardPage() {
         snapshots={snapshots}
         showValues={showValues}
         formatCurrency={formatCurrency}
+      />
+
+      <AssetAllocationChart
+        combinedAssets={combinedAssets}
+        totalAssets={totalAssets}
+        showValues={showValues}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
