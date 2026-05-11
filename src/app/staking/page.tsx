@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Coins, Plus, Check, X, Trash2, Pencil, RefreshCw,
   CreditCard, ShieldCheck, ChevronDown,
@@ -11,6 +11,7 @@ import {
   type LoanItem, type LoanType,
 } from '../../context/AppContext';
 import { AlertTriangle, AlertOctagon, ShieldCheck as ShieldOk } from 'lucide-react';
+import { PledgeAlertBanner } from '../../components/PledgeAlertBanner';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 
@@ -426,6 +427,9 @@ export default function BorrowingPage() {
     stakingItems, setStakingItems,
     borrowingLimits, setBorrowingLimits,
     stockItems, stockQuotes,
+    usdToTwd,
+    pledgeAlertLastSent, setPledgeAlertLastSent,
+    userEmail,
   } = useAppContext();
   const { toast } = useToast();
 
@@ -459,7 +463,6 @@ export default function BorrowingPage() {
 
   // 按平台分組擔保品市值
   const collateralByPlatform = useMemo(() => {
-    const usdToTwd = 32;
     const map: Record<string, number> = {};
     for (const item of stockItems) {
       if (!item.collateralShares) continue;
@@ -471,7 +474,55 @@ export default function BorrowingPage() {
       map[p] = (map[p] || 0) + twdValue;
     }
     return map;
-  }, [stockItems, stockQuotes]);
+  }, [stockItems, stockQuotes, usdToTwd]);
+
+  // 告警計算：找出最低維持率的平台
+  const { minRatio, minPlatform, allPlatformRatios } = useMemo(() => {
+    let min = Infinity;
+    let minP = '';
+    const allRatios: Array<{ platform: string; ratio: number; borrowValue: number; collateralValue: number }> = [];
+    for (const platform of pledgePlatforms) {
+      const borrow = (borrowByPlatform[platform] || []).reduce((s, i) => s + i.value, 0);
+      const collateral = collateralByPlatform[platform] || 0;
+      const ratio = borrow > 0 ? (collateral / borrow) * 100 : Infinity;
+      allRatios.push({ platform, ratio: ratio === Infinity ? 0 : ratio, borrowValue: borrow, collateralValue: collateral });
+      if (borrow > 0 && ratio < min) { min = ratio; minP = platform; }
+    }
+    return {
+      minRatio: min === Infinity ? 0 : min,
+      minPlatform: minP,
+      allPlatformRatios: allRatios,
+    };
+  }, [pledgePlatforms, borrowByPlatform, collateralByPlatform]);
+
+  const alertLevel: 'warning' | 'danger' | null =
+    minRatio > 0 && minPlatform
+      ? minRatio < 167 ? 'danger' : minRatio < 200 ? 'warning' : null
+      : null;
+
+  // 每日寄送告警 Email
+  useEffect(() => {
+    if (!alertLevel || !userEmail || !minPlatform) return;
+    const today = new Date().toISOString().split('T')[0];
+    if (pledgeAlertLastSent[alertLevel] === today) return;
+
+    fetch('/api/pledge-alert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipientEmail: userEmail,
+        alertLevel,
+        platformName: minPlatform,
+        ratio: minRatio,
+        pledgeData: allPlatformRatios,
+      }),
+    })
+      .then(res => {
+        if (res.ok) setPledgeAlertLastSent(prev => ({ ...prev, [alertLevel]: today }));
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alertLevel, minRatio, minPlatform]);
 
   // Loan handlers — 刪除透過確認對話框
   const handleDeleteLoan = (id: string, name: string) =>
@@ -491,6 +542,13 @@ export default function BorrowingPage() {
 
   return (
     <>
+      {alertLevel && (
+        <PledgeAlertBanner
+          level={alertLevel}
+          platformName={minPlatform}
+          ratio={minRatio}
+        />
+      )}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">借貸管理</h1>
         <p className="text-sm text-gray-500 mt-1">信貸、質押借款與活儲的統整追蹤</p>
