@@ -23,7 +23,7 @@ export function EmailReportSender() {
   }, [isOpen]);
 
   const buildReportData = (): ReportPayload => {
-    const usdToTwd = 32;
+    const usdToTwd = ctx.usdToTwd;
 
     return {
       totalAssets: ctx.totalAssets,
