@@ -440,6 +440,20 @@ export default function BorrowingPage() {
   const borrowStaking = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow');
   const earnStaking = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'earn');
 
+  const expiringItems = useMemo(() => {
+    const today = new Date();
+    return borrowStaking
+      .filter(item => !!item.repayDate)
+      .map(item => {
+        const daysLeft = Math.ceil(
+          (new Date(item.repayDate!).getTime() - today.getTime()) / 86400000
+        );
+        return { ...item, daysLeft };
+      })
+      .filter(item => item.daysLeft <= 30)
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [borrowStaking]);
+
   // KPI
   const totalLoanPrincipal = loans.reduce((s, l) => s + l.principal, 0);
   const totalLoanMonthly = loans.reduce((s, l) => s + l.monthlyPayment, 0);
@@ -549,6 +563,28 @@ export default function BorrowingPage() {
           ratio={minRatio}
         />
       )}
+      {expiringItems.map(item => {
+        const isDanger = item.daysLeft <= 7;
+        return (
+          <div
+            key={`expiry-${item.id}`}
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl border mb-3 ${
+              isDanger
+                ? 'bg-red-50 border-red-300 text-red-800'
+                : 'bg-yellow-50 border-yellow-300 text-yellow-800'
+            }`}
+          >
+            {isDanger
+              ? <AlertOctagon className="w-5 h-5 shrink-0 text-red-600" />
+              : <AlertTriangle className="w-5 h-5 shrink-0 text-yellow-600" />}
+            <p className="flex-1 text-sm font-medium">
+              {isDanger
+                ? `⚠️ 緊急：「${item.name}」（${item.protocol}）質押借款將於 ${item.daysLeft} 天後到期（${item.repayDate}），請立即安排還款`
+                : `⏰ 注意：「${item.name}」（${item.protocol}）質押借款將於 ${item.daysLeft} 天後到期（${item.repayDate}）`}
+            </p>
+          </div>
+        );
+      })}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">借貸管理</h1>
         <p className="text-sm text-gray-500 mt-1">信貸、質押借款與活儲的統整追蹤</p>
