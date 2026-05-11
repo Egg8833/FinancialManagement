@@ -10,6 +10,7 @@ export default function SettingsPage() {
     userName, setUserName,
     userEmail, setUserEmail,
     usdToTwd, setUsdToTwd,
+    extraRates, setExtraRates,
     assets, setAssets,
     liabilities, setLiabilities,
     stakingItems, setStakingItems,
@@ -28,6 +29,9 @@ export default function SettingsPage() {
   const [localName, setLocalName] = useState(userName);
   const [localEmail, setLocalEmail] = useState(userEmail);
   const [localUsdRate, setLocalUsdRate] = useState(usdToTwd.toString());
+  const [localEUR, setLocalEUR] = useState(extraRates.EUR.toString());
+  const [localJPY, setLocalJPY] = useState(extraRates.JPY.toString());
+  const [localHKD, setLocalHKD] = useState(extraRates.HKD.toString());
   const [saved, setSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,6 +46,12 @@ export default function SettingsPage() {
     setUserEmail(localEmail.trim());
     const rate = parseFloat(localUsdRate);
     if (!isNaN(rate) && rate > 0) setUsdToTwd(rate);
+    const eur = parseFloat(localEUR);
+    const jpy = parseFloat(localJPY);
+    const hkd = parseFloat(localHKD);
+    if (!isNaN(eur) && eur > 0 && !isNaN(jpy) && jpy > 0 && !isNaN(hkd) && hkd > 0) {
+      setExtraRates({ EUR: eur, JPY: jpy, HKD: hkd });
+    }
     setSaved(true);
     toast('個人資訊已儲存');
   };
@@ -49,7 +59,10 @@ export default function SettingsPage() {
   const hasChanges =
     localName !== userName ||
     localEmail !== userEmail ||
-    parseFloat(localUsdRate) !== usdToTwd;
+    parseFloat(localUsdRate) !== usdToTwd ||
+    parseFloat(localEUR) !== extraRates.EUR ||
+    parseFloat(localJPY) !== extraRates.JPY ||
+    parseFloat(localHKD) !== extraRates.HKD;
 
   const handleExport = () => {
     const backup = {
@@ -193,6 +206,49 @@ export default function SettingsPage() {
                 <span className="text-sm text-gray-500">1 USD = {localUsdRate || '32'} TWD</span>
               </div>
               <p className="text-xs text-gray-400 mt-1.5">用於換算美股市值與質押擔保品（TWD）</p>
+            </div>
+
+            {/* Extra Currency Rates */}
+            <div className="border-t border-gray-100 pt-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">其他幣別匯率</p>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 w-10">EUR</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={localEUR}
+                    onChange={e => setLocalEUR(e.target.value)}
+                    className="w-32 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                  />
+                  <span className="text-sm text-gray-500">1 EUR = {localEUR || '35'} TWD</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 w-10">JPY</span>
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="0.001"
+                    value={localJPY}
+                    onChange={e => setLocalJPY(e.target.value)}
+                    className="w-32 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                  />
+                  <span className="text-sm text-gray-500">1 JPY = {localJPY || '0.21'} TWD</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 w-10">HKD</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={localHKD}
+                    onChange={e => setLocalHKD(e.target.value)}
+                    className="w-32 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                  />
+                  <span className="text-sm text-gray-500">1 HKD = {localHKD || '4.1'} TWD</span>
+                </div>
+              </div>
             </div>
 
             {/* Save Button */}
