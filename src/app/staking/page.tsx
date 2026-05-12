@@ -419,6 +419,92 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
   );
 }
 
+// ─── Payment Due Dialog ────────────────────────────────────────────────────────
+
+function PaymentDueDialog({ loans, onRecord, onClose }: {
+  loans: LoanItem[];
+  onRecord: (id: string) => void;
+  onClose: () => void;
+}) {
+  const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
+
+  const handleConfirm = (id: string) => {
+    onRecord(id);
+    setConfirmed(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      if (next.size >= loans.length) setTimeout(onClose, 600);
+      return next;
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-5">
+          <div className="flex items-center gap-3 text-white">
+            <RefreshCw className="w-5 h-5 shrink-0" />
+            <div>
+              <h3 className="font-bold text-lg">還款提醒</h3>
+              <p className="text-sm text-white/80 mt-0.5">以下信貸的還款日已到，請確認是否已還款</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Loan list */}
+        <div className="px-6 py-4 space-y-3 max-h-80 overflow-y-auto">
+          {loans.map(loan => {
+            const isDone = confirmed.has(loan.id);
+            return (
+              <div
+                key={loan.id}
+                className={`flex items-center justify-between gap-3 p-4 rounded-xl border transition-all duration-300 ${
+                  isDone ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-100'
+                }`}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-gray-900 text-sm">{loan.name}</span>
+                    <span className="text-xs text-gray-400">{loan.bank}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    還款日 <span className="font-medium text-amber-600">{loan.nextPaymentDate}</span>
+                    <span className="mx-1.5 text-gray-300">·</span>
+                    每月還款 <span className="font-semibold text-gray-700">{loan.monthlyPayment.toLocaleString('en-US')}</span>
+                  </div>
+                </div>
+                {isDone ? (
+                  <span className="flex items-center gap-1 text-xs text-emerald-600 font-bold shrink-0">
+                    <Check className="w-4 h-4" /> 已記錄
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleConfirm(loan.id)}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-medium hover:bg-rose-700 transition-colors"
+                  >
+                    <Check className="w-3.5 h-3.5" /> 確認已還款
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 pb-5 pt-2">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 text-sm font-medium text-gray-500 hover:text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+          >
+            稍後再說
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function BorrowingPage() {
@@ -434,11 +520,22 @@ export default function BorrowingPage() {
   const { toast } = useToast();
 
   const [deleteTarget, setDeleteTarget] = useState<{ label: string; action: () => void } | null>(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
 
   const installmentLoans = loans.filter(l => l.loanType === 'installment');
   const revolvingLoans = loans.filter(l => l.loanType === 'revolving');
   const borrowStaking = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow');
   const earnStaking = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'earn');
+
+  const dueLoans = useMemo(() =>
+    installmentLoans.filter(l => l.principal > 0 && l.remainingPeriods > 0 && isPaymentDue(l.nextPaymentDate)),
+    [installmentLoans]
+  );
+
+  useEffect(() => {
+    if (dueLoans.length > 0) setShowPaymentDialog(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const expiringItems = useMemo(() => {
     const today = new Date();
@@ -664,6 +761,13 @@ export default function BorrowingPage() {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
+      {showPaymentDialog && dueLoans.length > 0 && (
+        <PaymentDueDialog
+          loans={dueLoans}
+          onRecord={id => { recordLoanPayment(id); toast('還款已記錄'); }}
+          onClose={() => setShowPaymentDialog(false)}
+        />
+      )}
     </>
   );
 }
@@ -839,13 +943,11 @@ function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
     </div>
   );
 
+  const initPrincipal = loan.initialPrincipal ?? loan.principal;
+  const paidAmount = initPrincipal - loan.principal;
+
   return (
     <div className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${isPaidOff ? 'border-emerald-200' : 'border-gray-100'}`}>
-      {/* Progress bar */}
-      <div className="h-1.5 bg-gray-100">
-        <div className="h-1.5 bg-rose-400 transition-all duration-500" style={{ width: `${progress}%` }} />
-      </div>
-
       <div className="p-5">
         {/* ── Top row ── */}
         <div className="flex items-center justify-between gap-3 mb-4">
@@ -858,7 +960,7 @@ function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
             <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded-full">分期</span>
             {isPaidOff
               ? <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full">已清償</span>
-              : <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-bold rounded-full">{Math.round(progress)}% 已還</span>
+              : null
             }
             {isDue && <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full animate-pulse">還款日已到</span>}
           </div>
@@ -882,6 +984,42 @@ function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
             </button>
           </div>
         </div>
+
+        {/* ── Repayment progress ── */}
+        {isPaidOff ? (
+          <div className="mb-4 flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3">
+            <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs shrink-0">✓</div>
+            <span className="text-sm font-medium text-emerald-700">此筆貸款已完全清償</span>
+          </div>
+        ) : (
+          <div className="mb-4 bg-gray-50 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">還款進度</span>
+              <span className="text-sm font-bold text-rose-600 tabular-nums">{Math.round(progress)}%</span>
+            </div>
+            <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-3 bg-gradient-to-r from-rose-400 to-rose-500 rounded-full transition-all duration-700"
+                style={{ width: `${progress}%` }}
+              />
+              {[25, 50, 75].map(pct => (
+                <div key={pct} className="absolute inset-y-0 w-px bg-white/60" style={{ left: `${pct}%` }} />
+              ))}
+            </div>
+            <div className="flex items-center justify-between mt-2 text-xs">
+              <span className="text-gray-500">
+                已還 <b className="text-gray-700 tabular-nums">{paidCount}</b> 期
+                {loan.initialPrincipal && (
+                  <span className="text-gray-400 ml-1">（−{paidAmount.toLocaleString('en-US')}）</span>
+                )}
+              </span>
+              <span className="text-gray-500">
+                剩餘 <b className="text-rose-600 tabular-nums">{loan.remainingPeriods}</b>
+                <span className="text-gray-400"> / {loan.originalPeriods} 期</span>
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* ── Key metrics (always visible) ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

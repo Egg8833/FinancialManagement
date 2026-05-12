@@ -57,9 +57,17 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
 
   const getNavClass = (path: string) => {
     const isActive = pathname === path;
-    return `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+    return `flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${isActive
         ? 'bg-indigo-50 text-indigo-700'
         : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+      }`;
+  };
+
+  const getIconNavClass = (path: string) => {
+    const isActive = pathname === path;
+    return `flex items-center justify-center p-2 rounded-lg transition-colors ${isActive
+        ? 'bg-indigo-50 text-indigo-700'
+        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
       }`;
   };
 
@@ -75,21 +83,31 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
     <>
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
+          <div className="flex h-16 items-center">
 
-            <div className="flex items-center gap-8">
-              {/* Logo */}
-              <div className="flex items-center gap-3 mr-4">
-                <div className="bg-indigo-600 p-2 rounded-lg text-white">
-                  <LayoutDashboard className="w-5 h-5" />
-                </div>
-                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
-                  AssetDash
-                </span>
+            {/* 左：Logo */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="bg-indigo-600 p-2 rounded-lg text-white">
+                <LayoutDashboard className="w-5 h-5" />
+              </div>
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">
+                AssetDash
+              </span>
+            </div>
+
+            {/* 中：導覽（佔滿剩餘空間，flex-1 + justify-center） */}
+            <div className="flex-1 flex justify-center">
+              {/* 平板：icon only，md ~ xl */}
+              <div className="hidden md:flex gap-5 xl:hidden items-center gap-0.5">
+                {NAV_LINKS.map(({ href, label, Icon }) => (
+                  <Link key={href} href={href} title={label} className={getIconNavClass(href)}>
+                    <Icon className="w-5 h-5" />
+                  </Link>
+                ))}
               </div>
 
-              {/* 桌機導覽 */}
-              <div className="hidden md:flex items-center gap-2">
+              {/* 桌機：icon + label，xl+ */}
+              <div className="hidden xl:flex items-center gap-0.5">
                 {NAV_LINKS.map(({ href, label, Icon }) => (
                   <Link key={href} href={href} className={getNavClass(href)}>
                     <Icon className="w-4 h-4" />
@@ -99,24 +117,26 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={onToggleValues}
                 className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full text-sm font-medium hover:bg-gray-200 transition-colors text-gray-600"
               >
                 {showValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                <span className="hidden sm:inline">{showValues ? '隱藏金額' : '顯示金額'}</span>
+                <span className="hidden lg:inline">{showValues ? '隱藏金額' : '顯示金額'}</span>
               </button>
 
-              <div className="hidden md:block relative pl-4 border-l border-gray-200" ref={assetMenuRef}>
+              {/* 用戶選單 — 平板以上顯示 */}
+              <div className="hidden md:block relative pl-3 border-l border-gray-200" ref={assetMenuRef}>
                 <button
                   onClick={() => setAssetMenuOpen(o => !o)}
-                  className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-gray-100 transition-colors"
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-100 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm">
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
                     {userName ? userName.charAt(0).toUpperCase() : 'U'}
                   </div>
-                  <span className="text-sm font-medium">{userName || '我的資產庫'}</span>
+                  {/* 名字只在桌機顯示 */}
+                  <span className="hidden xl:inline text-sm font-medium whitespace-nowrap">{userName || '我的資產庫'}</span>
                 </button>
                 {assetMenuOpen && (
                   <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
@@ -140,7 +160,7 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                 )}
               </div>
 
-              {/* 漢堡按鈕 — 僅手機顯示 */}
+              {/* 漢堡按鈕 — 手機 */}
               <button
                 onClick={() => setMobileOpen(o => !o)}
                 className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"

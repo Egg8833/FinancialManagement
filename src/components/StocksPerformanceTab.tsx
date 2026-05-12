@@ -8,9 +8,9 @@ import { useToast } from '../context/ToastContext';
 // ─── 計算輔助 ─────────────────────────────────────────────────────────────────
 
 function calcCostBasisTWD(item: StockItem, usdToTwd: number): number {
-  const base = item.avgCost * item.shares;
-  // 台股 avgCost 已是 TWD，美股需換算
-  return item.symbol.endsWith('.TW') || item.symbol.endsWith('.TWO') ? base : base * usdToTwd;
+  // avgCost = 總投入成本（非每股），直接換算
+  const isUSD = !item.symbol.endsWith('.TW') && !item.symbol.endsWith('.TWO');
+  return isUSD ? item.avgCost * usdToTwd : item.avgCost;
 }
 
 function calcCurrentValueTWD(item: StockItem, quote: StockQuote | undefined, usdToTwd: number): number {
@@ -145,7 +145,7 @@ function StockPerformanceRow({
             <p className="text-xs text-gray-400">{item.symbol}</p>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 text-right flex-shrink-0 text-sm">
+          <div className="grid grid-cols-4 gap-4 text-right flex-shrink-0 text-sm w-[400px]">
             <div>
               <p className="text-xs text-gray-400">投入成本</p>
               <p className="font-medium">{costBasis > 0 ? fmt(costBasis) : '—'}</p>
@@ -305,17 +305,15 @@ export function StocksPerformanceTab() {
 
   // 摘要計算
   const totalCost = stockItems.reduce((sum, item) => {
-    const cost = item.avgCost * item.shares;
     const isUSD = !item.symbol.endsWith('.TW') && !item.symbol.endsWith('.TWO');
-    return sum + (isUSD ? cost * usdToTwd : cost);
+    return sum + (isUSD ? item.avgCost * usdToTwd : item.avgCost);
   }, 0);
 
   const totalCostForReturn = stockItems.reduce((sum, item) => {
     const quote = stockQuotes[item.symbol];
     if (!quote) return sum;
-    const cost = item.avgCost * item.shares;
     const isUSD = !item.symbol.endsWith('.TW') && !item.symbol.endsWith('.TWO');
-    return sum + (isUSD ? cost * usdToTwd : cost);
+    return sum + (isUSD ? item.avgCost * usdToTwd : item.avgCost);
   }, 0);
 
   const totalValue = stockItems.reduce((sum, item) => {

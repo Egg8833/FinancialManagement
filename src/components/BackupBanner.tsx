@@ -53,25 +53,27 @@ export function BackupBanner() {
     : `距上次備份已 ${days} 天`;
 
   return (
-    <div className="mx-4 sm:mx-6 lg:mx-8 mt-3 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 max-w-7xl mx-auto">
-      <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
-      <p className="flex-1 text-sm text-amber-800 font-medium">
-        {label}，建議立即備份以避免資料遺失。
-      </p>
-      <button
-        onClick={handleExportNow}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors shrink-0"
-      >
-        <Download className="w-3.5 h-3.5" />
-        立即備份
-      </button>
-      <button
-        onClick={() => setDismissed(true)}
-        className="p-1 text-amber-400 hover:text-amber-600 transition-colors shrink-0"
-        title="暫時忽略"
-      >
-        <X className="w-4 h-4" />
-      </button>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-3">
+      <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+        <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
+        <p className="flex-1 text-sm text-amber-800 font-medium">
+          {label}，建議立即備份以避免資料遺失。
+        </p>
+        <button
+          onClick={handleExportNow}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors shrink-0"
+        >
+          <Download className="w-3.5 h-3.5" />
+          立即備份
+        </button>
+        <button
+          onClick={() => setDismissed(true)}
+          className="p-1 text-amber-400 hover:text-amber-600 transition-colors shrink-0"
+          title="暫時忽略"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
 }
