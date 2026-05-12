@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from 'react';
-import { Plus, TrendingUp, TrendingDown, Wallet, X, Check } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Plus, TrendingUp, TrendingDown, Wallet, X, Check, Shield } from 'lucide-react';
 import { HeroKPI } from '../components/HeroKPI';
 import { NetWorthChart } from '../components/NetWorthChart';
 import { AssetAllocationChart } from '../components/AssetAllocationChart';
 import { AssetCategoryCard } from '../components/AssetComponents';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
 import { HealthScoreCard } from '../components/HealthScoreCard';
+import { FinancialGoals } from '../components/FinancialGoals';
+import { NetWorthMilestones } from '../components/NetWorthMilestones';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency as _fmt, nowTs } from '../lib/utils';
 
@@ -36,6 +38,12 @@ export default function DashboardPage() {
   } = useAppContext();
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
+
+  const liquidAssets = useMemo(
+    () => assets.find(c => c.id === 'liquid')?.items.reduce((s, i) => s + i.amount, 0) ?? 0,
+    [assets],
+  );
+  const runwayMonths = totalMonthlyExpense > 0 ? liquidAssets / totalMonthlyExpense : null;
 
   const colorOptions = [
     { colorClass: 'bg-violet-400', bgClass: 'bg-violet-50' },
@@ -163,6 +171,29 @@ export default function DashboardPage() {
               <p className={`font-bold ${monthlyNetCashFlow >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>{formatCurrency(monthlyNetCashFlow)}</p>
             </div>
           </div>
+          <div className="h-8 w-px bg-gray-100"></div>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${
+              runwayMonths === null ? 'bg-gray-50 text-gray-400'
+              : runwayMonths >= 6 ? 'bg-emerald-50 text-emerald-600'
+              : runwayMonths >= 3 ? 'bg-amber-50 text-amber-600'
+              : 'bg-rose-50 text-rose-600'
+            }`}>
+              <Shield className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">現金彈藥</p>
+              <p className={`font-bold ${
+                runwayMonths === null ? 'text-gray-400'
+                : runwayMonths >= 6 ? 'text-emerald-600'
+                : runwayMonths >= 3 ? 'text-amber-600'
+                : 'text-rose-600'
+              }`}>
+                {runwayMonths !== null ? `${runwayMonths.toFixed(1)} 個月` : '—'}
+              </p>
+              <p className="text-[10px] text-gray-400">流動資金 / 月支出</p>
+            </div>
+          </div>
         </div>
         <HealthScoreCard />
       </div>
@@ -274,6 +305,9 @@ export default function DashboardPage() {
         totalAssets={totalAssets}
         showValues={showValues}
       />
+
+      <FinancialGoals />
+      <NetWorthMilestones />
     </>
   );
 }

@@ -1,9 +1,19 @@
 "use client";
 
 import { useMemo, useState, useEffect } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  AreaChart, Area,
+} from 'recharts';
 import { Camera, Trash2 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
+
+const CATEGORY_COLORS = {
+  液: '#10b981',   // liquid  — emerald
+  投資: '#6366f1', // investment — indigo
+  固定: '#3b82f6', // fixed — blue
+  應收: '#38bdf8', // receivable — sky
+};
 
 export default function ChartPage() {
   const { netWorth, totalAssets, totalLiabilities, snapshots, setSnapshots } = useAppContext();
@@ -31,11 +41,27 @@ export default function ChartPage() {
 
   const chartData = useMemo(() => {
     return snapshots.map(s => ({
-      date: s.date,
+      date: s.date.slice(5), // MM-DD
       淨資產: s.netWorth,
       總負債: s.totalLiabilities,
     }));
   }, [snapshots]);
+
+  // Stacked area: only show snapshots that have category breakdown
+  const categoryData = useMemo(() => {
+    return snapshots
+      .filter(s => s.liquid !== undefined || s.investment !== undefined)
+      .slice(-60)
+      .map(s => ({
+        date: s.date.slice(5),
+        流動資金: s.liquid ?? 0,
+        投資: s.investment ?? 0,
+        固定資產: s.fixed ?? 0,
+        應收款: s.receivable ?? 0,
+      }));
+  }, [snapshots]);
+
+  const hasCategoryData = categoryData.length >= 2;
 
   return (
     <>
@@ -53,6 +79,7 @@ export default function ChartPage() {
         </button>
       </div>
 
+      {/* Net Worth Bar Chart */}
       <div className="bg-white rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100 p-6 mb-6">
         <h3 className="text-lg font-bold text-gray-900 mb-6">資產負債趨勢 (TWD)</h3>
 
@@ -92,6 +119,50 @@ export default function ChartPage() {
           </div>
         )}
       </div>
+
+      {/* Asset Category Stacked Area Chart */}
+      {hasCategoryData && mounted && (
+        <div className="bg-white rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100 p-6 mb-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-1">資產分類趨勢</h3>
+          <p className="text-xs text-gray-400 mb-5">各類資產隨時間的配置變化（最近 60 筆）</p>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={categoryData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <defs>
+                  {[
+                    { key: '流動資金', color: CATEGORY_COLORS['液'] },
+                    { key: '投資', color: CATEGORY_COLORS['投資'] },
+                    { key: '固定資產', color: CATEGORY_COLORS['固定'] },
+                    { key: '應收款', color: CATEGORY_COLORS['應收'] },
+                  ].map(({ key, color }) => (
+                    <linearGradient key={key} id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={color} stopOpacity={0.6} />
+                      <stop offset="95%" stopColor={color} stopOpacity={0.1} />
+                    </linearGradient>
+                  ))}
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                <YAxis
+                  axisLine={false} tickLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 10 }}
+                  tickFormatter={(v) => `${(v / 10000).toFixed(0)}萬`}
+                  dx={-5}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12 }}
+                  formatter={(value: number | string) => [`NT$${Number(value).toLocaleString()}`, undefined]}
+                />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+                <Area type="monotone" dataKey="流動資金" stackId="1" stroke={CATEGORY_COLORS['液']}    fill={`url(#grad-流動資金)`} strokeWidth={1.5} />
+                <Area type="monotone" dataKey="投資"     stackId="1" stroke={CATEGORY_COLORS['投資']}  fill={`url(#grad-投資)`}     strokeWidth={1.5} />
+                <Area type="monotone" dataKey="固定資產" stackId="1" stroke={CATEGORY_COLORS['固定']}  fill={`url(#grad-固定資產)`} strokeWidth={1.5} />
+                <Area type="monotone" dataKey="應收款"   stackId="1" stroke={CATEGORY_COLORS['應收']}  fill={`url(#grad-應收款)`}   strokeWidth={1.5} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {snapshots.length > 0 && (
         <div className="bg-white rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100 overflow-hidden">

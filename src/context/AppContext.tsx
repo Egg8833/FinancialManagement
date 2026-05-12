@@ -3,6 +3,7 @@
 import { createContext, useContext, ReactNode, useMemo, useEffect, useRef, useState } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
 import type { AssetCategory, LiabilityItem } from '../types';
+import { calculateHealthScore } from '../lib/healthScore';
 
 // --- Initial Dummy Data ---
 const initialAssets: AssetCategory[] = [
@@ -126,7 +127,27 @@ export type AssetSnapshot = {
   totalAssets: number;
   totalLiabilities: number;
   netWorth: number;
+  healthScore?: number;
+  // per-category asset amounts (optional, added from v2 onwards)
+  liquid?: number;
+  investment?: number;
+  fixed?: number;
+  receivable?: number;
 };
+
+export type FinancialGoal = {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string; // YYYY-MM-DD
+  color: string;
+  icon: 'home' | 'car' | 'travel' | 'emergency' | 'retirement' | 'education' | 'other';
+};
+
+export type StockSector =
+  | '科技' | '金融' | '醫療' | '消費' | '工業'
+  | '能源' | '原物料' | '房地產' | '公用事業' | '通訊' | '其他';
 
 export type StockItem = {
   id: string;
@@ -137,6 +158,7 @@ export type StockItem = {
   collateralShares?: number;
   notes?: string;
   purchaseDate?: string; // YYYY-MM-DD
+  sector?: StockSector;
 };
 
 export type StockQuote = {
@@ -167,6 +189,8 @@ export type CashFlowItem = {
   amount: number;
   category: string;
   isRecurring: boolean;
+  budget?: number;           // 月預算上限（支出項目用）
+  expenseTag?: 'needs' | 'wants' | 'savings'; // 50/30/20 分類
 };
 
 export type AnnualEntryCategory = 'dividend' | 'bonus' | 'other_income' | 'one_time_expense';
@@ -250,6 +274,9 @@ interface AppContextType {
   setReportSchedule: (s: 'none' | 'weekly' | 'monthly') => void;
   lastReportSent: string;
   setLastReportSent: (d: string) => void;
+  // 財務目標
+  goals: FinancialGoal[];
+  setGoals: (g: FinancialGoal[] | ((prev: FinancialGoal[]) => FinancialGoal[])) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -288,6 +315,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const [reportSchedule, setReportSchedule] = useStickyState<'none' | 'weekly' | 'monthly'>('none', 'app-report-schedule-v1');
   const [lastReportSent, setLastReportSent] = useStickyState('', 'app-last-report-sent-v1');
+  const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
 
   // ref so the interval always calls the latest version without restarting
   const refreshRef = useRef<() => Promise<void>>(undefined);
@@ -481,9 +509,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const last = prev[prev.length - 1];
       if (last?.date === today) return prev;
       if (totalAssets === 0 && netWorth === 0) return prev;
+      // Compute health score and per-category amounts for this snapshot
+      const liquidAmt = assets.find(c => c.id === 'liquid')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
+      const investmentAmt = combinedAssets.find(c => c.id === 'investment')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
+      const fixedAmt = assets.find(c => c.id === 'fixed')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
+      const receivableAmt = assets.find(c => c.id === 'receivable')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
+      const healthResult = calculateHealthScore({
+        totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
+        totalAssets, totalLiabilities, liquidAssets: liquidAmt, investmentAssets: investmentAmt, snapshots: prev,
+      });
       return [
         ...prev.slice(-364),
-        { id: `snap-${Date.now()}`, date: today, totalAssets, totalLiabilities, netWorth },
+        {
+          id: `snap-${Date.now()}`, date: today, totalAssets, totalLiabilities, netWorth,
+          healthScore: healthResult.totalScore,
+          liquid: liquidAmt, investment: investmentAmt, fixed: fixedAmt, receivable: receivableAmt,
+        },
       ];
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -500,6 +541,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setExpenseItems([]);
     setAnnualEntries([]);
     setSnapshots([]);
+    setGoals([]);
   };
 
   return (
@@ -559,6 +601,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setReportSchedule,
       lastReportSent,
       setLastReportSent,
+      goals,
+      setGoals,
     }}>
       {children}
     </AppContext.Provider>

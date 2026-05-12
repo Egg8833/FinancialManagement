@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Trash2, Check, X, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Plus, Trash2, Check, X, RefreshCw, ArrowUpDown, AlertTriangle, Info } from 'lucide-react';
 import { useAppContext, type DividendRecord, type StockItem, type StockQuote } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 
 // ─── 計算輔助 ─────────────────────────────────────────────────────────────────
 
 function calcCostBasisTWD(item: StockItem, usdToTwd: number): number {
-  // avgCost = 總投入成本（非每股），直接換算
   const isUSD = !item.symbol.endsWith('.TW') && !item.symbol.endsWith('.TWO');
   return isUSD ? item.avgCost * usdToTwd : item.avgCost;
 }
@@ -19,11 +18,7 @@ function calcCurrentValueTWD(item: StockItem, quote: StockQuote | undefined, usd
   return quote.currency === 'USD' ? value * usdToTwd : value;
 }
 
-function calcDividendsTWD(
-  symbol: string,
-  records: DividendRecord[],
-  usdToTwd: number,
-): number {
+function calcDividendsTWD(symbol: string, records: DividendRecord[], usdToTwd: number): number {
   return records
     .filter(r => r.symbol === symbol)
     .reduce((sum, r) => {
@@ -45,21 +40,25 @@ function calcAnnualizedReturn(
   return Math.pow(1 + totalReturn, 365 / holdingDays) - 1;
 }
 
+function holdingPeriodBadge(purchaseDate: string | undefined): { label: string; cls: string } | null {
+  if (!purchaseDate) return null;
+  const days = Math.floor((Date.now() - new Date(purchaseDate).getTime()) / 86_400_000);
+  if (days < 365)  return { label: `短期 ${days}天`, cls: 'bg-amber-100 text-amber-700' };
+  if (days < 1095) return { label: `中期 ${Math.floor(days / 365)}年`, cls: 'bg-blue-100 text-blue-700' };
+  return { label: `長期 ${Math.floor(days / 365)}年`, cls: 'bg-emerald-100 text-emerald-700' };
+}
+
 const fmt = (n: number) => n.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
 const fmtPct = (n: number) => `${n >= 0 ? '+' : ''}${(n * 100).toFixed(2)}%`;
+
+type SortKey = 'default' | 'return_desc' | 'return_asc' | 'value_desc' | 'holding_desc';
 
 // ─── 股利新增列 ───────────────────────────────────────────────────────────────
 
 function AddDividendRow({
-  symbol,
-  currentShares,
-  currency,
-  onConfirm,
-  onCancel,
+  symbol, currentShares, currency, onConfirm, onCancel,
 }: {
-  symbol: string;
-  currentShares: number;
-  currency: 'TWD' | 'USD';
+  symbol: string; currentShares: number; currency: 'TWD' | 'USD';
   onConfirm: (record: Omit<DividendRecord, 'id' | 'source'>) => void;
   onCancel: () => void;
 }) {
@@ -69,26 +68,9 @@ function AddDividendRow({
 
   return (
     <div className="flex items-center gap-2 p-3 bg-indigo-50 rounded-lg text-sm">
-      <input
-        type="date"
-        value={date}
-        onChange={e => setDate(e.target.value)}
-        className="border border-indigo-200 rounded px-2 py-1 text-xs bg-white"
-      />
-      <input
-        type="number"
-        placeholder="每股股利"
-        value={dps}
-        onChange={e => setDps(e.target.value)}
-        className="w-24 border border-indigo-200 rounded px-2 py-1 text-xs text-right bg-white"
-      />
-      <input
-        type="number"
-        placeholder="股數"
-        value={shares}
-        onChange={e => setShares(e.target.value)}
-        className="w-24 border border-indigo-200 rounded px-2 py-1 text-xs text-right bg-white"
-      />
+      <input type="date" value={date} onChange={e => setDate(e.target.value)} className="border border-indigo-200 rounded px-2 py-1 text-xs bg-white" />
+      <input type="number" placeholder="每股股利" value={dps} onChange={e => setDps(e.target.value)} className="w-24 border border-indigo-200 rounded px-2 py-1 text-xs text-right bg-white" />
+      <input type="number" placeholder="股數" value={shares} onChange={e => setShares(e.target.value)} className="w-24 border border-indigo-200 rounded px-2 py-1 text-xs text-right bg-white" />
       <button
         onClick={() => {
           if (!dps || Number(dps) <= 0 || !shares || Number(shares) <= 0) return;
@@ -98,9 +80,7 @@ function AddDividendRow({
       >
         <Check className="w-4 h-4" />
       </button>
-      <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
-        <X className="w-4 h-4" />
-      </button>
+      <button onClick={onCancel} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
     </div>
   );
 }
@@ -108,17 +88,12 @@ function AddDividendRow({
 // ─── 每股績效列 ───────────────────────────────────────────────────────────────
 
 function StockPerformanceRow({
-  item,
-  quote,
-  dividendRecords,
-  usdToTwd,
-  onAddDividend,
-  onDeleteDividend,
+  item, quote, dividendRecords, usdToTwd, totalPortfolioValue,
+  onAddDividend, onDeleteDividend,
 }: {
-  item: StockItem;
-  quote: StockQuote | undefined;
-  dividendRecords: DividendRecord[];
-  usdToTwd: number;
+  item: StockItem; quote: StockQuote | undefined;
+  dividendRecords: DividendRecord[]; usdToTwd: number;
+  totalPortfolioValue: number;
   onAddDividend: (record: Omit<DividendRecord, 'id' | 'source'>) => void;
   onDeleteDividend: (id: string) => void;
 }) {
@@ -131,17 +106,30 @@ function StockPerformanceRow({
   const unrealized = currentValue - costBasis;
   const totalReturn = costBasis > 0 ? (unrealized + dividends) / costBasis : 0;
   const annualized = calcAnnualizedReturn(costBasis, currentValue, dividends, item.purchaseDate);
+  const holdingBadge = holdingPeriodBadge(item.purchaseDate);
+  const weight = totalPortfolioValue > 0 ? (currentValue / totalPortfolioValue) * 100 : 0;
+  const isConcentrated = weight >= 30;
 
   const myDividends = dividendRecords.filter(r => r.symbol === item.symbol);
   const displayName = quote?.shortName ?? item.symbol;
   const currency: 'TWD' | 'USD' = (item.symbol.endsWith('.TW') || item.symbol.endsWith('.TWO')) ? 'TWD' : 'USD';
 
   return (
-    <div className="border border-gray-100 rounded-xl overflow-hidden">
+    <div className={`border rounded-xl overflow-hidden ${isConcentrated ? 'border-amber-300' : 'border-gray-100'}`}>
       <div className="p-4 bg-white">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-sm text-gray-900 truncate">{displayName}</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-bold text-sm text-gray-900 truncate">{displayName}</p>
+              {holdingBadge && (
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${holdingBadge.cls}`}>{holdingBadge.label}</span>
+              )}
+              {isConcentrated && (
+                <span className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">
+                  <AlertTriangle className="w-2.5 h-2.5" /> 集中 {weight.toFixed(0)}%
+                </span>
+              )}
+            </div>
             <p className="text-xs text-gray-400 truncate">{item.symbol}</p>
           </div>
 
@@ -149,6 +137,12 @@ function StockPerformanceRow({
             <div className="w-24 text-center">
               <p className="text-xs text-gray-400 mb-0.5">投入成本</p>
               <p className="font-medium text-sm">{costBasis > 0 ? fmt(costBasis) : '—'}</p>
+            </div>
+            <div className="w-20 text-center">
+              <p className="text-xs text-gray-400 mb-0.5">佔比</p>
+              <p className={`font-bold text-sm ${isConcentrated ? 'text-amber-600' : 'text-gray-600'}`}>
+                {totalPortfolioValue > 0 ? `${weight.toFixed(1)}%` : '—'}
+              </p>
             </div>
             <div className="w-24 text-center">
               <p className="text-xs text-gray-400 mb-0.5">未實現損益</p>
@@ -171,7 +165,7 @@ function StockPerformanceRow({
           <div className="flex-1 flex justify-end">
             <button
               onClick={() => setShowDividends(v => !v)}
-              className="text-xs text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
+              className="w-16 text-right text-xs text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
             >
               股利 ({myDividends.length}) {showDividends ? '▲' : '▼'}
             </button>
@@ -197,9 +191,7 @@ function StockPerformanceRow({
             <div key={r.id} className="flex items-center justify-between text-xs bg-white rounded-lg px-3 py-2">
               <span className="text-gray-500">{r.date}</span>
               <span>每股 {r.dividendPerShare} · {r.shares.toLocaleString()} 股</span>
-              <span className="font-medium text-emerald-600">
-                {fmt(r.dividendPerShare * r.shares)} {r.currency}
-              </span>
+              <span className="font-medium text-emerald-600">{fmt(r.dividendPerShare * r.shares)} {r.currency}</span>
               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${r.source === 'auto' ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'}`}>
                 {r.source === 'auto' ? 'Auto' : '手動'}
               </span>
@@ -210,9 +202,7 @@ function StockPerformanceRow({
           ))}
           {isAdding && (
             <AddDividendRow
-              symbol={item.symbol}
-              currentShares={item.shares}
-              currency={currency}
+              symbol={item.symbol} currentShares={item.shares} currency={currency}
               onConfirm={record => { onAddDividend(record); setIsAdding(false); }}
               onCancel={() => setIsAdding(false)}
             />
@@ -232,11 +222,10 @@ function StockPerformanceRow({
 // ─── 主元件 ───────────────────────────────────────────────────────────────────
 
 export function StocksPerformanceTab() {
-  const {
-    stockItems, stockQuotes, dividendRecords, setDividendRecords, usdToTwd,
-  } = useAppContext();
+  const { stockItems, stockQuotes, dividendRecords, setDividendRecords, usdToTwd } = useAppContext();
   const { toast } = useToast();
   const [isFetching, setIsFetching] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>('default');
 
   const fetchAllDividends = useCallback(async () => {
     const eligible = stockItems.filter(s => s.purchaseDate);
@@ -263,12 +252,9 @@ export function StocksPerformanceTab() {
             if (!exists) {
               updated.push({
                 id: `auto-${item.symbol}-${d.date}`,
-                symbol: item.symbol,
-                date: d.date,
-                dividendPerShare: d.dividendPerShare,
-                shares: item.shares,
-                currency,
-                source: 'auto',
+                symbol: item.symbol, date: d.date,
+                dividendPerShare: d.dividendPerShare, shares: item.shares,
+                currency, source: 'auto',
               });
             }
           }
@@ -283,7 +269,6 @@ export function StocksPerformanceTab() {
     }
   }, [stockItems, setDividendRecords, toast]);
 
-  // 首次進入 Tab 自動同步（只跑一次）
   const hasFetched = useRef(false);
   useEffect(() => {
     if (!hasFetched.current) {
@@ -293,10 +278,7 @@ export function StocksPerformanceTab() {
   }, [fetchAllDividends]);
 
   const handleAddDividend = (record: Omit<DividendRecord, 'id' | 'source'>) => {
-    setDividendRecords(prev => [
-      ...prev,
-      { ...record, id: `manual-${crypto.randomUUID()}`, source: 'manual' },
-    ]);
+    setDividendRecords(prev => [...prev, { ...record, id: `manual-${crypto.randomUUID()}`, source: 'manual' }]);
     toast('已新增股利記錄');
   };
 
@@ -333,6 +315,68 @@ export function StocksPerformanceTab() {
   const totalUnrealized = totalValue - totalCostForReturn;
   const totalReturn = totalCostForReturn > 0 ? (totalUnrealized + totalDividends) / totalCostForReturn : 0;
 
+  // 補充保費試算（二代健保，單筆股利 > 20,000 TWD，費率 2.11%）
+  const NHI_THRESHOLD = 20000;
+  const NHI_RATE = 0.0211;
+  const currentYear = new Date().getFullYear();
+
+  const nhiAlert = useMemo(() => {
+    const twdRecords = dividendRecords.filter(r => {
+      if (r.currency !== 'TWD') return false;
+      const total = r.dividendPerShare * r.shares;
+      const year = new Date(r.date).getFullYear();
+      return year === currentYear && total > NHI_THRESHOLD;
+    });
+    const annualPremium = twdRecords.reduce((sum, r) => sum + r.dividendPerShare * r.shares * NHI_RATE, 0);
+    const totalDividendTWD = dividendRecords
+      .filter(r => r.currency === 'TWD' && new Date(r.date).getFullYear() === currentYear)
+      .reduce((sum, r) => sum + r.dividendPerShare * r.shares, 0);
+    return { twdRecords, annualPremium, totalDividendTWD, triggered: twdRecords.length > 0 };
+  }, [dividendRecords, currentYear]);
+
+  // 集中度警示
+  const concentratedStocks = useMemo(() => {
+    return stockItems
+      .map(item => {
+        const quote = stockQuotes[item.symbol];
+        const value = quote ? (quote.currency === 'USD' ? quote.price * item.shares * usdToTwd : quote.price * item.shares) : 0;
+        const weight = totalValue > 0 ? (value / totalValue) * 100 : 0;
+        return { symbol: quote?.shortName ?? item.symbol, weight };
+      })
+      .filter(s => s.weight >= 30);
+  }, [stockItems, stockQuotes, usdToTwd, totalValue]);
+
+  // 排序
+  const sortedItems = useMemo(() => {
+    const withMetrics = stockItems.map(item => {
+      const quote = stockQuotes[item.symbol];
+      const costBasis = calcCostBasisTWD(item, usdToTwd);
+      const currentValue = calcCurrentValueTWD(item, quote, usdToTwd);
+      const dividends = calcDividendsTWD(item.symbol, dividendRecords, usdToTwd);
+      const annualized = calcAnnualizedReturn(costBasis, currentValue, dividends, item.purchaseDate);
+      const holdingDays = item.purchaseDate
+        ? Math.floor((Date.now() - new Date(item.purchaseDate).getTime()) / 86_400_000)
+        : 0;
+      return { item, annualized, currentValue, holdingDays };
+    });
+
+    switch (sortKey) {
+      case 'return_desc': return [...withMetrics].sort((a, b) => (b.annualized ?? -Infinity) - (a.annualized ?? -Infinity));
+      case 'return_asc':  return [...withMetrics].sort((a, b) => (a.annualized ?? Infinity) - (b.annualized ?? Infinity));
+      case 'value_desc':  return [...withMetrics].sort((a, b) => b.currentValue - a.currentValue);
+      case 'holding_desc': return [...withMetrics].sort((a, b) => b.holdingDays - a.holdingDays);
+      default: return withMetrics;
+    }
+  }, [stockItems, stockQuotes, dividendRecords, usdToTwd, sortKey]);
+
+  const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+    { key: 'default', label: '預設' },
+    { key: 'return_desc', label: '年化報酬 ↓' },
+    { key: 'return_asc', label: '年化報酬 ↑' },
+    { key: 'value_desc', label: '市值 ↓' },
+    { key: 'holding_desc', label: '持有最久' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* 摘要列 */}
@@ -351,9 +395,49 @@ export function StocksPerformanceTab() {
         ))}
       </div>
 
-      {/* 同步按鈕 */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">股利資料來自 Yahoo Finance，每次進入頁面自動同步</p>
+      {/* 集中度風險提示 */}
+      {concentratedStocks.length > 0 && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-amber-800">持倉集中度警示</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              {concentratedStocks.map(s => `${s.symbol} (${s.weight.toFixed(0)}%)`).join('、')} 超過組合 30%，建議適度分散風險。
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 補充保費警示 */}
+      {nhiAlert.triggered && (
+        <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+          <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-blue-800">二代健保補充保費提醒（{currentYear} 年）</p>
+            <p className="text-xs text-blue-700 mt-0.5">
+              本年度共 {nhiAlert.twdRecords.length} 筆台股股利超過 NT$20,000，
+              預估須繳補充保費 <span className="font-bold">NT${Math.round(nhiAlert.annualPremium).toLocaleString()}</span>（費率 2.11%）。
+              年度總股利：NT${Math.round(nhiAlert.totalDividendTWD).toLocaleString()}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 工具列：同步 + 排序 */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <ArrowUpDown className="w-3.5 h-3.5 text-gray-400" />
+          <span className="text-xs text-gray-500">排序：</span>
+          {SORT_OPTIONS.map(opt => (
+            <button
+              key={opt.key}
+              onClick={() => setSortKey(opt.key)}
+              className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${sortKey === opt.key ? 'bg-indigo-600 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-300'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
         <button
           onClick={fetchAllDividends}
           disabled={isFetching}
@@ -369,13 +453,14 @@ export function StocksPerformanceTab() {
         {stockItems.length === 0 && (
           <p className="text-center text-gray-400 py-8">尚無持倉，請至「持倉」Tab 新增股票</p>
         )}
-        {stockItems.map(item => (
+        {sortedItems.map(({ item }) => (
           <StockPerformanceRow
             key={item.id}
             item={item}
             quote={stockQuotes[item.symbol]}
             dividendRecords={dividendRecords}
             usdToTwd={usdToTwd}
+            totalPortfolioValue={totalValue}
             onAddDividend={handleAddDividend}
             onDeleteDividend={handleDeleteDividend}
           />

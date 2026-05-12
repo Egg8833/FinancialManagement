@@ -14,6 +14,9 @@ import { AlertTriangle, AlertOctagon, ShieldCheck as ShieldOk } from 'lucide-rea
 import { PledgeAlertBanner } from '../../components/PledgeAlertBanner';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
+import { DebtPayoffStrategy } from '../../components/DebtPayoffStrategy';
+import { LoanRefinanceCalc } from '../../components/LoanRefinanceCalc';
+import { LoanPayoffTimeline } from '../../components/LoanPayoffTimeline';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -727,6 +730,10 @@ export default function BorrowingPage() {
         onUpdate={handleUpdateLoan}
         onAdd={handleAddLoan}
       />
+
+      <LoanPayoffTimeline />
+      <DebtPayoffStrategy />
+      <LoanRefinanceCalc />
 
       <div className="my-8 border-t border-gray-100" />
 

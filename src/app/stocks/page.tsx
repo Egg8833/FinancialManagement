@@ -9,6 +9,9 @@ import { useAppContext, type StockItem, type StockQuote } from '../../context/Ap
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 import { StocksPerformanceTab } from '../../components/StocksPerformanceTab';
+import { StockSectorChart } from '../../components/StockSectorChart';
+import { DividendCalendar } from '../../components/DividendCalendar';
+import { PortfolioRebalance } from '../../components/PortfolioRebalance';
 
 type Market = '台股' | '美股' | '其他';
 
@@ -662,7 +665,14 @@ export default function StocksPage() {
           <PortfolioTrendChart stockItems={stockItems} usdToTwd={usdToTwd} />
       </>)}
 
-      {activeTab === 'performance' && <StocksPerformanceTab />}
+      {activeTab === 'performance' && (
+        <div className="space-y-6">
+          <StocksPerformanceTab />
+          <StockSectorChart />
+          <DividendCalendar />
+          <PortfolioRebalance />
+        </div>
+      )}
 
       {deleteTarget && (
         <ConfirmDialog

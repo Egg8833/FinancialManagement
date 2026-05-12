@@ -6,7 +6,8 @@ import {
   ReferenceLine, ResponsiveContainer, Legend,
 } from 'recharts';
 import { useAppContext } from '../../context/AppContext';
-import { calculateFire, type FireResult, type FireScenario } from '../../lib/fireCalc';
+import { calculateFire, runMonteCarlo, type FireResult, type FireScenario } from '../../lib/fireCalc';
+import { AreaChart, Area } from 'recharts';
 
 function SliderInput({
   label, value, onChange, min, max, step, format,
@@ -21,9 +22,7 @@ function SliderInput({
         <span className="font-bold text-gray-900">{format(value)}</span>
       </div>
       <input
-        type="range"
-        min={min} max={max} step={step}
-        value={value}
+        type="range" min={min} max={max} step={step} value={value}
         onChange={e => onChange(Number(e.target.value))}
         className="w-full accent-indigo-600"
       />
@@ -46,8 +45,7 @@ function NumberInput({
       <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden focus-within:border-indigo-400">
         {prefix && <span className="px-3 bg-gray-50 text-gray-400 text-sm border-r border-gray-200 h-10 flex items-center">{prefix}</span>}
         <input
-          type="number"
-          value={value}
+          type="number" value={value}
           onChange={e => onChange(Number(e.target.value) || 0)}
           className="flex-1 px-3 py-2 text-sm outline-none bg-white"
         />
@@ -100,19 +98,71 @@ export default function FirePage() {
   const [retirementMonthlyExpense, setRetirementMonthlyExpense] = useState(totalMonthlyExpense);
   const [annualReturnRate, setAnnualReturnRate] = useState(6);
   const [inflationRate, setInflationRate] = useState(2);
+  const [swr, setSwr] = useState(4); // 4% rule
+  const [extraMonthly, setExtraMonthly] = useState(0); // what-if 額外儲蓄
 
   const result: FireResult = useMemo(() => calculateFire({
     currentAge,
     targetRetirementAge,
     currentNetWorth,
-    monthlyInvestment,
+    monthlyInvestment: monthlyInvestment + extraMonthly,
     retirementMonthlyExpense,
     annualReturnRate: annualReturnRate / 100,
     inflationRate: inflationRate / 100,
-  }), [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate]);
+    safeWithdrawalRate: swr / 100,
+  }), [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, extraMonthly]);
+
+  // 基準結果（無額外儲蓄）
+  const baseResult: FireResult = useMemo(() => {
+    if (extraMonthly === 0) return result;
+    return calculateFire({
+      currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment,
+      retirementMonthlyExpense,
+      annualReturnRate: annualReturnRate / 100, inflationRate: inflationRate / 100,
+      safeWithdrawalRate: swr / 100,
+    });
+  }, [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, extraMonthly]);
+
+  const [volatility, setVolatility] = useState(12);
 
   const currentYear = new Date().getFullYear();
   const yearsToNeutralFire = result.neutralFireYear ? result.neutralFireYear - currentYear : null;
+
+  // 進度計算
+  const fireProgress = result.fireNumber > 0 ? Math.min(100, (currentNetWorth / result.fireNumber) * 100) : 0;
+  const fireGap = Math.max(0, result.fireNumber - currentNetWorth);
+
+  // what-if 節省年數
+  const extraYearsSaved = (extraMonthly > 0 && baseResult.neutralFireYear && result.neutralFireYear)
+    ? baseResult.neutralFireYear - result.neutralFireYear
+    : null;
+
+  // Coast FIRE: today's lump sum that grows to fireNumber by targetRetirementAge without further contributions
+  const coastFireNumber = useMemo(() => {
+    const years = Math.max(0, targetRetirementAge - currentAge);
+    const rate = annualReturnRate / 100;
+    if (years === 0) return result.fireNumber;
+    return result.fireNumber / Math.pow(1 + rate, years);
+  }, [result.fireNumber, targetRetirementAge, currentAge, annualReturnRate]);
+
+  const coastFireProgress = coastFireNumber > 0
+    ? Math.min(100, (currentNetWorth / coastFireNumber) * 100)
+    : 0;
+  const coastAchieved = currentNetWorth >= coastFireNumber;
+
+  // Monte Carlo
+  const mcResult = useMemo(() => runMonteCarlo({
+    currentAge,
+    currentNetWorth,
+    monthlyInvestment: monthlyInvestment + extraMonthly,
+    retirementMonthlyExpense,
+    annualReturnRate: annualReturnRate / 100,
+    inflationRate: inflationRate / 100,
+    safeWithdrawalRate: swr / 100,
+    volatility: volatility / 100,
+    simulations: 500,
+    maxYears: 50,
+  }), [currentAge, currentNetWorth, monthlyInvestment, extraMonthly, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, volatility]);
 
   return (
     <>
@@ -121,62 +171,143 @@ export default function FirePage() {
         <p className="text-sm text-gray-500 mt-1">Financial Independence, Retire Early — 預測你的財務自由時間點</p>
       </div>
 
+      {/* FIRE 進度條 */}
+      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-bold text-gray-700">FIRE 達成進度</p>
+          <p className="text-sm font-bold text-indigo-600">{fireProgress.toFixed(1)}%</p>
+        </div>
+        <div className="h-3 bg-gray-100 rounded-full overflow-hidden mb-2">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-700"
+            style={{ width: `${fireProgress}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>目前淨資產：{formatTWD(currentNetWorth)}</span>
+          <span>還差 {formatTWD(fireGap)}</span>
+          <span>FIRE 目標：{formatTWD(result.fireNumber)}</span>
+        </div>
+      </div>
+
+      {/* Coast FIRE 卡片 */}
+      <div className={`rounded-2xl p-5 shadow-sm mb-6 ${
+        coastAchieved
+          ? 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white'
+          : 'bg-white border border-gray-100'
+      }`}>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${coastAchieved ? 'text-white/70' : 'text-gray-400'}`}>
+              Coast FIRE 數字
+            </p>
+            <p className={`text-2xl font-black ${coastAchieved ? 'text-white' : 'text-gray-900'}`}>
+              {formatTWD(coastFireNumber)}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {coastAchieved && (
+              <span className="px-3 py-1.5 bg-white/20 rounded-full text-xs font-bold text-white">
+                ✓ 已達成 Coast FIRE
+              </span>
+            )}
+            <div className={`text-right ${coastAchieved ? 'text-white/70' : 'text-gray-400'}`}>
+              <p className="text-[10px] font-bold uppercase tracking-wider">vs FIRE 目標</p>
+              <p className={`text-sm font-bold ${coastAchieved ? 'text-white' : 'text-indigo-600'}`}>
+                {formatTWD(result.fireNumber)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {!coastAchieved && (
+          <>
+            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden mb-2">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-teal-400 to-emerald-500 transition-all duration-700"
+                style={{ width: `${coastFireProgress}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-gray-400">
+              <span>目前 {formatTWD(currentNetWorth)}</span>
+              <span className="font-bold text-teal-600">{coastFireProgress.toFixed(1)}%</span>
+              <span>Coast 目標 {formatTWD(coastFireNumber)}</span>
+            </div>
+          </>
+        )}
+
+        {coastAchieved ? (
+          <p className="text-sm text-white/80 mt-2">
+            恭喜！你已達到 Coast FIRE。即使今天停止投入，以 {annualReturnRate}% 年化報酬自然成長，也能在 {targetRetirementAge} 歲達成財務自由目標。
+          </p>
+        ) : (
+          <p className="text-xs text-gray-400 mt-2">
+            只需存到此金額，之後無需再追加投入，靠複利自然成長即可在 {targetRetirementAge} 歲達成 FIRE 目標金額。
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 左側輸入面板 */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-5">
             <h2 className="font-bold text-gray-900">基本設定</h2>
-
             <div className="grid grid-cols-2 gap-4">
               <NumberInput label="當前年齡" value={currentAge} onChange={setCurrentAge} />
               <NumberInput label="目標退休年齡" value={targetRetirementAge} onChange={setTargetRetirementAge} />
             </div>
-
-            <NumberInput
-              label="現有可投資淨資產（TWD）"
-              value={currentNetWorth}
-              onChange={setCurrentNetWorth}
-              prefix="$"
-            />
-            <NumberInput
-              label="每月可投入金額（TWD）"
-              value={monthlyInvestment}
-              onChange={setMonthlyInvestment}
-              prefix="$"
-            />
-            <NumberInput
-              label="退休後預計月支出（TWD）"
-              value={retirementMonthlyExpense}
-              onChange={setRetirementMonthlyExpense}
-              prefix="$"
-            />
+            <NumberInput label="現有可投資淨資產（TWD）" value={currentNetWorth} onChange={setCurrentNetWorth} prefix="$" />
+            <NumberInput label="每月可投入金額（TWD）" value={monthlyInvestment} onChange={setMonthlyInvestment} prefix="$" />
+            <NumberInput label="退休後預計月支出（TWD）" value={retirementMonthlyExpense} onChange={setRetirementMonthlyExpense} prefix="$" />
           </div>
 
           <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-5">
             <h2 className="font-bold text-gray-900">報酬假設</h2>
-
-            <SliderInput
-              label="預期年化投資報酬率"
-              value={annualReturnRate}
-              onChange={setAnnualReturnRate}
-              min={1} max={15} step={0.5}
-              format={v => `${v}%`}
-            />
-            <SliderInput
-              label="通膨率"
-              value={inflationRate}
-              onChange={setInflationRate}
-              min={0} max={5} step={0.1}
-              format={v => `${v}%`}
-            />
+            <SliderInput label="預期年化投資報酬率" value={annualReturnRate} onChange={setAnnualReturnRate} min={1} max={15} step={0.5} format={v => `${v}%`} />
+            <SliderInput label="通膨率" value={inflationRate} onChange={setInflationRate} min={0} max={5} step={0.1} format={v => `${v}%`} />
+            <SliderInput label="年化波動率（Monte Carlo）" value={volatility} onChange={setVolatility} min={5} max={30} step={1} format={v => `${v}%`} />
+            <div className="space-y-1">
+              <SliderInput
+                label="安全提領率 (SWR)"
+                value={swr} onChange={setSwr}
+                min={3} max={5} step={0.1}
+                format={v => `${v}%`}
+              />
+              <p className="text-xs text-gray-400">
+                {swr === 4 ? '4% 法則（最常見）' : swr < 4 ? '保守型（資產更長壽）' : '積極型（退休花費較高）'}
+              </p>
+            </div>
           </div>
 
-          {/* FIRE 目標數字 */}
+          {/* What-if 額外儲蓄 */}
+          <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5 space-y-3">
+            <h2 className="font-bold text-indigo-800">What-if 情境模擬</h2>
+            <SliderInput
+              label="每月額外投入"
+              value={extraMonthly} onChange={setExtraMonthly}
+              min={0} max={50000} step={1000}
+              format={v => v === 0 ? '不額外投入' : `+${v.toLocaleString()}`}
+            />
+            {extraYearsSaved !== null && extraYearsSaved > 0 && (
+              <div className="bg-white rounded-xl p-3 text-center">
+                <p className="text-xs text-gray-500 mb-0.5">提早達成 FIRE</p>
+                <p className="text-2xl font-black text-emerald-600">{extraYearsSaved} 年</p>
+                <p className="text-xs text-gray-400">每月多存 {extraMonthly.toLocaleString()} 元</p>
+              </div>
+            )}
+            {extraYearsSaved === 0 && extraMonthly > 0 && (
+              <p className="text-xs text-indigo-500 text-center">效果有限，考慮提高報酬率或降低支出</p>
+            )}
+          </div>
+
+          {/* FIRE 目標金額 */}
           <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5">
-            <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1">FIRE 目標金額（25倍法則）</p>
+            <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1">
+              FIRE 目標金額（{swr}% SWR）
+            </p>
             <p className="text-3xl font-black text-indigo-700">{formatTWD(result.fireNumber)}</p>
             <p className="text-xs text-indigo-400 mt-1">
-              退休月支出（通膨調整後）× 12 × 25
+              退休月支出（通膨調整後）× 12 ÷ {swr}%
             </p>
           </div>
         </div>
@@ -194,6 +325,9 @@ export default function FirePage() {
             {yearsToNeutralFire !== null && (
               <p className="text-center text-sm text-gray-500 mt-4 pt-4 border-t border-gray-100">
                 以中性情境，距離財務自由還有 <strong className="text-indigo-600">{yearsToNeutralFire} 年</strong>
+                {extraMonthly > 0 && extraYearsSaved !== null && extraYearsSaved > 0 && (
+                  <span className="text-emerald-600">（每月多存 {extraMonthly.toLocaleString()} 可提早 {extraYearsSaved} 年）</span>
+                )}
               </p>
             )}
           </div>
@@ -204,34 +338,20 @@ export default function FirePage() {
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={result.projectionData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="year"
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
-                  tickFormatter={v => String(v)}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: '#94a3b8' }}
-                  tickFormatter={v => formatTWD(v as number)}
-                  width={60}
-                />
+                <XAxis dataKey="year" tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => String(v)} />
+                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => formatTWD(v as number)} width={60} />
                 <Tooltip
-                  formatter={(value: unknown) => [
-                    formatTWD(value as number),
-                  ]}
+                  formatter={(value: unknown) => [formatTWD(value as number)]}
                   labelFormatter={label => `${label} 年`}
                   contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
                 />
-                <Legend
-                  formatter={name => SCENARIO_LABELS[name as FireScenario] ?? name}
-                />
-                {/* FIRE 目標線 */}
+                <Legend formatter={name => SCENARIO_LABELS[name as FireScenario] ?? name} />
                 <ReferenceLine
                   y={result.fireNumber}
                   stroke="#ef4444"
                   strokeDasharray="6 3"
                   label={{ value: 'FIRE 目標', position: 'insideTopRight', fontSize: 11, fill: '#ef4444' }}
                 />
-                {/* 三條情境線 */}
                 {(['conservative', 'neutral', 'optimistic'] as const).map(scenario => (
                   <Line
                     key={scenario}
@@ -249,6 +369,112 @@ export default function FirePage() {
               紅色虛線為 FIRE 目標金額，曲線與目標線交叉點即為預計達成年份
             </p>
           </div>
+
+          {/* SWR 比較卡 */}
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <h3 className="font-bold text-gray-900 mb-3 text-sm">SWR 敏感度分析</h3>
+            <div className="grid grid-cols-3 gap-3">
+              {[3.5, 4.0, 4.5].map(rate => {
+                const r = calculateFire({
+                  currentAge, targetRetirementAge, currentNetWorth,
+                  monthlyInvestment: monthlyInvestment + extraMonthly,
+                  retirementMonthlyExpense,
+                  annualReturnRate: annualReturnRate / 100,
+                  inflationRate: inflationRate / 100,
+                  safeWithdrawalRate: rate / 100,
+                });
+                const isSelected = Math.abs(swr - rate) < 0.05;
+                return (
+                  <button
+                    key={rate}
+                    onClick={() => setSwr(rate)}
+                    className={`rounded-xl p-3 text-center transition-all border ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-100 hover:border-indigo-200'}`}
+                  >
+                    <p className={`text-xs font-bold mb-1 ${isSelected ? 'text-indigo-600' : 'text-gray-500'}`}>{rate}% SWR</p>
+                    <p className="text-sm font-black text-gray-900">{formatTWD(r.fireNumber)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {r.neutralFireYear ? `${r.neutralFireYear} 達成` : '60年內不達'}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Monte Carlo 模擬 ── */}
+      <div className="mt-8 space-y-6">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-bold text-gray-900">Monte Carlo 模擬分析</h2>
+          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">500 次模擬</span>
+        </div>
+
+        {/* 達成機率摘要 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: '10 年後達成機率', value: mcResult.successRateAt10 },
+            { label: '20 年後達成機率', value: mcResult.successRateAt20 },
+            { label: '30 年後達成機率', value: mcResult.successRateAt30 },
+            { label: '中位數達成年齡', value: null, age: mcResult.medianFireAge },
+          ].map(({ label, value, age }) => {
+            const pct = value ?? 0;
+            const color = pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-indigo-600' : pct >= 25 ? 'text-amber-600' : 'text-rose-600';
+            return (
+              <div key={label} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm text-center">
+                <p className="text-xs text-gray-400 mb-1">{label}</p>
+                {age !== undefined ? (
+                  <p className="text-2xl font-black text-gray-900">{age !== null ? `${age} 歲` : '—'}</p>
+                ) : (
+                  <p className={`text-2xl font-black ${color}`}>{pct.toFixed(0)}%</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 資產路徑扇形圖 */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <h3 className="font-bold text-gray-900 mb-1">資產路徑信心區間</h3>
+          <p className="text-xs text-gray-400 mb-4">灰色區域為 10–90 百分位，深色為 25–75 百分位，線條為中位數（第50百分位）</p>
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={mcResult.byYear} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => formatTWD(v as number)} width={65} />
+              <Tooltip
+                formatter={(v: unknown, name: string) => {
+                  const labels: Record<string, string> = { p90: '90%', p75: '75%', p50: '中位數', p25: '25%', p10: '10%' };
+                  return [formatTWD(v as number), labels[name] ?? name];
+                }}
+                labelFormatter={l => `${l} 年`}
+                contentStyle={{ borderRadius: 10, fontSize: 11, border: '1px solid #e2e8f0' }}
+              />
+              <ReferenceLine y={mcResult.fireNumber} stroke="#ef4444" strokeDasharray="6 3" label={{ value: 'FIRE', position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }} />
+              <Area type="monotone" dataKey="p90" stroke="none" fill="#e0e7ff" fillOpacity={0.5} />
+              <Area type="monotone" dataKey="p75" stroke="none" fill="#c7d2fe" fillOpacity={0.6} />
+              <Area type="monotone" dataKey="p25" stroke="none" fill="#c7d2fe" fillOpacity={0} />
+              <Area type="monotone" dataKey="p10" stroke="none" fill="#e0e7ff" fillOpacity={0} />
+              <Line type="monotone" dataKey="p50" stroke="#6366f1" strokeWidth={2.5} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 達成機率折線 */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <h3 className="font-bold text-gray-900 mb-1">達成 FIRE 機率曲線</h3>
+          <p className="text-xs text-gray-400 mb-4">在各年份前達成 FIRE 的模擬次數比例（500 次模擬）</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={mcResult.byYear} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => `${v}%`} width={40} />
+              <Tooltip formatter={(v: unknown) => [`${(v as number).toFixed(1)}%`, '達成機率']} labelFormatter={l => `${l} 年`} contentStyle={{ borderRadius: 10, fontSize: 11 }} />
+              <ReferenceLine y={50} stroke="#6366f1" strokeDasharray="4 2" label={{ value: '50%', position: 'insideTopRight', fontSize: 9, fill: '#6366f1' }} />
+              <ReferenceLine y={80} stroke="#10b981" strokeDasharray="4 2" label={{ value: '80%', position: 'insideTopRight', fontSize: 9, fill: '#10b981' }} />
+              <Area type="monotone" dataKey="successRate" stroke="#6366f1" strokeWidth={2} fill="#e0e7ff" fillOpacity={0.6} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </>

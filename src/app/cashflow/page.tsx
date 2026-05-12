@@ -1,17 +1,33 @@
 "use client";
 
-import { useState } from 'react';
-import { Wallet, Plus, Trash2, Pencil, Check, X, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Wallet, Plus, Trash2, Pencil, Check, X, ArrowUpCircle, ArrowDownCircle, Tag, TrendingUp } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
+} from 'recharts';
 import { useAppContext, type CashFlowItem, type LoanItem } from '../../context/AppContext';
 import { formatCurrency as _fmt } from '../../lib/utils';
 import { AnnualTracker } from '../../components/AnnualTracker';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 
+const EXPENSE_TAG_LABELS: Record<string, string> = {
+  needs: '需求',
+  wants: '想要',
+  savings: '儲蓄',
+};
+
+const EXPENSE_TAG_COLORS: Record<string, string> = {
+  needs: 'bg-blue-100 text-blue-700',
+  wants: 'bg-purple-100 text-purple-700',
+  savings: 'bg-emerald-100 text-emerald-700',
+};
+
 export default function CashFlowPage() {
-  const { 
-    incomeItems, setIncomeItems, 
-    expenseItems, setExpenseItems, 
+  const {
+    incomeItems, setIncomeItems,
+    expenseItems, setExpenseItems,
+    annualEntries,
     totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
     showValues
   } = useAppContext();
@@ -21,13 +37,15 @@ export default function CashFlowPage() {
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
 
-  const handleAddItem = (type: 'income' | 'expense', name: string, amount: number) => {
+  const handleAddItem = (type: 'income' | 'expense', name: string, amount: number, budget?: number, expenseTag?: CashFlowItem['expenseTag']) => {
     const newItem: CashFlowItem = {
       id: Date.now().toString(),
       name,
       amount,
       category: 'General',
-      isRecurring: true
+      isRecurring: true,
+      budget,
+      expenseTag,
     };
     if (type === 'income') setIncomeItems(prev => [...prev, newItem]);
     else setExpenseItems(prev => [...prev, newItem]);
@@ -38,11 +56,47 @@ export default function CashFlowPage() {
     else setExpenseItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleUpdateItem = (type: 'income' | 'expense', id: string, name: string, amount: number) => {
-    const updateFn = (prev: CashFlowItem[]) => prev.map(item => item.id === id ? { ...item, name, amount } : item);
+  const handleUpdateItem = (type: 'income' | 'expense', id: string, name: string, amount: number, budget?: number, expenseTag?: CashFlowItem['expenseTag']) => {
+    const updateFn = (prev: CashFlowItem[]) =>
+      prev.map(item => item.id === id ? { ...item, name, amount, budget, expenseTag } : item);
     if (type === 'income') setIncomeItems(updateFn);
     else setExpenseItems(updateFn);
   };
+
+  // 50/30/20 分析
+  const tagAnalysis = useMemo(() => {
+    const needs = expenseItems.filter(i => i.expenseTag === 'needs').reduce((s, i) => s + i.amount, 0);
+    const wants = expenseItems.filter(i => i.expenseTag === 'wants').reduce((s, i) => s + i.amount, 0);
+    const savings = expenseItems.filter(i => i.expenseTag === 'savings').reduce((s, i) => s + i.amount, 0);
+    const tagged = needs + wants + savings;
+    const income = totalMonthlyIncome || 1;
+    return { needs, wants, savings, tagged, income };
+  }, [expenseItems, totalMonthlyIncome]);
+
+  const hasTaggedItems = tagAnalysis.tagged > 0;
+
+  // 12-month trend: recurring base + one-time entries from annualEntries
+  const monthTrend = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+      const year = d.getFullYear();
+      const month = d.getMonth() + 1;
+      const label = `${month}月`;
+      let income = totalMonthlyIncome;
+      let expense = totalMonthlyExpense;
+      for (const entry of annualEntries) {
+        if (entry.year === year && entry.month === month) {
+          if (entry.category === 'dividend' || entry.category === 'bonus' || entry.category === 'other_income') {
+            income += entry.amount;
+          } else if (entry.category === 'one_time_expense') {
+            expense += entry.amount;
+          }
+        }
+      }
+      return { label, income: Math.round(income), expense: Math.round(expense), net: Math.round(income - expense) };
+    });
+  }, [totalMonthlyIncome, totalMonthlyExpense, annualEntries]);
 
   return (
     <>
@@ -93,14 +147,26 @@ export default function CashFlowPage() {
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
             <div className="divide-y divide-gray-50">
               {isAddingIncome && (
-                <AddItemRow onConfirm={(n, a) => { handleAddItem('income', n, a); setIsAddingIncome(false); }} onCancel={() => setIsAddingIncome(false)} />
+                <AddItemRow
+                  type="income"
+                  onConfirm={(n, a) => { handleAddItem('income', n, a); setIsAddingIncome(false); }}
+                  onCancel={() => setIsAddingIncome(false)}
+                />
               )}
               {incomeItems.map(item => (
-                <CashFlowRow key={item.id} item={item} onUpdate={(n, a) => handleUpdateItem('income', item.id, n, a)} onDelete={() => handleDeleteItem('income', item.id)} showValues={showValues} />
+                <CashFlowRow
+                  key={item.id}
+                  item={item}
+                  type="income"
+                  onUpdate={(n, a, b, t) => handleUpdateItem('income', item.id, n, a, b, t)}
+                  onDelete={() => handleDeleteItem('income', item.id)}
+                  showValues={showValues}
+                />
               ))}
-              {/* Auto Staking Earn Income (Display Only) */}
               <AutoStakingIncomeRow />
-              {incomeItems.length === 0 && !isAddingIncome && <div className="p-8 text-center text-gray-400 text-sm">尚無手動收入項目</div>}
+              {incomeItems.length === 0 && !isAddingIncome && (
+                <div className="p-8 text-center text-gray-400 text-sm">尚無手動收入項目</div>
+              )}
             </div>
           </div>
         </div>
@@ -116,18 +182,28 @@ export default function CashFlowPage() {
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
             <div className="divide-y divide-gray-50">
               {isAddingExpense && (
-                <AddItemRow onConfirm={(n, a) => { handleAddItem('expense', n, a); setIsAddingExpense(false); }} onCancel={() => setIsAddingExpense(false)} />
+                <AddItemRow
+                  type="expense"
+                  onConfirm={(n, a, b, t) => { handleAddItem('expense', n, a, b, t); setIsAddingExpense(false); }}
+                  onCancel={() => setIsAddingExpense(false)}
+                />
               )}
               {expenseItems.map(item => (
-                <CashFlowRow key={item.id} item={item} onUpdate={(n, a) => handleUpdateItem('expense', item.id, n, a)} onDelete={() => handleDeleteItem('expense', item.id)} showValues={showValues} />
+                <CashFlowRow
+                  key={item.id}
+                  item={item}
+                  type="expense"
+                  onUpdate={(n, a, b, t) => handleUpdateItem('expense', item.id, n, a, b, t)}
+                  onDelete={() => handleDeleteItem('expense', item.id)}
+                  showValues={showValues}
+                />
               ))}
-              {/* Auto Staking Interest (Display Only) */}
               <AutoStakingExpenseRow />
-              {/* Auto Loan Payments (Display Only) */}
               <AutoLoanExpenseRow />
-              {expenseItems.length === 0 && !isAddingExpense && <div className="p-8 text-center text-gray-400 text-sm">尚無手動支出項目</div>}
+              {expenseItems.length === 0 && !isAddingExpense && (
+                <div className="p-8 text-center text-gray-400 text-sm">尚無手動支出項目</div>
+              )}
             </div>
-            {/* Total */}
             <div className="border-t-2 border-gray-100 px-4 py-3 flex items-center justify-between bg-gray-50">
               <span className="text-sm font-bold text-gray-600">支出合計</span>
               <span className="text-base font-bold text-rose-600">{formatCurrency(totalMonthlyExpense)}</span>
@@ -136,20 +212,105 @@ export default function CashFlowPage() {
         </div>
       </div>
 
+      {/* 50/30/20 分析 */}
+      {hasTaggedItems && (
+        <div className="mt-8 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <Tag className="w-4 h-4 text-indigo-600" />
+            <h3 className="text-base font-bold text-gray-900">50/30/20 法則分析</h3>
+            <span className="text-xs text-gray-400 ml-1">（已標記的支出項目）</span>
+          </div>
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            {[
+              { key: 'needs', label: '必要需求 (50%)', amount: tagAnalysis.needs, ideal: 0.5, color: 'bg-blue-500', textColor: 'text-blue-700', bgColor: 'bg-blue-50' },
+              { key: 'wants', label: '生活享受 (30%)', amount: tagAnalysis.wants, ideal: 0.3, color: 'bg-purple-500', textColor: 'text-purple-700', bgColor: 'bg-purple-50' },
+              { key: 'savings', label: '儲蓄投資 (20%)', amount: tagAnalysis.savings, ideal: 0.2, color: 'bg-emerald-500', textColor: 'text-emerald-700', bgColor: 'bg-emerald-50' },
+            ].map(({ key, label, amount, ideal, color, textColor, bgColor }) => {
+              const pct = tagAnalysis.income > 0 ? (amount / tagAnalysis.income) * 100 : 0;
+              const idealPct = ideal * 100;
+              const isOver = pct > idealPct * 1.1;
+              return (
+                <div key={key} className={`${bgColor} rounded-xl p-4`}>
+                  <p className={`text-xs font-bold ${textColor} mb-1`}>{label}</p>
+                  <p className={`text-xl font-black ${textColor}`}>{pct.toFixed(1)}%</p>
+                  <p className="text-xs text-gray-500 mb-2">{showValues ? amount.toLocaleString() : '****'} / 月</p>
+                  <div className="h-1.5 bg-white/60 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(100, (pct / idealPct) * 100)}%` }} />
+                  </div>
+                  {isOver && (
+                    <p className="text-xs text-rose-500 mt-1.5">超出建議比例</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-gray-400">
+            提示：在支出項目上設定「需求/想要/儲蓄」標籤，即可在此看到比例分析。部分支出（質押利息、貸款）未納入計算。
+          </p>
+        </div>
+      )}
+
       <AnnualTracker />
+
+            {/* 12-month trend chart */}
+      <div className="mt-6 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm mb-8">
+        <div className="flex items-center gap-2 mb-1">
+          <TrendingUp className="w-4 h-4 text-indigo-500" />
+          <h3 className="text-base font-bold text-gray-900">近 12 個月收支趨勢</h3>
+        </div>
+        <p className="text-xs text-gray-400 mb-5">每月固定收支 + 年度一次性項目（獎金、股利、臨時支出）</p>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={monthTrend} margin={{ top: 5, right: 5, left: 0, bottom: 0 }} barCategoryGap="30%">
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+            <YAxis
+              axisLine={false} tickLine={false}
+              tick={{ fontSize: 10, fill: '#94a3b8' }}
+              tickFormatter={v => showValues ? `${(v / 1000).toFixed(0)}K` : ''}
+              width={38}
+            />
+            <Tooltip
+              formatter={(v: number, name: string) => [
+                showValues ? `NT$${v.toLocaleString()}` : '****',
+                name,
+              ]}
+              contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12 }}
+            />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+            <ReferenceLine y={0} stroke="#e2e8f0" />
+            <Bar dataKey="income" name="收入" fill="#10b981" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="expense" name="支出" fill="#f43f5e" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="net" name="淨盈餘" fill="#6366f1" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </>
   );
 }
 
-function CashFlowRow({ item, onUpdate, onDelete, showValues }: { item: CashFlowItem, onUpdate: (n: string, a: number) => void, onDelete: () => void, showValues: boolean }) {
+function CashFlowRow({
+  item,
+  type,
+  onUpdate,
+  onDelete,
+  showValues,
+}: {
+  item: CashFlowItem;
+  type: 'income' | 'expense';
+  onUpdate: (n: string, a: number, b?: number, t?: CashFlowItem['expenseTag']) => void;
+  onDelete: () => void;
+  showValues: boolean;
+}) {
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState(item.name);
   const [amount, setAmount] = useState(item.amount.toString());
+  const [budget, setBudget] = useState(item.budget?.toString() ?? '');
+  const [expenseTag, setExpenseTag] = useState<CashFlowItem['expenseTag']>(item.expenseTag);
   const { toast } = useToast();
 
   const handleSave = () => {
-    onUpdate(name, Number(amount) || 0);
+    onUpdate(name, Number(amount) || 0, budget ? Number(budget) : undefined, expenseTag);
     setIsEditing(false);
     toast('已更新項目');
   };
@@ -159,30 +320,82 @@ function CashFlowRow({ item, onUpdate, onDelete, showValues }: { item: CashFlowI
     toast(`已刪除「${item.name}」`, 'info');
   };
 
+  const budgetPct = item.budget && item.budget > 0 ? Math.min(100, (item.amount / item.budget) * 100) : null;
+
   if (isEditing) {
     return (
-      <div className="p-4 bg-gray-50 flex items-center gap-3">
-        <input type="text" value={name} onChange={e => setName(e.target.value)} className="flex-1 border rounded px-2 py-1 text-sm" />
-        <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-24 border rounded px-2 py-1 text-sm text-right" />
-        <button onClick={handleSave} className="text-indigo-600"><Check className="w-4 h-4" /></button>
-        <button onClick={() => setIsEditing(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
+      <div className="p-4 bg-gray-50 space-y-2">
+        <div className="flex items-center gap-3">
+          <input type="text" value={name} onChange={e => setName(e.target.value)} className="flex-1 border rounded px-2 py-1 text-sm" placeholder="名稱" />
+          <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-24 border rounded px-2 py-1 text-sm text-right" placeholder="金額" />
+          <button onClick={handleSave} className="text-indigo-600"><Check className="w-4 h-4" /></button>
+          <button onClick={() => setIsEditing(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
+        </div>
+        {type === 'expense' && (
+          <div className="flex items-center gap-3">
+            <input
+              type="number"
+              value={budget}
+              onChange={e => setBudget(e.target.value)}
+              className="w-32 border rounded px-2 py-1 text-xs text-right"
+              placeholder="月預算上限（選填）"
+            />
+            <div className="flex gap-1.5">
+              {(['needs', 'wants', 'savings'] as const).map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setExpenseTag(t => t === tag ? undefined : tag)}
+                  className={`px-2 py-0.5 rounded text-xs border transition-colors ${expenseTag === tag ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-300'}`}
+                >
+                  {EXPENSE_TAG_LABELS[tag]}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="p-4 flex items-center justify-between hover:bg-gray-50 group transition-colors">
-      <div className="flex flex-col">
-        <span className="text-sm font-medium text-gray-700">{item.name}</span>
-        <span className="text-[10px] text-gray-400 uppercase tracking-tighter">每月固定</span>
-      </div>
-      <div className="flex items-center gap-4">
-        <span className="font-bold text-gray-900 text-sm">{showValues ? item.amount.toLocaleString() : '****'}</span>
-        <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-          <button onClick={() => setIsEditing(true)} className="p-1 text-gray-400 hover:text-indigo-600"><Pencil className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setConfirmDelete(true)} className="p-1 text-gray-400 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
+    <div className="px-4 py-3 hover:bg-gray-50 group transition-colors">
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">{item.name}</span>
+            {item.expenseTag && (
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${EXPENSE_TAG_COLORS[item.expenseTag]}`}>
+                {EXPENSE_TAG_LABELS[item.expenseTag]}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] text-gray-400 uppercase tracking-tighter">每月固定</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="font-bold text-gray-900 text-sm">{showValues ? item.amount.toLocaleString() : '****'}</span>
+          <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+            <button onClick={() => setIsEditing(true)} className="p-1 text-gray-400 hover:text-indigo-600"><Pencil className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setConfirmDelete(true)} className="p-1 text-gray-400 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
+          </div>
         </div>
       </div>
+      {/* 預算進度條 */}
+      {type === 'expense' && budgetPct !== null && showValues && (
+        <div className="mt-1.5">
+          <div className="flex justify-between text-[10px] text-gray-400 mb-0.5">
+            <span>預算使用率</span>
+            <span className={budgetPct >= 100 ? 'text-rose-500 font-bold' : 'text-gray-400'}>
+              {item.amount.toLocaleString()} / {item.budget!.toLocaleString()} ({budgetPct.toFixed(0)}%)
+            </span>
+          </div>
+          <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${budgetPct >= 100 ? 'bg-rose-500' : budgetPct >= 80 ? 'bg-amber-400' : 'bg-emerald-500'}`}
+              style={{ width: `${budgetPct}%` }}
+            />
+          </div>
+        </div>
+      )}
       {confirmDelete && (
         <ConfirmDialog
           message={`確定要刪除「${item.name}」嗎？`}
@@ -194,15 +407,50 @@ function CashFlowRow({ item, onUpdate, onDelete, showValues }: { item: CashFlowI
   );
 }
 
-function AddItemRow({ onConfirm, onCancel }: { onConfirm: (n: string, a: number) => void, onCancel: () => void }) {
+function AddItemRow({
+  type,
+  onConfirm,
+  onCancel,
+}: {
+  type: 'income' | 'expense';
+  onConfirm: (n: string, a: number, b?: number, t?: CashFlowItem['expenseTag']) => void;
+  onCancel: () => void;
+}) {
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+  const [budget, setBudget] = useState('');
+  const [expenseTag, setExpenseTag] = useState<CashFlowItem['expenseTag']>(undefined);
+
   return (
-    <div className="p-4 bg-indigo-50 flex items-center gap-3">
-      <input type="text" placeholder="名稱" value={name} onChange={e => setName(e.target.value)} className="flex-1 border border-indigo-200 rounded px-2 py-1 text-sm outline-none" autoFocus />
-      <input type="number" placeholder="金額" value={amount} onChange={e => setAmount(e.target.value)} className="w-24 border border-indigo-200 rounded px-2 py-1 text-sm text-right outline-none" />
-      <button onClick={() => onConfirm(name, Number(amount) || 0)} className="text-indigo-600 font-bold"><Check className="w-4 h-4" /></button>
-      <button onClick={onCancel} className="text-gray-400"><X className="w-4 h-4" /></button>
+    <div className="p-4 bg-indigo-50 space-y-2">
+      <div className="flex items-center gap-3">
+        <input type="text" placeholder="名稱" value={name} onChange={e => setName(e.target.value)} className="flex-1 border border-indigo-200 rounded px-2 py-1 text-sm outline-none" autoFocus />
+        <input type="number" placeholder="金額" value={amount} onChange={e => setAmount(e.target.value)} className="w-24 border border-indigo-200 rounded px-2 py-1 text-sm text-right outline-none" />
+        <button onClick={() => onConfirm(name, Number(amount) || 0, budget ? Number(budget) : undefined, expenseTag)} className="text-indigo-600 font-bold"><Check className="w-4 h-4" /></button>
+        <button onClick={onCancel} className="text-gray-400"><X className="w-4 h-4" /></button>
+      </div>
+      {type === 'expense' && (
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            value={budget}
+            onChange={e => setBudget(e.target.value)}
+            className="w-36 border border-indigo-200 rounded px-2 py-1 text-xs text-right outline-none bg-white"
+            placeholder="月預算上限（選填）"
+          />
+          <div className="flex gap-1.5">
+            {(['needs', 'wants', 'savings'] as const).map(tag => (
+              <button
+                key={tag}
+                onClick={() => setExpenseTag(t => t === tag ? undefined : tag)}
+                className={`px-2 py-0.5 rounded text-xs border transition-colors ${expenseTag === tag ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-500 border-indigo-200 hover:border-indigo-400'}`}
+              >
+                {EXPENSE_TAG_LABELS[tag]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -281,7 +529,6 @@ function AutoStakingExpenseRow() {
       </div>
       <div className="flex items-center gap-4">
         <span className="font-bold text-rose-700 text-sm">{showValues ? Math.round(totalInterest).toLocaleString() : '****'}</span>
-        {/* invisible spacer — matches the edit/delete button area in CashFlowRow */}
         <div className="invisible flex gap-1">
           <button className="p-1"><Pencil className="w-3.5 h-3.5" /></button>
           <button className="p-1"><Trash2 className="w-3.5 h-3.5" /></button>
