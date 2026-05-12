@@ -101,8 +101,8 @@ function calcGrowth(input: HealthScoreInput): MetricResult {
   const recent = input.snapshots.slice(-3);
   let score = 50;
   if (recent.length >= 2) {
-    const allUp = recent.every((s, i) => i === 0 || s.netWorth >= recent[i - 1].netWorth);
-    const allDown = recent.every((s, i) => i === 0 || s.netWorth <= recent[i - 1].netWorth);
+    const allUp = recent.every((s, i) => i === 0 || s.netWorth > recent[i - 1].netWorth);
+    const allDown = recent.every((s, i) => i === 0 || s.netWorth < recent[i - 1].netWorth);
     if (allUp) score = 100;
     else if (allDown) score = 0;
   }

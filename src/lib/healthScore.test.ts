@@ -73,6 +73,16 @@ describe('calculateHealthScore', () => {
     expect(r.metrics.find(m => m.key === 'growth')!.score).toBe(0);
   });
 
+  it('淨資產持平（無漲無跌）→ growth score = 50', () => {
+    const snapshots = [
+      { netWorth: 1_000_000 },
+      { netWorth: 1_000_000 },
+      { netWorth: 1_000_000 },
+    ];
+    const r = calculateHealthScore({ ...base, snapshots });
+    expect(r.metrics.find(m => m.key === 'growth')!.score).toBe(50);
+  });
+
   it('完美輸入 → grade 為 優秀', () => {
     const r = calculateHealthScore({
       totalMonthlyIncome: 100_000,
