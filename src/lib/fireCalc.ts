@@ -113,10 +113,10 @@ export function calculateFire(input: FireInput): FireResult {
     fireNumber,
     projectionData,
     neutralFireYear: fireYears.neutral,
-    neutralFireAge: fireYears.neutral ? input.currentAge + (fireYears.neutral - currentYear) : null,
+    neutralFireAge: fireYears.neutral !== null ? input.currentAge + (fireYears.neutral - currentYear) : null,
     conservativeFireYear: fireYears.conservative,
-    conservativeFireAge: fireYears.conservative ? input.currentAge + (fireYears.conservative - currentYear) : null,
+    conservativeFireAge: fireYears.conservative !== null ? input.currentAge + (fireYears.conservative - currentYear) : null,
     optimisticFireYear: fireYears.optimistic,
-    optimisticFireAge: fireYears.optimistic ? input.currentAge + (fireYears.optimistic - currentYear) : null,
+    optimisticFireAge: fireYears.optimistic !== null ? input.currentAge + (fireYears.optimistic - currentYear) : null,
   };
 }
