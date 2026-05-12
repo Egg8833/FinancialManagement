@@ -7,6 +7,7 @@ import { NetWorthChart } from '../components/NetWorthChart';
 import { AssetAllocationChart } from '../components/AssetAllocationChart';
 import { AssetCategoryCard } from '../components/AssetComponents';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
+import { HealthScoreCard } from '../components/HealthScoreCard';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency as _fmt, nowTs } from '../lib/utils';
 
@@ -163,6 +164,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        <HealthScoreCard />
       </div>
 
       <HeroKPI
@@ -173,18 +175,6 @@ export default function DashboardPage() {
         netWorthGoal={netWorthGoal}
         setNetWorthGoal={setNetWorthGoal}
         monthlyNetCashFlow={monthlyNetCashFlow}
-      />
-
-      <NetWorthChart
-        snapshots={snapshots}
-        showValues={showValues}
-        formatCurrency={formatCurrency}
-      />
-
-      <AssetAllocationChart
-        combinedAssets={combinedAssets}
-        totalAssets={totalAssets}
-        showValues={showValues}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -272,6 +262,18 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+
+      <NetWorthChart
+        snapshots={snapshots}
+        showValues={showValues}
+        formatCurrency={formatCurrency}
+      />
+
+      <AssetAllocationChart
+        combinedAssets={combinedAssets}
+        totalAssets={totalAssets}
+        showValues={showValues}
+      />
     </>
   );
 }
