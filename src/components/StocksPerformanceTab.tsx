@@ -140,40 +140,42 @@ function StockPerformanceRow({
     <div className="border border-gray-100 rounded-xl overflow-hidden">
       <div className="p-4 bg-white">
         <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
+          <div className="flex-1 min-w-0">
             <p className="font-bold text-sm text-gray-900 truncate">{displayName}</p>
-            <p className="text-xs text-gray-400">{item.symbol}</p>
+            <p className="text-xs text-gray-400 truncate">{item.symbol}</p>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 text-right flex-shrink-0 text-sm w-[400px]">
-            <div>
-              <p className="text-xs text-gray-400">投入成本</p>
-              <p className="font-medium">{costBasis > 0 ? fmt(costBasis) : '—'}</p>
+          <div className="flex items-center gap-6 flex-shrink-0">
+            <div className="w-24 text-center">
+              <p className="text-xs text-gray-400 mb-0.5">投入成本</p>
+              <p className="font-medium text-sm">{costBasis > 0 ? fmt(costBasis) : '—'}</p>
             </div>
-            <div>
-              <p className="text-xs text-gray-400">未實現損益</p>
-              <p className={`font-bold ${unrealized >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <div className="w-24 text-center">
+              <p className="text-xs text-gray-400 mb-0.5">未實現損益</p>
+              <p className={`font-bold text-sm ${unrealized >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                 {currentValue > 0 ? fmtPct((unrealized) / costBasis) : '—'}
               </p>
             </div>
-            <div>
-              <p className="text-xs text-gray-400">已收股利</p>
-              <p className="font-medium text-emerald-600">{dividends > 0 ? fmt(dividends) : '—'}</p>
+            <div className="w-20 text-center">
+              <p className="text-xs text-gray-400 mb-0.5">已收股利</p>
+              <p className="font-medium text-sm text-emerald-600">{dividends > 0 ? fmt(dividends) : '—'}</p>
             </div>
-            <div>
-              <p className="text-xs text-gray-400">年化報酬率</p>
-              <p className={`font-bold ${annualized !== null ? (annualized >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-gray-400'}`}>
+            <div className="w-28 text-center">
+              <p className="text-xs text-gray-400 mb-0.5">年化報酬率</p>
+              <p className={`font-bold text-sm ${annualized !== null ? (annualized >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-gray-400'}`}>
                 {annualized !== null ? fmtPct(annualized) : (item.purchaseDate ? '—' : '未設購買日')}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={() => setShowDividends(v => !v)}
-            className="text-xs text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
-          >
-            股利 ({myDividends.length}) {showDividends ? '▲' : '▼'}
-          </button>
+          <div className="flex-1 flex justify-end">
+            <button
+              onClick={() => setShowDividends(v => !v)}
+              className="text-xs text-indigo-600 hover:text-indigo-800 whitespace-nowrap"
+            >
+              股利 ({myDividends.length}) {showDividends ? '▲' : '▼'}
+            </button>
+          </div>
         </div>
 
         {/* 含息總報酬 */}
