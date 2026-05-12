@@ -8,6 +8,7 @@ import {
 import { useAppContext, type StockItem, type StockQuote } from '../../context/AppContext';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
+import { StocksPerformanceTab } from '../../components/StocksPerformanceTab';
 
 type Market = '台股' | '美股' | '其他';
 
@@ -339,6 +340,7 @@ export default function StocksPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ label: string; action: () => void } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'holdings' | 'performance'>('holdings');
 
   const quotesLoading = stockItems.length > 0 && lastUpdated === '';
 
@@ -460,6 +462,24 @@ export default function StocksPage() {
         </button>
       </div>
 
+      {/* Tab 切換 */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
+        {(['holdings', 'performance'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === tab
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'holdings' ? '持倉' : '績效分析'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'holdings' && (<>
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-2xl p-6 shadow-lg text-white">
@@ -639,7 +659,10 @@ export default function StocksPage() {
         </div>
       </div>
       {/* Portfolio Trend Chart */}
-      <PortfolioTrendChart stockItems={stockItems} usdToTwd={usdToTwd} />
+          <PortfolioTrendChart stockItems={stockItems} usdToTwd={usdToTwd} />
+      </>)}
+
+      {activeTab === 'performance' && <StocksPerformanceTab />}
 
       {deleteTarget && (
         <ConfirmDialog
