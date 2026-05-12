@@ -17,6 +17,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Missing symbol' }, { status: 400 });
   }
 
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) {
+    return NextResponse.json({ error: 'Invalid from date. Use YYYY-MM-DD format.' }, { status: 400 });
+  }
+
   const cacheKey = `${symbol}:${from}`;
   const cached = cache.get(cacheKey);
   if (cached && Date.now() < cached.expiresAt) {
