@@ -118,17 +118,56 @@ export type HealthScoreResult = {
 // 新增至 src/context/AppContext.tsx
 export type DividendRecord = {
   id: string;
-  symbol: string;       // e.g. '2330.TW'
-  date: string;         // YYYY-MM-DD（除息日）
+  symbol: string;           // e.g. '2330.TW'
+  date: string;             // YYYY-MM-DD（除息日）
   dividendPerShare: number;
-  shares: number;       // 持有股數（除息時）
+  shares: number;           // 持有股數（除息時）
   currency: 'TWD' | 'USD';
+  source: 'auto' | 'manual'; // 'auto' = 從 Yahoo Finance 抓取，'manual' = 使用者手動新增
 };
 ```
 
 AppContext 新增：
 - `dividendRecords: DividendRecord[]`（useStickyState，key `app-dividends-v1`）
 - `setDividendRecords`
+
+### 新增 API：`/api/dividends`
+
+利用現有 `yahoo-finance2` 套件，**不需引入任何新依賴**。
+
+```
+GET /api/dividends?symbol=2330.TW&from=2024-01-01
+```
+
+實作：
+```typescript
+import YahooFinance from 'yahoo-finance2';
+const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
+
+// yf.historical 的 events: 'dividends' 模式
+const history = await yf.historical(symbol, {
+  period1: from,
+  events: 'dividends',
+});
+// 回傳：[{ date: Date, dividends: number }, ...]
+```
+
+回傳格式：
+```json
+[
+  { "date": "2024-07-01", "dividendPerShare": 4.5, "currency": "TWD" },
+  { "date": "2025-01-01", "dividendPerShare": 5.0, "currency": "TWD" }
+]
+```
+
+**快取策略：** 同一 symbol + from 組合快取 24 小時（股利資料變動頻率極低）。
+
+### 股利自動同步流程
+
+1. 使用者在股票持倉設定 `purchaseDate` 後，績效 Tab 自動觸發 `/api/dividends?symbol=X&from=purchaseDate`
+2. 回傳結果合併到 `dividendRecords`（`source: 'auto'`），以 `symbol + date` 去重
+3. 使用者可手動新增補充記錄（`source: 'manual'`）或刪除不正確的 auto 記錄
+4. Yahoo Finance 缺漏台股股利時，顯示「⚠️ 部分資料可能不完整，可手動補充」提示
 
 ### UI：股票頁 Tab 切換
 
@@ -156,9 +195,11 @@ annualizedReturn = (1 + totalReturn)^(365/holdingDays) - 1
 - 若無 `purchaseDate`，顯示「— 未設購買日期」
 - 若 `holdingDays < 7`，顯示「— 持倉未滿一週」（避免除以極小值造成失真）
 
-**股利記錄區塊**
+**股利記錄區塊（每股展開）**
 - 按股票代號分組，列出每次除息記錄
-- 可新增 / 刪除，欄位：日期、每股股利、股數、金額小計
+- `source: 'auto'` 的記錄顯示「Auto」標籤，`manual` 顯示「手動」
+- 可手動新增補充記錄（日期、每股股利、股數）
+- 可刪除任何記錄（auto 或 manual）
 - 新增時自動帶入目前持股數
 
 ### 不新增獨立頁面
