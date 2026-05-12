@@ -146,6 +146,16 @@ export type StockQuote = {
   shortName?: string;
 };
 
+export type DividendRecord = {
+  id: string;
+  symbol: string;
+  date: string;           // YYYY-MM-DD
+  dividendPerShare: number;
+  shares: number;         // 持有股數（除息當時）
+  currency: 'TWD' | 'USD';
+  source: 'auto' | 'manual';
+};
+
 const initialStockData: StockItem[] = [
   { id: 'st1', symbol: '2330.TW', shares: 2000, avgCost: 600 },
   { id: 'st2', symbol: 'AAPL', shares: 100, avgCost: 150 },
@@ -191,6 +201,8 @@ interface AppContextType {
   setStakingItems: (items: StakingItem[] | ((prev: StakingItem[]) => StakingItem[])) => void;
   stockItems: StockItem[];
   setStockItems: (items: StockItem[] | ((prev: StockItem[]) => StockItem[])) => void;
+  dividendRecords: DividendRecord[];
+  setDividendRecords: (records: DividendRecord[] | ((prev: DividendRecord[]) => DividendRecord[])) => void;
   stockQuotes: Record<string, StockQuote>;
   refreshQuotes: () => Promise<void>;
   lastUpdated: string;
@@ -234,8 +246,6 @@ interface AppContextType {
   setUserName: (name: string | ((prev: string) => string)) => void;
   userEmail: string;
   setUserEmail: (email: string | ((prev: string) => string)) => void;
-  extraRates: { EUR: number; JPY: number; HKD: number };
-  setExtraRates: (rates: { EUR: number; JPY: number; HKD: number }) => void;
   reportSchedule: 'none' | 'weekly' | 'monthly';
   setReportSchedule: (s: 'none' | 'weekly' | 'monthly') => void;
   lastReportSent: string;
@@ -260,6 +270,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [snapshots, setSnapshots] = useStickyState<AssetSnapshot[]>([], 'app-snapshots-v1');
   const [borrowingLimits, setBorrowingLimits] = useStickyState<Record<string, number>>({}, 'app-borrowing-limits-v1');
   const [stockItems, setStockItems] = useStickyState<StockItem[]>(initialStockData, 'app-stocks-v1');
+  const [dividendRecords, setDividendRecords] = useStickyState<DividendRecord[]>([], 'app-dividends-v1');
   const [stockQuotes, setStockQuotes] = useState<Record<string, StockQuote>>({});
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const [incomeItems, setIncomeItems] = useStickyState<CashFlowItem[]>(initialIncomeData, 'app-income-v1');
@@ -274,10 +285,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [pledgeAlertLastSent, setPledgeAlertLastSent] = useStickyState<Record<'warning' | 'danger', string>>(
     { warning: '', danger: '' },
     'app-pledge-alert-v1'
-  );
-  const [extraRates, setExtraRates] = useStickyState<{ EUR: number; JPY: number; HKD: number }>(
-    { EUR: 35, JPY: 0.21, HKD: 4.1 },
-    'app-extra-rates-v1'
   );
   const [reportSchedule, setReportSchedule] = useStickyState<'none' | 'weekly' | 'monthly'>('none', 'app-report-schedule-v1');
   const [lastReportSent, setLastReportSent] = useStickyState('', 'app-last-report-sent-v1');
@@ -488,6 +495,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setStakingItems([]);
     setLoans([]);
     setStockItems([]);
+    setDividendRecords([]);
     setIncomeItems([]);
     setExpenseItems([]);
     setAnnualEntries([]);
@@ -506,6 +514,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setStakingItems,
       stockItems,
       setStockItems,
+      dividendRecords,
+      setDividendRecords,
       stockQuotes,
       refreshQuotes,
       lastUpdated,
@@ -545,8 +555,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUserName,
       userEmail,
       setUserEmail,
-      extraRates,
-      setExtraRates,
       reportSchedule,
       setReportSchedule,
       lastReportSent,
