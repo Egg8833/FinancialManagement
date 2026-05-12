@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Trash2, Check, X, RefreshCw } from 'lucide-react';
 import { useAppContext, type DividendRecord, type StockItem, type StockQuote } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
@@ -45,6 +45,9 @@ function calcAnnualizedReturn(
   return Math.pow(1 + totalReturn, 365 / holdingDays) - 1;
 }
 
+const fmt = (n: number) => n.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
+const fmtPct = (n: number) => `${n >= 0 ? '+' : ''}${(n * 100).toFixed(2)}%`;
+
 // ─── 股利新增列 ───────────────────────────────────────────────────────────────
 
 function AddDividendRow({
@@ -87,7 +90,10 @@ function AddDividendRow({
         className="w-24 border border-indigo-200 rounded px-2 py-1 text-xs text-right bg-white"
       />
       <button
-        onClick={() => onConfirm({ symbol, date, dividendPerShare: Number(dps), shares: Number(shares), currency })}
+        onClick={() => {
+          if (!dps || Number(dps) <= 0 || !shares || Number(shares) <= 0) return;
+          onConfirm({ symbol, date, dividendPerShare: Number(dps), shares: Number(shares), currency });
+        }}
         className="text-indigo-600 hover:text-indigo-800"
       >
         <Check className="w-4 h-4" />
@@ -130,9 +136,6 @@ function StockPerformanceRow({
   const displayName = quote?.shortName ?? item.symbol;
   const currency: 'TWD' | 'USD' = (item.symbol.endsWith('.TW') || item.symbol.endsWith('.TWO')) ? 'TWD' : 'USD';
 
-  const fmt = (n: number) => n.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
-  const fmtPct = (n: number) => `${n >= 0 ? '+' : ''}${(n * 100).toFixed(2)}%`;
-
   return (
     <div className="border border-gray-100 rounded-xl overflow-hidden">
       <div className="p-4 bg-white">
@@ -158,7 +161,7 @@ function StockPerformanceRow({
               <p className="font-medium text-emerald-600">{dividends > 0 ? fmt(dividends) : '—'}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400">年化報酬</p>
+              <p className="text-xs text-gray-400">年化報酬率</p>
               <p className={`font-bold ${annualized !== null ? (annualized >= 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-gray-400'}`}>
                 {annualized !== null ? fmtPct(annualized) : (item.purchaseDate ? '—' : '未設購買日')}
               </p>
@@ -279,15 +282,18 @@ export function StocksPerformanceTab() {
   }, [stockItems, setDividendRecords, toast]);
 
   // 首次進入 Tab 自動同步（只跑一次）
+  const hasFetched = useRef(false);
   useEffect(() => {
-    fetchAllDividends();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      fetchAllDividends();
+    }
+  }, [fetchAllDividends]);
 
   const handleAddDividend = (record: Omit<DividendRecord, 'id' | 'source'>) => {
     setDividendRecords(prev => [
       ...prev,
-      { ...record, id: `manual-${Date.now()}`, source: 'manual' },
+      { ...record, id: `manual-${crypto.randomUUID()}`, source: 'manual' },
     ]);
     toast('已新增股利記錄');
   };
@@ -300,8 +306,15 @@ export function StocksPerformanceTab() {
   // 摘要計算
   const totalCost = stockItems.reduce((sum, item) => {
     const cost = item.avgCost * item.shares;
+    const isUSD = !item.symbol.endsWith('.TW') && !item.symbol.endsWith('.TWO');
+    return sum + (isUSD ? cost * usdToTwd : cost);
+  }, 0);
+
+  const totalCostForReturn = stockItems.reduce((sum, item) => {
     const quote = stockQuotes[item.symbol];
-    const isUSD = quote?.currency === 'USD';
+    if (!quote) return sum;
+    const cost = item.avgCost * item.shares;
+    const isUSD = !item.symbol.endsWith('.TW') && !item.symbol.endsWith('.TWO');
     return sum + (isUSD ? cost * usdToTwd : cost);
   }, 0);
 
@@ -317,10 +330,8 @@ export function StocksPerformanceTab() {
     return sum + (r.currency === 'USD' ? total * usdToTwd : total);
   }, 0);
 
-  const totalUnrealized = totalValue - totalCost;
-  const totalReturn = totalCost > 0 ? (totalUnrealized + totalDividends) / totalCost : 0;
-  const fmt = (n: number) => n.toLocaleString('zh-TW', { maximumFractionDigits: 0 });
-  const fmtPct = (n: number) => `${n >= 0 ? '+' : ''}${(n * 100).toFixed(2)}%`;
+  const totalUnrealized = totalValue - totalCostForReturn;
+  const totalReturn = totalCostForReturn > 0 ? (totalUnrealized + totalDividends) / totalCostForReturn : 0;
 
   return (
     <div className="space-y-6">
@@ -329,9 +340,9 @@ export function StocksPerformanceTab() {
         {[
           { label: '總投入成本', value: fmt(totalCost), color: 'text-gray-900' },
           { label: '目前市值', value: fmt(totalValue), color: 'text-gray-900' },
-          { label: '未實現損益', value: fmtPct(totalCost > 0 ? totalUnrealized / totalCost : 0), color: totalUnrealized >= 0 ? 'text-emerald-600' : 'text-rose-600' },
+          { label: '未實現損益', value: fmtPct(totalCostForReturn > 0 ? totalUnrealized / totalCostForReturn : 0), color: totalUnrealized >= 0 ? 'text-emerald-600' : 'text-rose-600' },
           { label: '已收股利', value: fmt(totalDividends), color: 'text-emerald-600' },
-          { label: '含息總報酬', value: fmtPct(totalReturn), color: totalReturn >= 0 ? 'text-emerald-600' : 'text-rose-600' },
+          { label: '含息總報酬率', value: fmtPct(totalReturn), color: totalReturn >= 0 ? 'text-emerald-600' : 'text-rose-600' },
         ].map(({ label, value, color }) => (
           <div key={label} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
             <p className="text-xs text-gray-400 mb-1">{label}</p>
