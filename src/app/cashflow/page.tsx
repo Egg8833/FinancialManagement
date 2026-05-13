@@ -347,12 +347,14 @@ function CashFlowRow({
   onUpdate,
   onDelete,
   showValues,
+  customCategories,
 }: {
   item: CashFlowItem;
   type: 'income' | 'expense';
-  onUpdate: (n: string, a: number, b?: number, t?: CashFlowItem['expenseTag']) => void;
+  onUpdate: (n: string, a: number, b?: number, t?: CashFlowItem['expenseTag'], c?: string) => void;
   onDelete: () => void;
   showValues: boolean;
+  customCategories: string[];
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -360,10 +362,11 @@ function CashFlowRow({
   const [amount, setAmount] = useState(item.amount.toString());
   const [budget, setBudget] = useState(item.budget?.toString() ?? '');
   const [expenseTag, setExpenseTag] = useState<CashFlowItem['expenseTag']>(item.expenseTag);
+  const [customCategory, setCustomCategory] = useState<string | undefined>(item.customCategory);
   const { toast } = useToast();
 
   const handleSave = () => {
-    onUpdate(name, Number(amount) || 0, budget ? Number(budget) : undefined, expenseTag);
+    onUpdate(name, Number(amount) || 0, budget ? Number(budget) : undefined, expenseTag, customCategory);
     setIsEditing(false);
     toast('已更新項目');
   };
@@ -404,6 +407,18 @@ function CashFlowRow({
                 </button>
               ))}
             </div>
+            {type === 'expense' && (
+              <select
+                value={customCategory ?? ''}
+                onChange={e => setCustomCategory(e.target.value || undefined)}
+                className="text-xs border border-gray-200 rounded px-2 py-1 outline-none focus:border-indigo-300 bg-white"
+              >
+                <option value="">不分類</option>
+                {customCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            )}
           </div>
         )}
       </div>
@@ -419,6 +434,17 @@ function CashFlowRow({
             {item.expenseTag && (
               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${EXPENSE_TAG_COLORS[item.expenseTag]}`}>
                 {EXPENSE_TAG_LABELS[item.expenseTag]}
+              </span>
+            )}
+            {item.customCategory && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                style={{
+                  backgroundColor: `${getCategoryColor(item.customCategory, customCategories)}20`,
+                  color: getCategoryColor(item.customCategory, customCategories),
+                }}
+              >
+                {item.customCategory}
               </span>
             )}
           </div>
@@ -464,22 +490,25 @@ function AddItemRow({
   type,
   onConfirm,
   onCancel,
+  customCategories,
 }: {
   type: 'income' | 'expense';
-  onConfirm: (n: string, a: number, b?: number, t?: CashFlowItem['expenseTag']) => void;
+  onConfirm: (n: string, a: number, b?: number, t?: CashFlowItem['expenseTag'], c?: string) => void;
   onCancel: () => void;
+  customCategories: string[];
 }) {
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [budget, setBudget] = useState('');
   const [expenseTag, setExpenseTag] = useState<CashFlowItem['expenseTag']>(undefined);
+  const [customCategory, setCustomCategory] = useState<string | undefined>(undefined);
 
   return (
     <div className="p-4 bg-indigo-50 space-y-2">
       <div className="flex items-center gap-3">
         <input type="text" placeholder="名稱" value={name} onChange={e => setName(e.target.value)} className="flex-1 border border-indigo-200 rounded px-2 py-1 text-sm outline-none" autoFocus />
         <input type="number" placeholder="金額" value={amount} onChange={e => setAmount(e.target.value)} className="w-24 border border-indigo-200 rounded px-2 py-1 text-sm text-right outline-none" />
-        <button onClick={() => onConfirm(name, Number(amount) || 0, budget ? Number(budget) : undefined, expenseTag)} className="text-indigo-600 font-bold"><Check className="w-4 h-4" /></button>
+        <button onClick={() => onConfirm(name, Number(amount) || 0, budget ? Number(budget) : undefined, expenseTag, customCategory)} className="text-indigo-600 font-bold"><Check className="w-4 h-4" /></button>
         <button onClick={onCancel} className="text-gray-400"><X className="w-4 h-4" /></button>
       </div>
       {type === 'expense' && (
@@ -502,6 +531,16 @@ function AddItemRow({
               </button>
             ))}
           </div>
+          <select
+            value={customCategory ?? ''}
+            onChange={e => setCustomCategory(e.target.value || undefined)}
+            className="text-xs border border-indigo-200 rounded px-2 py-1 outline-none bg-white"
+          >
+            <option value="">不分類</option>
+            {customCategories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
         </div>
       )}
     </div>
