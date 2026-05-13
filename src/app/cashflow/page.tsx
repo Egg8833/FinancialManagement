@@ -3,9 +3,14 @@
 import { useState, useMemo } from 'react';
 import { Wallet, Plus, Trash2, Pencil, Check, X, ArrowUpCircle, ArrowDownCircle, Tag, TrendingUp } from 'lucide-react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, ReferenceLine, PieChart, Pie, Cell,
 } from 'recharts';
 import { useAppContext, type CashFlowItem, type LoanItem } from '../../context/AppContext';
+import {
+  CATEGORY_COLORS, UNCATEGORIZED_COLOR,
+  buildDonutData, buildCategoryMonthData, getCategoryColor,
+} from '../../lib/categoryUtils';
 import { formatCurrency as _fmt } from '../../lib/utils';
 import { AnnualTracker } from '../../components/AnnualTracker';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -29,15 +34,17 @@ export default function CashFlowPage() {
     expenseItems, setExpenseItems,
     annualEntries,
     totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
-    showValues
+    showValues,
+    customCategories, setCustomCategories,
   } = useAppContext();
 
   const [isAddingIncome, setIsAddingIncome] = useState(false);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [activeTab, setActiveTab] = useState<'flow' | 'analysis50' | 'category'>('flow');
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
 
-  const handleAddItem = (type: 'income' | 'expense', name: string, amount: number, budget?: number, expenseTag?: CashFlowItem['expenseTag']) => {
+  const handleAddItem = (type: 'income' | 'expense', name: string, amount: number, budget?: number, expenseTag?: CashFlowItem['expenseTag'], customCategory?: string) => {
     const newItem: CashFlowItem = {
       id: Date.now().toString(),
       name,
@@ -46,6 +53,7 @@ export default function CashFlowPage() {
       isRecurring: true,
       budget,
       expenseTag,
+      customCategory,
     };
     if (type === 'income') setIncomeItems(prev => [...prev, newItem]);
     else setExpenseItems(prev => [...prev, newItem]);
@@ -56,9 +64,9 @@ export default function CashFlowPage() {
     else setExpenseItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleUpdateItem = (type: 'income' | 'expense', id: string, name: string, amount: number, budget?: number, expenseTag?: CashFlowItem['expenseTag']) => {
+  const handleUpdateItem = (type: 'income' | 'expense', id: string, name: string, amount: number, budget?: number, expenseTag?: CashFlowItem['expenseTag'], customCategory?: string) => {
     const updateFn = (prev: CashFlowItem[]) =>
-      prev.map(item => item.id === id ? { ...item, name, amount, budget, expenseTag } : item);
+      prev.map(item => item.id === id ? { ...item, name, amount, budget, expenseTag, customCategory } : item);
     if (type === 'income') setIncomeItems(updateFn);
     else setExpenseItems(updateFn);
   };
@@ -107,6 +115,24 @@ export default function CashFlowPage() {
         </div>
       </div>
 
+      {/* Tab Bar */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
+        {(['flow', 'analysis50', 'category'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === tab
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'flow' ? '收支管理' : tab === 'analysis50' ? '50/30/20' : '類別分析'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'flow' && (<>
       {/* Summary KPI */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
@@ -149,6 +175,7 @@ export default function CashFlowPage() {
               {isAddingIncome && (
                 <AddItemRow
                   type="income"
+                  customCategories={customCategories}
                   onConfirm={(n, a) => { handleAddItem('income', n, a); setIsAddingIncome(false); }}
                   onCancel={() => setIsAddingIncome(false)}
                 />
@@ -158,7 +185,8 @@ export default function CashFlowPage() {
                   key={item.id}
                   item={item}
                   type="income"
-                  onUpdate={(n, a, b, t) => handleUpdateItem('income', item.id, n, a, b, t)}
+                  customCategories={customCategories}
+                  onUpdate={(n, a, b, t, c) => handleUpdateItem('income', item.id, n, a, b, t, c)}
                   onDelete={() => handleDeleteItem('income', item.id)}
                   showValues={showValues}
                 />
@@ -184,7 +212,8 @@ export default function CashFlowPage() {
               {isAddingExpense && (
                 <AddItemRow
                   type="expense"
-                  onConfirm={(n, a, b, t) => { handleAddItem('expense', n, a, b, t); setIsAddingExpense(false); }}
+                  customCategories={customCategories}
+                  onConfirm={(n, a, b, t, c) => { handleAddItem('expense', n, a, b, t, c); setIsAddingExpense(false); }}
                   onCancel={() => setIsAddingExpense(false)}
                 />
               )}
@@ -193,7 +222,8 @@ export default function CashFlowPage() {
                   key={item.id}
                   item={item}
                   type="expense"
-                  onUpdate={(n, a, b, t) => handleUpdateItem('expense', item.id, n, a, b, t)}
+                  customCategories={customCategories}
+                  onUpdate={(n, a, b, t, c) => handleUpdateItem('expense', item.id, n, a, b, t, c)}
                   onDelete={() => handleDeleteItem('expense', item.id)}
                   showValues={showValues}
                 />
@@ -211,7 +241,9 @@ export default function CashFlowPage() {
           </div>
         </div>
       </div>
+      </>)}
 
+      {activeTab === 'analysis50' && (<>
       {/* 50/30/20 分析 */}
       {hasTaggedItems && (
         <div className="mt-8 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
@@ -284,8 +316,29 @@ export default function CashFlowPage() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+      </>)}
+
+      {activeTab === 'category' && (
+        <CategoryAnalysisTab
+          expenseItems={expenseItems}
+          customCategories={customCategories}
+          setCustomCategories={setCustomCategories}
+          setExpenseItems={setExpenseItems}
+          showValues={showValues}
+        />
+      )}
     </>
   );
+}
+
+function CategoryAnalysisTab(_props: {
+  expenseItems: CashFlowItem[];
+  customCategories: string[];
+  setCustomCategories: (cats: string[] | ((prev: string[]) => string[])) => void;
+  setExpenseItems: (fn: (prev: CashFlowItem[]) => CashFlowItem[]) => void;
+  showValues: boolean;
+}) {
+  return <div className="py-8 text-center text-sm text-gray-400">類別分析 (coming soon)</div>;
 }
 
 function CashFlowRow({
