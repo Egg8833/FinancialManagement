@@ -195,7 +195,7 @@ function GoalCard({
           <button onClick={handleSave} className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
             <Check className="w-3.5 h-3.5" /> 儲存
           </button>
-          <button onClick={() => setIsEditing(false)} className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">
+          <button onClick={() => { setLinkedIds(goal.linkedAssetItemIds ?? []); setIsEditing(false); }} className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200">
             <X className="w-3.5 h-3.5" /> 取消
           </button>
         </div>
@@ -360,7 +360,7 @@ export function FinancialGoals() {
             {newLinkedIds.length > 0 ? (
               <div className="border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-indigo-50 text-indigo-700 font-medium">
                 {showValues
-                  ? `$${assets.flatMap(c => c.items).filter(i => newLinkedIds.includes(i.id)).reduce((s, i) => s + i.amount, 0).toLocaleString()}（連結自動計算）`
+                  ? `$${resolveCurrentAmount({ currentAmount: 0, linkedAssetItemIds: newLinkedIds } as FinancialGoal, assets).toLocaleString()}（連結自動計算）`
                   : '****'}
               </div>
             ) : (
