@@ -79,7 +79,7 @@ function parseStocks(rows: string[][]): ParseResult<ParsedStock> {
       data: {
         symbol, shares, avgCost,
         platform: platform || undefined,
-        collateralShares: collateralShares !== undefined && !isNaN(collateralShares) ? collateralShares : undefined,
+        collateralShares: collateralShares !== undefined && !isNaN(collateralShares) && collateralShares >= 0 ? collateralShares : undefined,
         sector,
         notes: notes || undefined,
         purchaseDate: purchaseDate || undefined,
@@ -137,7 +137,7 @@ function parseCashflow(rows: string[][], type: 'income' | 'expense'): ParseResul
         name, amount,
         category: category || '',
         isRecurring,
-        budget: budget !== undefined && !isNaN(budget) ? budget : undefined,
+        budget: budget !== undefined && !isNaN(budget) && budget >= 0 ? budget : undefined,
       },
     };
   });
