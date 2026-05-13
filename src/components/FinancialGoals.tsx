@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Plus, Trash2, Check, X, Pencil, Target, Home, Car, Plane, Shield, BookOpen, TrendingUp, type LucideProps } from 'lucide-react';
 import { useAppContext, type FinancialGoal } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import type { AssetCategory } from '../types';
+import { resolveCurrentAmount, getLinkedItemIds } from '../lib/goalUtils';
 
 const GOAL_ICONS: Record<FinancialGoal['icon'], React.FC<LucideProps>> = {
   home: Home,
@@ -41,11 +43,15 @@ function daysUntil(deadline: string): number {
 function GoalCard({
   goal,
   showValues,
+  assets,
+  goals,
   onUpdate,
   onDelete,
 }: {
   goal: FinancialGoal;
   showValues: boolean;
+  assets: AssetCategory[];
+  goals: FinancialGoal[];
   onUpdate: (g: FinancialGoal) => void;
   onDelete: () => void;
 }) {
@@ -56,9 +62,11 @@ function GoalCard({
   const [deadline, setDeadline] = useState(goal.deadline ?? '');
   const [color, setColor] = useState(goal.color);
   const [icon, setIcon] = useState<FinancialGoal['icon']>(goal.icon);
+  const [linkedIds, setLinkedIds] = useState<string[]>(goal.linkedAssetItemIds ?? []);
 
-  const progress = goal.targetAmount > 0 ? Math.min(100, (goal.currentAmount / goal.targetAmount) * 100) : 0;
-  const remaining = goal.targetAmount - goal.currentAmount;
+  const effectiveCurrent = resolveCurrentAmount(goal, assets);
+  const progress = goal.targetAmount > 0 ? Math.min(100, (effectiveCurrent / goal.targetAmount) * 100) : 0;
+  const remaining = goal.targetAmount - effectiveCurrent;
   const days = goal.deadline ? daysUntil(goal.deadline) : null;
   const monthsLeft = days !== null ? Math.ceil(days / 30) : null;
   const monthlyNeeded = monthsLeft && monthsLeft > 0 && remaining > 0 ? Math.ceil(remaining / monthsLeft) : null;
@@ -69,16 +77,18 @@ function GoalCard({
     progress >= 30  ? '#f59e0b' : '#f43f5e';
 
   const IconComp = GOAL_ICONS[goal.icon];
+  const takenIds = getLinkedItemIds(goals, goal.id);
 
   const handleSave = () => {
     onUpdate({
       ...goal,
       name,
       targetAmount: Number(target) || 0,
-      currentAmount: Number(current) || 0,
+      currentAmount: linkedIds.length ? goal.currentAmount : Number(current) || 0,
       deadline: deadline || undefined,
       color,
       icon,
+      linkedAssetItemIds: linkedIds.length ? linkedIds : undefined,
     });
     setIsEditing(false);
   };
@@ -100,12 +110,59 @@ function GoalCard({
           </div>
           <div>
             <label className="text-xs text-gray-400 mb-1 block">目前已存</label>
-            <input type="number" value={current} onChange={e => setCurrent(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+            {linkedIds.length > 0 ? (
+              <p className="px-3 py-2 text-sm bg-gray-50 rounded-lg text-indigo-600 font-bold">
+                {showValues
+                  ? `$${resolveCurrentAmount({ ...goal, linkedAssetItemIds: linkedIds }, assets).toLocaleString()}（連結自動計算）`
+                  : '****'}
+              </p>
+            ) : (
+              <input type="number" value={current} onChange={e => setCurrent(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+            )}
           </div>
         </div>
         <div>
           <label className="text-xs text-gray-400 mb-1 block">目標日期（選填）</label>
           <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-400 mb-1 block">連結資產（選填）</label>
+          <div className="border border-gray-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+            {assets.map(cat => (
+              <div key={cat.id}>
+                <p className="text-xs font-bold text-gray-500 px-3 py-1.5 bg-gray-50 border-b border-gray-100">{cat.title}</p>
+                {cat.items.map(item => {
+                  const isTaken = takenIds.has(item.id);
+                  const takenByGoal = isTaken
+                    ? goals.find(g => g.id !== goal.id && g.linkedAssetItemIds?.includes(item.id))?.name
+                    : null;
+                  return (
+                    <label
+                      key={item.id}
+                      className={`flex items-center gap-2 px-3 py-1.5 text-sm border-b border-gray-50 last:border-0 ${isTaken ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={linkedIds.includes(item.id)}
+                        disabled={isTaken}
+                        onChange={e => {
+                          if (e.target.checked) setLinkedIds(prev => [...prev, item.id]);
+                          else setLinkedIds(prev => prev.filter(id => id !== item.id));
+                        }}
+                        className="rounded"
+                      />
+                      <span className="flex-1 truncate">{item.name}</span>
+                      {takenByGoal ? (
+                        <span className="text-xs text-gray-400 shrink-0">已連結：{takenByGoal}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400 shrink-0">{showValues ? `$${item.amount.toLocaleString()}` : '****'}</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
         <div>
           <label className="text-xs text-gray-400 mb-2 block">圖示</label>
@@ -171,7 +228,7 @@ function GoalCard({
       {/* 進度條 */}
       <div className="mb-2">
         <div className="flex justify-between text-xs text-gray-500 mb-1">
-          <span>{showValues ? `${goal.currentAmount.toLocaleString()} / ${goal.targetAmount.toLocaleString()}` : '****'}</span>
+          <span>{showValues ? `${effectiveCurrent.toLocaleString()} / ${goal.targetAmount.toLocaleString()}` : '****'}</span>
           <span className="font-bold" style={{ color: progressColor }}>{progress.toFixed(0)}%</span>
         </div>
         <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -182,6 +239,25 @@ function GoalCard({
         </div>
       </div>
 
+      {/* 連結資產 chips */}
+      {(goal.linkedAssetItemIds?.length ?? 0) > 0 && (() => {
+        const allItems = assets.flatMap(cat => cat.items);
+        const linked = (goal.linkedAssetItemIds ?? [])
+          .map(id => allItems.find(i => i.id === id))
+          .filter((i): i is NonNullable<typeof i> => i != null);
+        const shown = linked.slice(0, 3);
+        const extra = linked.length - shown.length;
+        return (
+          <div className="flex flex-wrap gap-1 mt-2 mb-1">
+            {shown.map(item => (
+              <span key={item.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-xs">
+                {item.name}{showValues ? ` $${item.amount.toLocaleString()}` : ''}
+              </span>
+            ))}
+            {extra > 0 && <span className="text-xs text-gray-400 self-center">+{extra} 個</span>}
+          </div>
+        );
+      })()}
       {/* 底部資訊 */}
       <div className="flex items-center justify-between mt-3 text-xs text-gray-400">
         {progress >= 100 ? (
@@ -198,7 +274,7 @@ function GoalCard({
 }
 
 export function FinancialGoals() {
-  const { goals, setGoals, showValues } = useAppContext();
+  const { goals, setGoals, showValues, assets } = useAppContext();
   const { toast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
   const [newName, setNewName] = useState('');
@@ -207,6 +283,8 @@ export function FinancialGoals() {
   const [newDeadline, setNewDeadline] = useState('');
   const [newIcon, setNewIcon] = useState<FinancialGoal['icon']>('other');
   const [newColor, setNewColor] = useState('#6366f1');
+  const [newLinkedIds, setNewLinkedIds] = useState<string[]>([]);
+  const newGoalTakenIds = getLinkedItemIds(goals);
 
   const handleAdd = () => {
     if (!newName.trim() || !newTarget) return;
@@ -214,15 +292,16 @@ export function FinancialGoals() {
       id: `goal-${Date.now()}`,
       name: newName.trim(),
       targetAmount: Number(newTarget) || 0,
-      currentAmount: Number(newCurrent) || 0,
+      currentAmount: newLinkedIds.length ? 0 : Number(newCurrent) || 0,
       deadline: newDeadline || undefined,
       color: newColor,
       icon: newIcon,
+      linkedAssetItemIds: newLinkedIds.length ? newLinkedIds : undefined,
     };
     setGoals(prev => [...prev, goal]);
     toast('已新增財務目標');
     setNewName(''); setNewTarget(''); setNewCurrent(''); setNewDeadline('');
-    setNewIcon('other'); setNewColor('#6366f1');
+    setNewIcon('other'); setNewColor('#6366f1'); setNewLinkedIds([]);
     setIsAdding(false);
   };
 
@@ -237,7 +316,7 @@ export function FinancialGoals() {
   };
 
   const totalGoalAmount = goals.reduce((s, g) => s + g.targetAmount, 0);
-  const totalCurrentAmount = goals.reduce((s, g) => s + g.currentAmount, 0);
+  const totalCurrentAmount = goals.reduce((s, g) => s + resolveCurrentAmount(g, assets), 0);
   const overallProgress = totalGoalAmount > 0 ? (totalCurrentAmount / totalGoalAmount) * 100 : 0;
 
   return (
@@ -247,7 +326,7 @@ export function FinancialGoals() {
           <h3 className="text-lg font-bold text-gray-900">財務目標</h3>
           {goals.length > 0 && (
             <p className="text-xs text-gray-400 mt-0.5">
-              整體進度 {overallProgress.toFixed(0)}%・{goals.filter(g => g.currentAmount >= g.targetAmount).length}/{goals.length} 項達成
+              整體進度 {overallProgress.toFixed(0)}%・{goals.filter(g => resolveCurrentAmount(g, assets) >= g.targetAmount).length}/{goals.length} 項達成
             </p>
           )}
         </div>
@@ -278,13 +357,21 @@ export function FinancialGoals() {
               onChange={e => setNewTarget(e.target.value)}
               className="border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 bg-white"
             />
-            <input
-              type="number"
-              placeholder="目前已存（選填）"
-              value={newCurrent}
-              onChange={e => setNewCurrent(e.target.value)}
-              className="border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 bg-white"
-            />
+            {newLinkedIds.length > 0 ? (
+              <div className="border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-indigo-50 text-indigo-700 font-medium">
+                {showValues
+                  ? `$${assets.flatMap(c => c.items).filter(i => newLinkedIds.includes(i.id)).reduce((s, i) => s + i.amount, 0).toLocaleString()}（連結自動計算）`
+                  : '****'}
+              </div>
+            ) : (
+              <input
+                type="number"
+                placeholder="目前已存（選填）"
+                value={newCurrent}
+                onChange={e => setNewCurrent(e.target.value)}
+                className="border border-indigo-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 bg-white"
+              />
+            )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -308,6 +395,45 @@ export function FinancialGoals() {
                   />
                 ))}
               </div>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">連結資產（選填）</label>
+            <div className="border border-indigo-200 rounded-lg overflow-hidden max-h-40 overflow-y-auto bg-white">
+              {assets.map(cat => (
+                <div key={cat.id}>
+                  <p className="text-xs font-bold text-gray-500 px-3 py-1.5 bg-gray-50 border-b border-gray-100">{cat.title}</p>
+                  {cat.items.map(item => {
+                    const isTaken = newGoalTakenIds.has(item.id);
+                    const takenByGoal = isTaken
+                      ? goals.find(g => g.linkedAssetItemIds?.includes(item.id))?.name
+                      : null;
+                    return (
+                      <label
+                        key={item.id}
+                        className={`flex items-center gap-2 px-3 py-1.5 text-sm border-b border-gray-50 last:border-0 ${isTaken ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={newLinkedIds.includes(item.id)}
+                          disabled={isTaken}
+                          onChange={e => {
+                            if (e.target.checked) setNewLinkedIds(prev => [...prev, item.id]);
+                            else setNewLinkedIds(prev => prev.filter(id => id !== item.id));
+                          }}
+                          className="rounded"
+                        />
+                        <span className="flex-1 truncate">{item.name}</span>
+                        {takenByGoal ? (
+                          <span className="text-xs text-gray-400 shrink-0">已連結：{takenByGoal}</span>
+                        ) : (
+                          <span className="text-xs text-gray-400 shrink-0">{showValues ? `$${item.amount.toLocaleString()}` : '****'}</span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
           <div>
@@ -349,6 +475,8 @@ export function FinancialGoals() {
             key={goal.id}
             goal={goal}
             showValues={showValues}
+            assets={assets}
+            goals={goals}
             onUpdate={updated => handleUpdate(goal.id, updated)}
             onDelete={() => handleDelete(goal.id)}
           />
