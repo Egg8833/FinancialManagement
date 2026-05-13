@@ -454,7 +454,7 @@ export function FinancialGoals() {
             <button onClick={handleAdd} className="flex items-center gap-1 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700">
               <Check className="w-4 h-4" /> 新增
             </button>
-            <button onClick={() => setIsAdding(false)} className="flex items-center gap-1 px-3 py-2 bg-white text-gray-500 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
+            <button onClick={() => { setNewLinkedIds([]); setIsAdding(false); }} className="flex items-center gap-1 px-3 py-2 bg-white text-gray-500 border border-gray-200 rounded-lg text-sm hover:bg-gray-50">
               <X className="w-4 h-4" />
             </button>
           </div>
