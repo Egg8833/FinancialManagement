@@ -331,14 +331,252 @@ export default function CashFlowPage() {
   );
 }
 
-function CategoryAnalysisTab(_props: {
+function CategoryManager({
+  customCategories,
+  setCustomCategories,
+  setExpenseItems,
+}: {
+  customCategories: string[];
+  setCustomCategories: (cats: string[] | ((prev: string[]) => string[])) => void;
+  setExpenseItems: (fn: (prev: CashFlowItem[]) => CashFlowItem[]) => void;
+}) {
+  const [newCat, setNewCat] = useState('');
+  const [editingCat, setEditingCat] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+
+  const handleAdd = () => {
+    const trimmed = newCat.trim();
+    if (!trimmed || customCategories.includes(trimmed)) return;
+    setCustomCategories(prev => [...prev, trimmed]);
+    setNewCat('');
+  };
+
+  const handleDelete = (cat: string) => {
+    setCustomCategories(prev => prev.filter(c => c !== cat));
+    setExpenseItems(prev =>
+      prev.map(item => item.customCategory === cat ? { ...item, customCategory: undefined } : item)
+    );
+  };
+
+  const handleRename = (oldName: string) => {
+    const trimmed = editValue.trim();
+    if (!trimmed || (trimmed !== oldName && customCategories.includes(trimmed))) return;
+    setCustomCategories(prev => prev.map(c => c === oldName ? trimmed : c));
+    setExpenseItems(prev =>
+      prev.map(item => item.customCategory === oldName ? { ...item, customCategory: trimmed } : item)
+    );
+    setEditingCat(null);
+  };
+
+  return (
+    <div className="mb-6">
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">類別管理</p>
+      <div className="flex flex-wrap gap-2 items-center">
+        {customCategories.map((cat, i) =>
+          editingCat === cat ? (
+            <div key={cat} className="flex items-center gap-1">
+              <input
+                autoFocus
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleRename(cat);
+                  if (e.key === 'Escape') setEditingCat(null);
+                }}
+                className="text-xs border border-indigo-300 rounded px-2 py-0.5 w-20 outline-none"
+              />
+              <button onClick={() => handleRename(cat)} className="text-indigo-600 hover:text-indigo-800">
+                <Check className="w-3 h-3" />
+              </button>
+              <button onClick={() => setEditingCat(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <div
+              key={cat}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+              style={{
+                backgroundColor: `${CATEGORY_COLORS[i % CATEGORY_COLORS.length]}20`,
+                color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+              }}
+            >
+              <span
+                className="cursor-pointer"
+                onDoubleClick={() => { setEditingCat(cat); setEditValue(cat); }}
+              >
+                {cat}
+              </span>
+              <button
+                onClick={() => { setEditingCat(cat); setEditValue(cat); }}
+                className="opacity-50 hover:opacity-100 ml-0.5"
+              >
+                <Pencil className="w-2.5 h-2.5" />
+              </button>
+              <button
+                onClick={() => handleDelete(cat)}
+                className="opacity-50 hover:opacity-100"
+              >
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </div>
+          )
+        )}
+        <div className="flex items-center gap-1">
+          <input
+            value={newCat}
+            onChange={e => setNewCat(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+            placeholder="新增類別"
+            className="text-xs border border-gray-200 rounded px-2 py-0.5 w-20 outline-none focus:border-indigo-300"
+          />
+          <button onClick={handleAdd} className="text-indigo-600 hover:text-indigo-800">
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CategoryAnalysisTab({
+  expenseItems,
+  customCategories,
+  setCustomCategories,
+  setExpenseItems,
+  showValues,
+}: {
   expenseItems: CashFlowItem[];
   customCategories: string[];
   setCustomCategories: (cats: string[] | ((prev: string[]) => string[])) => void;
   setExpenseItems: (fn: (prev: CashFlowItem[]) => CashFlowItem[]) => void;
   showValues: boolean;
 }) {
-  return <div className="py-8 text-center text-sm text-gray-400">類別分析 (coming soon)</div>;
+  const donutData = useMemo(() => buildDonutData(expenseItems), [expenseItems]);
+
+  const categoryMonthData = useMemo(
+    () => buildCategoryMonthData(expenseItems),
+    [expenseItems]
+  );
+
+  const allCats = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of expenseItems) set.add(item.customCategory ?? '未分類');
+    return Array.from(set);
+  }, [expenseItems]);
+
+  return (
+    <div className="space-y-6 mt-2">
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+        <CategoryManager
+          customCategories={customCategories}
+          setCustomCategories={setCustomCategories}
+          setExpenseItems={setExpenseItems}
+        />
+
+        {donutData.length === 0 ? (
+          <div className="h-48 flex items-center justify-center text-sm text-gray-400">
+            尚無支出項目，請在「收支管理」tab 新增支出並設定類別
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 甜甜圈圖 */}
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 text-center">
+                當月佔比
+              </p>
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={donutData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    dataKey="value"
+                    paddingAngle={2}
+                  >
+                    {donutData.map((entry) => {
+                      const color = entry.name === '未分類'
+                        ? UNCATEGORIZED_COLOR
+                        : getCategoryColor(entry.name, customCategories);
+                      return <Cell key={entry.name} fill={color} />;
+                    })}
+                  </Pie>
+                  <Tooltip
+                    formatter={(v: number, name: string) => [
+                      showValues ? `NT$${v.toLocaleString()}` : '****',
+                      name,
+                    ]}
+                    contentStyle={{ borderRadius: 8, fontSize: 11 }}
+                  />
+                  <Legend
+                    formatter={(name: string) => {
+                      const d = donutData.find(x => x.name === name);
+                      const total = donutData.reduce((s, x) => s + x.value, 0);
+                      const pct = total > 0 && d ? ((d.value / total) * 100).toFixed(0) : '0';
+                      return `${name} ${pct}%`;
+                    }}
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: 11 }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* 堆疊柱狀圖 */}
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 text-center">
+                近 12 個月趨勢
+              </p>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={categoryMonthData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }} barCategoryGap="30%">
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                    tickFormatter={v => showValues ? `${(v / 1000).toFixed(0)}K` : ''}
+                    width={35}
+                  />
+                  <Tooltip
+                    formatter={(v: number, name: string) => [
+                      showValues ? `NT$${v.toLocaleString()}` : '****',
+                      name,
+                    ]}
+                    contentStyle={{ borderRadius: 8, fontSize: 11 }}
+                  />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                  {allCats.map((cat, idx) => {
+                    const color = cat === '未分類'
+                      ? UNCATEGORIZED_COLOR
+                      : getCategoryColor(cat, customCategories);
+                    return (
+                      <Bar
+                        key={cat}
+                        dataKey={cat}
+                        stackId="a"
+                        fill={color}
+                        radius={idx === allCats.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]}
+                      />
+                    );
+                  })}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function CashFlowRow({
