@@ -265,7 +265,7 @@ export default function CashFlowPage() {
                 <div key={key} className={`${bgColor} rounded-xl p-4`}>
                   <p className={`text-xs font-bold ${textColor} mb-1`}>{label}</p>
                   <p className={`text-xl font-black ${textColor}`}>{pct.toFixed(1)}%</p>
-                  <p className="text-xs text-gray-500 mb-2">{showValues ? amount.toLocaleString() : '****'} / 月</p>
+                  <p className="text-xs text-gray-500 mb-2">{formatCurrency(amount, showValues)} / 月</p>
                   <div className="h-1.5 bg-white/60 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full ${color}`} style={{ width: `${Math.min(100, (pct / idealPct) * 100)}%` }} />
                   </div>
@@ -303,7 +303,7 @@ export default function CashFlowPage() {
             />
             <Tooltip
               formatter={(v: number, name: string) => [
-                showValues ? `NT$${v.toLocaleString()}` : '****',
+                formatCurrency(v, showValues),
                 name,
               ]}
               contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12 }}

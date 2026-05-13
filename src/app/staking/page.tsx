@@ -192,6 +192,7 @@ function BorrowSection({ pledgePlatforms, borrowByPlatform, collateralByPlatform
 // ─── 質押維持率卡片 ───────────────────────────────────────────────────────────────
 
 function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueTWD }: { platformName: string; totalBorrowValue: number; totalCollateralValueTWD: number }) {
+  const { showValues } = useAppContext();
   const [dropPct, setDropPct] = useState(0);
 
   if (totalBorrowValue <= 0) return null;
@@ -258,12 +259,12 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="bg-gray-50 rounded-xl p-3">
           <p className="text-[10px] text-gray-400 mb-1">擔保品市值</p>
-          <p className="text-sm font-bold text-gray-800 tabular-nums">{Math.round(totalCollateralValueTWD).toLocaleString()}</p>
+          <p className="text-sm font-bold text-gray-800 tabular-nums">{showValues ? Math.round(totalCollateralValueTWD).toLocaleString('en-US') : '****'}</p>
           <p className="text-[10px] text-gray-400">TWD</p>
         </div>
         <div className="bg-gray-50 rounded-xl p-3">
           <p className="text-[10px] text-gray-400 mb-1">融資借款</p>
-          <p className="text-sm font-bold text-gray-800 tabular-nums">{totalBorrowValue.toLocaleString()}</p>
+          <p className="text-sm font-bold text-gray-800 tabular-nums">{showValues ? totalBorrowValue.toLocaleString('en-US') : '****'}</p>
           <p className="text-[10px] text-gray-400">TWD</p>
         </div>
         <div className={`rounded-xl p-3 ${isRed ? 'bg-rose-50' : 'bg-emerald-50'}`}>
@@ -278,7 +279,7 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
             </div>
           </div>
           <p className={`text-sm font-bold tabular-nums ${isRed ? 'text-rose-600' : 'text-emerald-600'}`}>
-            {isRed ? '-' : '+'}{(isRed ? shortage : buffer).toLocaleString()}
+            {showValues ? `${isRed ? '-' : '+'}${(isRed ? shortage : buffer).toLocaleString('en-US')}` : '****'}
           </p>
           <p className="text-[10px] text-gray-400">TWD</p>
         </div>
@@ -346,6 +347,24 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-2 mb-3">
+          {[10, 20, 30, 40, 50].map(p => (
+            <button
+              key={p}
+              onClick={() => setDropPct(p)}
+              className={`px-2 py-1 text-[10px] font-bold rounded-md transition-colors ${dropPct === p ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+            >
+              -{p}%
+            </button>
+          ))}
+          <button
+            onClick={() => setDropPct(0)}
+            className={`px-2 py-1 text-[10px] font-bold rounded-md transition-colors ${dropPct === 0 ? 'bg-gray-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+          >
+            重置
+          </button>
+        </div>
+
         <input
           type="range"
           min={0}
@@ -403,16 +422,36 @@ function PledgeRatioCard({ platformName, totalBorrowValue, totalCollateralValueT
               </div>
             </div>
 
-            {simIsRed && !isRed && (
-              <p className="mt-3 text-xs text-rose-600 bg-rose-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
-                <AlertOctagon className="w-3.5 h-3.5 shrink-0" />
-                持股下跌 {dropPct}% 後將觸發追繳，需補充擔保品 {simShortage.toLocaleString()} TWD 才能回到安全線。
-              </p>
+            {simIsRed && (
+              <div className="mt-4 pt-4 border-t border-rose-200/50">
+                <p className="text-xs font-bold text-rose-700 mb-2 flex items-center gap-1.5">
+                  <AlertOctagon className="w-4 h-4" /> 補救方案試算
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="bg-white/80 rounded-lg p-3 border border-rose-100">
+                    <p className="text-[10px] text-gray-500 mb-1">方案 A：補充現金 (償還借款)</p>
+                    <p className="text-sm font-bold text-rose-600">
+                      需償還 {Math.ceil(totalBorrowValue - simCollateral / 1.3).toLocaleString()} TWD
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">償還後維持率可回升至 130%</p>
+                  </div>
+                  <div className="bg-white/80 rounded-lg p-3 border border-rose-100">
+                    <p className="text-[10px] text-gray-500 mb-1">方案 B：補充擔保品 (匯入股票)</p>
+                    <p className="text-sm font-bold text-rose-600">
+                      需匯入市值 {Math.ceil(totalBorrowValue * 1.3 - simCollateral).toLocaleString()} TWD
+                    </p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">匯入後維持率可回升至 130%</p>
+                  </div>
+                </div>
+                <p className="mt-3 text-[10px] text-rose-500/80 leading-relaxed italic">
+                  * 建議預留更多緩衝，若要回升至 166% 警戒線，需補充約 {Math.ceil(totalBorrowValue * 1.66 - simCollateral).toLocaleString()} TWD 市值之股票。
+                </p>
+              </div>
             )}
-            {simIsYellow && !isRed && !isYellow && (
+            {simIsYellow && !simIsRed && (
               <p className="mt-3 text-xs text-amber-600 bg-amber-100 rounded-lg px-3 py-2 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                持股下跌 {dropPct}% 後將進入警戒區間，請留意維持率變化。
+                持股下跌 {dropPct}% 後將進入警戒區間。建議預留更多擔保品或部分還款。
               </p>
             )}
           </div>
@@ -474,7 +513,7 @@ function PaymentDueDialog({ loans, onRecord, onClose }: {
                   <div className="text-xs text-gray-500 mt-0.5">
                     還款日 <span className="font-medium text-amber-600">{loan.nextPaymentDate}</span>
                     <span className="mx-1.5 text-gray-300">·</span>
-                    每月還款 <span className="font-semibold text-gray-700">{loan.monthlyPayment.toLocaleString('en-US')}</span>
+                    每月還款 <span className="font-semibold text-gray-700">{showValues ? loan.monthlyPayment.toLocaleString('en-US') : '****'}</span>
                   </div>
                 </div>
                 {isDone ? (
@@ -519,6 +558,7 @@ export default function BorrowingPage() {
     usdToTwd,
     pledgeAlertLastSent, setPledgeAlertLastSent,
     userEmail,
+    showValues,
   } = useAppContext();
   const { toast } = useToast();
 
@@ -698,8 +738,8 @@ export default function BorrowingPage() {
             <span className="font-bold text-gray-700">信貸</span>
           </div>
           <p className="text-xs text-gray-500">總負債</p>
-          <p className="text-xl font-bold text-rose-600 mb-1">{totalLoanPrincipal.toLocaleString('en-US')}</p>
-          <p className="text-xs text-gray-500">每月還款 <span className="font-semibold text-gray-800">{totalLoanMonthly.toLocaleString('en-US')}</span></p>
+          <p className="text-xl font-bold text-rose-600 mb-1">{showValues ? totalLoanPrincipal.toLocaleString('en-US') : '****'}</p>
+          <p className="text-xs text-gray-500">每月還款 <span className="font-semibold text-gray-800">{showValues ? totalLoanMonthly.toLocaleString('en-US') : '****'}</span></p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-3">
@@ -707,8 +747,8 @@ export default function BorrowingPage() {
             <span className="font-bold text-gray-700">質押借款</span>
           </div>
           <p className="text-xs text-gray-500">借款本金</p>
-          <p className="text-xl font-bold text-indigo-700 mb-1">{totalBorrowValue.toLocaleString('en-US')}</p>
-          <p className="text-xs text-gray-500">每月利息 <span className="font-semibold text-rose-600">{Math.round(totalBorrowInterest).toLocaleString('en-US')}</span></p>
+          <p className="text-xl font-bold text-indigo-700 mb-1">{showValues ? totalBorrowValue.toLocaleString('en-US') : '****'}</p>
+          <p className="text-xs text-gray-500">每月利息 <span className="font-semibold text-rose-600">{showValues ? Math.round(totalBorrowInterest).toLocaleString('en-US') : '****'}</span></p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center gap-2 mb-3">
@@ -716,8 +756,8 @@ export default function BorrowingPage() {
             <span className="font-bold text-gray-700">活儲 / Earn</span>
           </div>
           <p className="text-xs text-gray-500">存入資產</p>
-          <p className="text-xl font-bold text-emerald-600 mb-1">{totalEarnValue.toLocaleString('en-US')}</p>
-          <p className="text-xs text-gray-500">每月收益 <span className="font-semibold text-emerald-600">{Math.round(totalEarnIncome).toLocaleString('en-US')}</span></p>
+          <p className="text-xl font-bold text-emerald-600 mb-1">{showValues ? totalEarnValue.toLocaleString('en-US') : '****'}</p>
+          <p className="text-xs text-gray-500">每月收益 <span className="font-semibold text-emerald-600">{showValues ? Math.round(totalEarnIncome).toLocaleString('en-US') : '****'}</span></p>
         </div>
       </div>
 
@@ -890,6 +930,7 @@ function loans_empty(a: LoanItem[], b: LoanItem[]) { return a.length === 0 && b.
 function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
   loan: LoanItem; onRecord: () => void; onDelete: () => void; onUpdate: (d: Partial<LoanItem>) => void;
 }) {
+  const { showValues } = useAppContext();
   const [isEditing, setIsEditing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -975,7 +1016,7 @@ function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
             {!isPaidOff && (
               confirming ? (
                 <div className="flex items-center gap-2 bg-rose-50 border border-rose-200 rounded-lg px-3 py-1.5 text-sm">
-                  <span className="text-rose-700 font-medium">負債 −{loan.monthlyPayment.toLocaleString()}</span>
+                  <span className="text-rose-700 font-medium">負債 −{showValues ? loan.monthlyPayment.toLocaleString('en-US') : '****'}</span>
                   <button onClick={() => { onRecord(); setConfirming(false); }} className="text-rose-600 hover:text-rose-800"><Check className="w-4 h-4" /></button>
                   <button onClick={() => setConfirming(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
                 </div>
@@ -1113,10 +1154,12 @@ function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
                             {row.period === paidCount + 1 && !row.isPaid && <span className="ml-1 text-amber-500 text-[10px]">← 本期</span>}
                           </td>
                           <td className="px-4 py-2 text-gray-500">{row.date}</td>
-                          <td className="px-4 py-2 text-right text-gray-700 font-medium">${row.endingBalance.toLocaleString('en-US')}</td>
+                          <td className="px-4 py-2 text-right text-gray-700 font-medium">{showValues ? `$${row.endingBalance.toLocaleString('en-US')}` : '****'}</td>
                           <td className="px-4 py-2 text-right">
-                            <div className="font-bold text-gray-900">${row.payment.toLocaleString('en-US')}</div>
-                            <div className="text-[10px] text-gray-400">${row.principal.toLocaleString('en-US')} / ${row.interest.toLocaleString('en-US')}</div>
+                            <div className="font-bold text-gray-900">{showValues ? `$${row.payment.toLocaleString('en-US')}` : '****'}</div>
+                            <div className="text-[10px] text-gray-400">
+                              {showValues ? `$${row.principal.toLocaleString('en-US')} / $${row.interest.toLocaleString('en-US')}` : '****'}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1137,6 +1180,7 @@ function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
 function RevolvingLoanCard({ loan, onDelete, onUpdate }: {
   loan: LoanItem; onDelete: () => void; onUpdate: (d: Partial<LoanItem>) => void;
 }) {
+  const { showValues } = useAppContext();
   const [isEditing, setIsEditing] = useState(false);
   const [ep, setEp] = useState(loan.principal.toString());
   const [er, setEr] = useState(loan.interestRate.toString());
@@ -1178,9 +1222,9 @@ function RevolvingLoanCard({ loan, onDelete, onUpdate }: {
             <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded-full">循環</span>
           </div>
           <div className="flex flex-wrap gap-3 mt-1.5 text-sm">
-            <span className="text-gray-500">借款餘額 <b className="text-gray-900">{loan.principal.toLocaleString('en-US')}</b></span>
+            <span className="text-gray-500">借款餘額 <b className="text-gray-900">{showValues ? loan.principal.toLocaleString('en-US') : '****'}</b></span>
             <span className="text-gray-500">利率 <b className="text-amber-600">{loan.interestRate}%</b></span>
-            <span className="text-gray-500">每月扣息 <b className="text-rose-600">{loan.monthlyPayment.toLocaleString('en-US')}</b></span>
+            <span className="text-gray-500">每月扣息 <b className="text-rose-600">{showValues ? loan.monthlyPayment.toLocaleString('en-US') : '****'}</b></span>
           </div>
           <p className="mt-1 text-xs text-gray-400">循環利息，本金不自動調降。如有還本請點編輯手動修改餘額。</p>
         </div>
@@ -1270,6 +1314,7 @@ function StakingRow({ item, type, onUpdate, onDelete }: {
   item: StakingItem; type: StakingType;
   onUpdate: (d: Partial<StakingItem>) => void; onDelete: () => void;
 }) {
+  const { showValues } = useAppContext();
   const [isEditing, setIsEditing] = useState(false);
   const [eName, setEName] = useState(item.name);
   const [eProtocol, setEProtocol] = useState(item.protocol);
@@ -1330,9 +1375,9 @@ function StakingRow({ item, type, onUpdate, onDelete }: {
       </div>
       <div className="flex items-center gap-0 shrink-0">
         <div className="w-16 px-2"><p className="text-xs text-gray-500">數量</p><p className="font-medium tabular-nums">{item.amount.toLocaleString()}</p></div>
-        <div className="w-28 px-2"><p className="text-xs text-gray-500">{isBorrow ? '借款金額' : '存入金額'}</p><p className="font-medium tabular-nums">{(item.value / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬</p></div>
+        <div className="w-28 px-2"><p className="text-xs text-gray-500">{isBorrow ? '借款金額' : '存入金額'}</p><p className="font-medium tabular-nums">{showValues ? `${(item.value / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬` : '****'}</p></div>
         <div className="w-20 px-2"><p className="text-xs text-gray-500">{isBorrow ? '借款利率' : '收益率'}</p><p className={`font-bold ${isBorrow ? 'text-rose-600' : 'text-emerald-600'}`}>{item.apy}%</p></div>
-        <div className="w-24 px-2"><p className="text-xs text-gray-500">{isBorrow ? '月利息支出' : '月收益'}</p><p className={`font-bold tabular-nums ${isBorrow ? 'text-rose-600' : 'text-emerald-600'}`}>{monthly.toLocaleString()}</p></div>
+        <div className="w-24 px-2"><p className="text-xs text-gray-500">{isBorrow ? '月利息支出' : '月收益'}</p><p className={`font-bold tabular-nums ${isBorrow ? 'text-rose-600' : 'text-emerald-600'}`}>{showValues ? monthly.toLocaleString('en-US') : '****'}</p></div>
         <div className="px-2">
           <button onClick={() => setIsEditing(true)} className="px-3 py-1.5 border border-indigo-200 text-indigo-600 rounded-lg text-sm hover:bg-indigo-50 flex items-center gap-1">
             <Pencil className="w-3.5 h-3.5" /> 管理
@@ -1348,6 +1393,7 @@ function StakingRow({ item, type, onUpdate, onDelete }: {
 function QuotaBar({ limit, setLimit, totalBorrow }: {
   limit: number; setLimit: (v: number) => void; totalBorrow: number;
 }) {
+  const { showValues } = useAppContext();
   const [isEditing, setIsEditing] = useState(false);
   const [input, setInput] = useState((limit / 10000).toString());
   const available = limit - totalBorrow;
@@ -1361,7 +1407,7 @@ function QuotaBar({ limit, setLimit, totalBorrow }: {
         <span className="text-sm font-medium">剩餘可借款額度</span>
         {limit > 0 && (
           <span className={`text-lg font-bold ${available < 0 ? 'text-rose-600' : 'text-indigo-700'}`}>
-            {available < 0 && '−'}{availableWan} 萬
+            {showValues ? `${available < 0 ? '−' : ''}${availableWan} 萬` : '****'}
           </span>
         )}
       </div>
