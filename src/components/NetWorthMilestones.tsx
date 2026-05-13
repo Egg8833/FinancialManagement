@@ -22,7 +22,7 @@ function etaLabel(months: number): string {
 }
 
 export function NetWorthMilestones() {
-  const { netWorth, monthlyNetCashFlow } = useAppContext();
+  const { netWorth, monthlyNetCashFlow, showValues } = useAppContext();
 
   const milestones = useMemo(() =>
     MILESTONES.map(m => {
@@ -76,7 +76,7 @@ export function NetWorthMilestones() {
                     <span className="text-xs bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded font-bold">✓ 已達成</span>
                   </div>
                   <p className="text-xs text-amber-600 mt-0.5">
-                    NT${(m.amount / 10000).toFixed(0)}萬
+                    {showValues ? `NT$${(m.amount / 10000).toFixed(0)}萬` : '****'}
                   </p>
                 </div>
                 <div className="w-16 text-right">
@@ -127,7 +127,9 @@ export function NetWorthMilestones() {
                 </div>
                 <div className="flex items-center justify-between mt-1">
                   <span className="text-[10px] text-gray-400">
-                    {(netWorth / 10000).toFixed(0)}萬 → {(m.amount / 10000).toFixed(0)}萬
+                    {showValues 
+                      ? `${(netWorth / 10000).toFixed(0)}萬 → ${(m.amount / 10000).toFixed(0)}萬` 
+                      : '**** → ****'}
                   </span>
                   {m.eta && (
                     <span className={`text-[10px] font-bold ${isNext ? 'text-indigo-500' : 'text-gray-400'}`}>
@@ -145,7 +147,7 @@ export function NetWorthMilestones() {
       </div>
 
       <p className="text-[10px] text-gray-400 mt-4 text-center">
-        ETA 依目前月淨現金流 NT${monthlyNetCashFlow.toLocaleString()} 估算，假設報酬率不計入資產增值。
+        ETA 依目前月淨現金流 {showValues ? `NT$${monthlyNetCashFlow.toLocaleString()}` : '****'} 估算，假設報酬率不計入資產增值。
       </p>
     </div>
   );

@@ -1,6 +1,11 @@
-export function formatCurrency(amount: number, showValues: boolean): string {
+export function formatCurrency(amount: number, showValues: boolean, currency: string = 'TWD'): string {
   if (!showValues) return '****';
-  return amount.toLocaleString('en-US');
+  
+  const formatted = Math.round(amount).toLocaleString('en-US');
+  
+  if (currency === 'USD') return `$${formatted}`;
+  if (currency === 'TWD') return `NT$ ${formatted}`;
+  return formatted;
 }
 
 export function nowTs(): string {

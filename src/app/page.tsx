@@ -203,6 +203,7 @@ export default function DashboardPage() {
         totalAssets={totalAssets}
         totalLiabilities={totalLiabilities}
         formatCurrency={formatCurrency}
+        showValues={showValues}
         netWorthGoal={netWorthGoal}
         setNetWorthGoal={setNetWorthGoal}
         monthlyNetCashFlow={monthlyNetCashFlow}

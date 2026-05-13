@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Legend,
@@ -8,6 +8,7 @@ import {
 import { useAppContext } from '../../context/AppContext';
 import { calculateFire, runMonteCarlo, type FireResult, type FireScenario } from '../../lib/fireCalc';
 import { AreaChart, Area } from 'recharts';
+import { CompareView } from './CompareView';
 
 function SliderInput({
   label, value, onChange, min, max, step, format,
@@ -69,7 +70,7 @@ const SCENARIO_LABELS = {
 function formatTWD(v: number): string {
   if (v >= 100_000_000) return `${(v / 100_000_000).toFixed(1)} 億`;
   if (v >= 10_000) return `${(v / 10_000).toFixed(0)} 萬`;
-  return v.toLocaleString();
+  return v.toLocaleString('en-US');
 }
 
 function ResultBadge({ label, year, age, color }: { label: string; year: number | null; age: number | null; color: string }) {
@@ -89,17 +90,34 @@ function ResultBadge({ label, year, age, color }: { label: string; year: number 
 }
 
 export default function FirePage() {
-  const { netWorth, monthlyNetCashFlow, totalMonthlyExpense } = useAppContext();
+  const { 
+    netWorth, monthlyNetCashFlow, totalMonthlyExpense, 
+    showValues, fireSettings, setFireSettings, lifeEvents, setLifeEvents 
+  } = useAppContext();
 
-  const [currentAge, setCurrentAge] = useState(30);
-  const [targetRetirementAge, setTargetRetirementAge] = useState(55);
-  const [currentNetWorth, setCurrentNetWorth] = useState(Math.max(0, netWorth));
-  const [monthlyInvestment, setMonthlyInvestment] = useState(Math.max(0, monthlyNetCashFlow));
-  const [retirementMonthlyExpense, setRetirementMonthlyExpense] = useState(totalMonthlyExpense);
-  const [annualReturnRate, setAnnualReturnRate] = useState(6);
-  const [inflationRate, setInflationRate] = useState(2);
-  const [swr, setSwr] = useState(4); // 4% rule
-  const [extraMonthly, setExtraMonthly] = useState(0); // what-if 額外儲蓄
+  const [activeTab, setActiveTab] = useState<'single' | 'compare'>('single');
+  // Initialize with persisted settings or defaults
+  const [currentAge, setCurrentAge] = useState(fireSettings.currentAge);
+  const [targetRetirementAge, setTargetRetirementAge] = useState(fireSettings.targetRetirementAge);
+  const [currentNetWorth, setCurrentNetWorth] = useState(fireSettings.currentNetWorth ?? Math.max(0, netWorth));
+  const [monthlyInvestment, setMonthlyInvestment] = useState(fireSettings.monthlyInvestment ?? Math.max(0, monthlyNetCashFlow));
+  const [retirementMonthlyExpense, setRetirementMonthlyExpense] = useState(fireSettings.retirementMonthlyExpense ?? totalMonthlyExpense);
+  const [annualReturnRate, setAnnualReturnRate] = useState(fireSettings.annualReturnRate);
+  const [inflationRate, setInflationRate] = useState(fireSettings.inflationRate);
+  const [swr, setSwr] = useState(fireSettings.swr);
+  const [taxRate, setTaxRate] = useState(fireSettings.taxRate || 0);
+  const [extraMonthly, setExtraMonthly] = useState(0);
+
+  // Persistence effect
+  useEffect(() => {
+    setFireSettings({
+      currentAge, targetRetirementAge, annualReturnRate, inflationRate, swr, taxRate,
+      // We don't necessarily want to persist the exact current net worth if it changes daily, 
+      // but for the sake of the calculator, let's keep the user's manual adjustments.
+    } as any);
+  }, [currentAge, targetRetirementAge, annualReturnRate, inflationRate, swr, taxRate, setFireSettings]);
+
+  const formatAmount = (val: number) => showValues ? formatTWD(val) : '****';
 
   const result: FireResult = useMemo(() => calculateFire({
     currentAge,
@@ -110,7 +128,9 @@ export default function FirePage() {
     annualReturnRate: annualReturnRate / 100,
     inflationRate: inflationRate / 100,
     safeWithdrawalRate: swr / 100,
-  }), [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, extraMonthly]);
+    taxRate: taxRate / 100,
+    lifeEvents,
+  }), [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, taxRate, extraMonthly, lifeEvents]);
 
   // 基準結果（無額外儲蓄）
   const baseResult: FireResult = useMemo(() => {
@@ -120,8 +140,10 @@ export default function FirePage() {
       retirementMonthlyExpense,
       annualReturnRate: annualReturnRate / 100, inflationRate: inflationRate / 100,
       safeWithdrawalRate: swr / 100,
+      taxRate: taxRate / 100,
+      lifeEvents,
     });
-  }, [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, extraMonthly]);
+  }, [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, taxRate, extraMonthly, lifeEvents]);
 
   const [volatility, setVolatility] = useState(12);
 
@@ -166,10 +188,28 @@ export default function FirePage() {
 
   return (
     <>
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">FIRE 退休規劃計算機</h1>
         <p className="text-sm text-gray-500 mt-1">Financial Independence, Retire Early — 預測你的財務自由時間點</p>
       </div>
+
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit mb-6">
+        {(['single', 'compare'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              activeTab === tab
+                ? 'bg-white shadow-sm text-gray-900'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'single' ? '單一情境' : 'A/B 比較'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'compare' ? <CompareView /> : <>
 
       {/* FIRE 進度條 */}
       <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm mb-6">
@@ -184,10 +224,31 @@ export default function FirePage() {
           />
         </div>
         <div className="flex justify-between text-xs text-gray-400">
-          <span>目前淨資產：{formatTWD(currentNetWorth)}</span>
-          <span>還差 {formatTWD(fireGap)}</span>
-          <span>FIRE 目標：{formatTWD(result.fireNumber)}</span>
+          <span>目前淨資產：{formatAmount(currentNetWorth)}</span>
+          <span>還差 {formatAmount(fireGap)}</span>
+          <span>FIRE 目標：{formatAmount(result.fireNumber)}</span>
         </div>
+      </div>
+
+      {/* 財務自由里程碑 (Milestones) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {[
+          { pct: 0.1, label: '安全墊達成', color: 'indigo' },
+          { pct: 0.25, label: '咖啡自由', color: 'emerald' },
+          { pct: 0.5, label: '半退休目標', color: 'sky' },
+          { pct: 1.0, label: '完全財務自由', color: 'amber' },
+        ].map(m => {
+          const reached = currentNetWorth >= result.fireNumber * m.pct;
+          return (
+            <div key={m.pct} className={`bg-white border rounded-xl p-3 text-center transition-all ${reached ? `border-${m.color}-500 bg-${m.color}-50` : 'border-gray-100 opacity-60'}`}>
+              <p className={`text-[10px] font-bold uppercase mb-1 ${reached ? `text-${m.color}-600` : 'text-gray-400'}`}>
+                {m.label} ({m.pct * 100}%)
+              </p>
+              <p className="text-sm font-black text-gray-900">{formatAmount(result.fireNumber * m.pct)}</p>
+              {reached && <span className="text-[10px] font-bold text-emerald-600 block mt-1">✓ 已達成</span>}
+            </div>
+          );
+        })}
       </div>
 
       {/* Coast FIRE 卡片 */}
@@ -202,7 +263,7 @@ export default function FirePage() {
               Coast FIRE 數字
             </p>
             <p className={`text-2xl font-black ${coastAchieved ? 'text-white' : 'text-gray-900'}`}>
-              {formatTWD(coastFireNumber)}
+              {formatAmount(coastFireNumber)}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -214,7 +275,7 @@ export default function FirePage() {
             <div className={`text-right ${coastAchieved ? 'text-white/70' : 'text-gray-400'}`}>
               <p className="text-[10px] font-bold uppercase tracking-wider">vs FIRE 目標</p>
               <p className={`text-sm font-bold ${coastAchieved ? 'text-white' : 'text-indigo-600'}`}>
-                {formatTWD(result.fireNumber)}
+                {formatAmount(result.fireNumber)}
               </p>
             </div>
           </div>
@@ -251,7 +312,19 @@ export default function FirePage() {
         {/* 左側輸入面板 */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm space-y-5">
-            <h2 className="font-bold text-gray-900">基本設定</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-gray-900">基本設定</h2>
+              <button
+                onClick={() => {
+                  setCurrentNetWorth(Math.max(0, netWorth));
+                  setMonthlyInvestment(Math.max(0, monthlyNetCashFlow));
+                  setRetirementMonthlyExpense(totalMonthlyExpense);
+                }}
+                className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-1 rounded-lg font-bold hover:bg-indigo-100 transition-colors"
+              >
+                從總覽同步
+              </button>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <NumberInput label="當前年齡" value={currentAge} onChange={setCurrentAge} />
               <NumberInput label="目標退休年齡" value={targetRetirementAge} onChange={setTargetRetirementAge} />
@@ -265,6 +338,7 @@ export default function FirePage() {
             <h2 className="font-bold text-gray-900">報酬假設</h2>
             <SliderInput label="預期年化投資報酬率" value={annualReturnRate} onChange={setAnnualReturnRate} min={1} max={15} step={0.5} format={v => `${v}%`} />
             <SliderInput label="通膨率" value={inflationRate} onChange={setInflationRate} min={0} max={5} step={0.1} format={v => `${v}%`} />
+            <SliderInput label="實質稅率 (Tax)" value={taxRate} onChange={setTaxRate} min={0} max={40} step={1} format={v => `${v}%`} />
             <SliderInput label="年化波動率（Monte Carlo）" value={volatility} onChange={setVolatility} min={5} max={30} step={1} format={v => `${v}%`} />
             <div className="space-y-1">
               <SliderInput
@@ -305,10 +379,44 @@ export default function FirePage() {
             <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1">
               FIRE 目標金額（{swr}% SWR）
             </p>
-            <p className="text-3xl font-black text-indigo-700">{formatTWD(result.fireNumber)}</p>
+            <p className="text-3xl font-black text-indigo-700">{formatAmount(result.fireNumber)}</p>
             <p className="text-xs text-indigo-400 mt-1">
               退休月支出（通膨調整後）× 12 ÷ {swr}%
             </p>
+          </div>
+
+          {/* 優化建議 (Insights) */}
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 space-y-3">
+            <h2 className="font-bold text-emerald-800 flex items-center gap-2">
+              <span className="text-lg">💡</span> 優化建議
+            </h2>
+            <div className="space-y-4">
+              <div className="bg-white/60 rounded-xl p-3">
+                <p className="text-xs text-emerald-700 font-bold mb-1">增加儲蓄動力</p>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  若每月額外多存 <span className="font-bold text-emerald-600">5,000</span> 元，
+                  預計可提早 <span className="font-bold text-emerald-600">
+                    {(() => {
+                      const opt = calculateFire({
+                        currentAge, targetRetirementAge, currentNetWorth,
+                        monthlyInvestment: monthlyInvestment + 5000,
+                        retirementMonthlyExpense, annualReturnRate: annualReturnRate / 100,
+                        inflationRate: inflationRate / 100, safeWithdrawalRate: swr / 100,
+                        taxRate: taxRate / 100, lifeEvents,
+                      });
+                      return (result.neutralFireYear && opt.neutralFireYear) ? result.neutralFireYear - opt.neutralFireYear : 0;
+                    })()} 年
+                  </span> 達成財務自由。
+                </p>
+              </div>
+              <div className="bg-white/60 rounded-xl p-3">
+                <p className="text-xs text-emerald-700 font-bold mb-1">降低支出效益</p>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  若退休後每月減少 <span className="font-bold text-emerald-600">5,000</span> 元支出，
+                  目標金額將減少 <span className="font-bold text-emerald-600">{formatTWD(5000 * 12 / (swr/100))}</span>。
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -352,6 +460,15 @@ export default function FirePage() {
                   strokeDasharray="6 3"
                   label={{ value: 'FIRE 目標', position: 'insideTopRight', fontSize: 11, fill: '#ef4444' }}
                 />
+                {[0.25, 0.5].map(pct => (
+                  <ReferenceLine
+                    key={pct}
+                    y={result.fireNumber * pct}
+                    stroke="#cbd5e1"
+                    strokeDasharray="3 3"
+                    label={{ value: `${pct*100}%`, position: 'insideLeft', fontSize: 9, fill: '#94a3b8' }}
+                  />
+                ))}
                 {(['conservative', 'neutral', 'optimistic'] as const).map(scenario => (
                   <Line
                     key={scenario}
@@ -391,7 +508,7 @@ export default function FirePage() {
                     className={`rounded-xl p-3 text-center transition-all border ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-100 hover:border-indigo-200'}`}
                   >
                     <p className={`text-xs font-bold mb-1 ${isSelected ? 'text-indigo-600' : 'text-gray-500'}`}>{rate}% SWR</p>
-                    <p className="text-sm font-black text-gray-900">{formatTWD(r.fireNumber)}</p>
+                    <p className="text-sm font-black text-gray-900">{formatAmount(r.fireNumber)}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {r.neutralFireYear ? `${r.neutralFireYear} 達成` : '60年內不達'}
                     </p>
@@ -401,6 +518,58 @@ export default function FirePage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* ── 人生重大事件 (Life Events) ── */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-gray-900">人生重大事件模擬</h2>
+            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">預測非線性收支</span>
+          </div>
+          <button
+            onClick={() => {
+              const name = prompt('事件名稱 (如：買房、加薪)');
+              const age = Number(prompt('發生年齡', String(currentAge + 5)));
+              const type = prompt('類型: 1.加薪(月) 2.增加支出(月) 3.單筆支出/收入(一次性)', '1');
+              const amount = Number(prompt('金額', '10000'));
+              if (name && age && type && amount) {
+                const eventType = type === '1' ? 'income_jump' : type === '2' ? 'expense_jump' : 'one_time_lump_sum';
+                setLifeEvents([...lifeEvents, { id: `le-${Date.now()}`, name, age, type: eventType as any, amount }]);
+              }
+            }}
+            className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-gray-800 transition-colors"
+          >
+            + 新增事件
+          </button>
+        </div>
+
+        {lifeEvents.length === 0 ? (
+          <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-8 text-center">
+            <p className="text-sm text-gray-400">尚未設定任何重大事件。你可以加入如「35歲買房支出」、「40歲職位晉升加薪」等設定。</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {lifeEvents.map(event => (
+              <div key={event.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 mb-0.5">{event.age} 歲</p>
+                  <p className="text-sm font-bold text-gray-900">{event.name}</p>
+                  <p className={`text-xs font-medium ${event.amount > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {event.type === 'income_jump' ? '加薪' : event.type === 'expense_jump' ? '增加支出' : '單筆收支'} 
+                    : {event.amount > 0 ? '+' : ''}{event.amount.toLocaleString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setLifeEvents(lifeEvents.filter(e => e.id !== event.id))}
+                  className="text-gray-300 hover:text-rose-500 transition-colors"
+                >
+                  <span className="text-lg">×</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Monte Carlo 模擬 ── */}
@@ -477,6 +646,7 @@ export default function FirePage() {
           </ResponsiveContainer>
         </div>
       </div>
+      </>}
     </>
   );
 }

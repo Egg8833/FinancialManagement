@@ -22,3 +22,23 @@ export type LiabilityItem = {
   updatedAt: string;
   icon: 'building' | 'creditCard';
 };
+
+export type LifeEvent = {
+  id: string;
+  name: string;
+  age: number;
+  type: 'income_jump' | 'expense_jump' | 'one_time_lump_sum';
+  amount: number;
+};
+
+export type FireSettings = {
+  currentAge: number;
+  targetRetirementAge: number;
+  annualReturnRate: number;
+  inflationRate: number;
+  swr: number;
+  taxRate: number;
+  currentNetWorth?: number;
+  monthlyInvestment?: number;
+  retirementMonthlyExpense?: number;
+};

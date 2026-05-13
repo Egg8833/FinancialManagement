@@ -6,6 +6,7 @@ import { useAppContext, type FinancialGoal } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import type { AssetCategory } from '../types';
 import { resolveCurrentAmount, getLinkedItemIds } from '../lib/goalUtils';
+import { formatCurrency } from '../lib/utils';
 
 const GOAL_ICONS: Record<FinancialGoal['icon'], React.FC<LucideProps>> = {
   home: Home,
@@ -113,7 +114,7 @@ function GoalCard({
             {linkedIds.length > 0 ? (
               <p className="px-3 py-2 text-sm bg-gray-50 rounded-lg text-indigo-600 font-bold">
                 {showValues
-                  ? `$${resolveCurrentAmount({ ...goal, linkedAssetItemIds: linkedIds }, assets).toLocaleString()}（連結自動計算）`
+                  ? `${formatCurrency(resolveCurrentAmount({ ...goal, linkedAssetItemIds: linkedIds }, assets), showValues)}（連結自動計算）`
                   : '****'}
               </p>
             ) : (
@@ -155,7 +156,7 @@ function GoalCard({
                       {takenByGoal ? (
                         <span className="text-xs text-gray-400 shrink-0">已連結：{takenByGoal}</span>
                       ) : (
-                        <span className="text-xs text-gray-400 shrink-0">{showValues ? `$${item.amount.toLocaleString()}` : '****'}</span>
+                        <span className="text-xs text-gray-400 shrink-0">{formatCurrency(item.amount, showValues)}</span>
                       )}
                     </label>
                   );
@@ -228,7 +229,7 @@ function GoalCard({
       {/* 進度條 */}
       <div className="mb-2">
         <div className="flex justify-between text-xs text-gray-500 mb-1">
-          <span>{showValues ? `${effectiveCurrent.toLocaleString()} / ${goal.targetAmount.toLocaleString()}` : '****'}</span>
+          <span>{showValues ? `${formatCurrency(effectiveCurrent, true)} / ${formatCurrency(goal.targetAmount, true)}` : '****'}</span>
           <span className="font-bold" style={{ color: progressColor }}>{progress.toFixed(0)}%</span>
         </div>
         <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -251,7 +252,7 @@ function GoalCard({
           <div className="flex flex-wrap gap-1 mt-2 mb-1">
             {shown.map(item => (
               <span key={item.id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-xs">
-                {item.name}{showValues ? ` $${item.amount.toLocaleString()}` : ''}
+                {item.name}{showValues ? ` ${formatCurrency(item.amount, true)}` : ''}
               </span>
             ))}
             {extra > 0 && <span className="text-xs text-gray-400 self-center">+{extra} 個</span>}
@@ -263,10 +264,10 @@ function GoalCard({
         {progress >= 100 ? (
           <span className="text-emerald-600 font-bold">🎉 目標達成！</span>
         ) : (
-          <span>還差 {showValues ? remaining.toLocaleString() : '****'}</span>
+          <span>還差 {formatCurrency(remaining, showValues)}</span>
         )}
         {monthlyNeeded && monthlyNeeded > 0 && (
-          <span className="text-indigo-500">每月需存 {showValues ? monthlyNeeded.toLocaleString() : '****'}</span>
+          <span className="text-indigo-500">每月需存 {formatCurrency(monthlyNeeded, showValues)}</span>
         )}
       </div>
     </div>

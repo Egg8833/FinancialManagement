@@ -8,12 +8,13 @@ interface HeroKPIProps {
   totalAssets: number;
   totalLiabilities: number;
   formatCurrency: (amount: number) => string;
+  showValues: boolean;
   netWorthGoal: number;
   setNetWorthGoal: (goal: number) => void;
   monthlyNetCashFlow: number;
 }
 
-export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrency, netWorthGoal, setNetWorthGoal, monthlyNetCashFlow }: HeroKPIProps) {
+export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrency, showValues, netWorthGoal, setNetWorthGoal, monthlyNetCashFlow }: HeroKPIProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState('');
 
@@ -63,7 +64,7 @@ export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrenc
             <div className="flex justify-between text-xs mb-1">
               <span className="flex items-center gap-1 text-gray-400">
                 <Target className="w-3 h-3" />
-                目標 {Math.round(netWorthGoal / 10000).toLocaleString()} 萬
+                目標 {showValues ? Math.round(netWorthGoal / 10000).toLocaleString() : '****'} 萬
               </span>
               {achieved ? (
                 <span className="flex items-center gap-1 font-bold text-amber-500">
@@ -89,7 +90,7 @@ export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrenc
                 </span>
               ) : (
                 <span className="text-gray-400">
-                  距目標還差 {((netWorthGoal - netWorth) / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬
+                  距目標還差 {showValues ? ((netWorthGoal - netWorth) / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 }) : '****'} 萬
                   {goalETA && (
                     <span className="block text-indigo-500 mt-0.5">
                       預估 {monthsToGoal} 個月達成（{goalETA}）

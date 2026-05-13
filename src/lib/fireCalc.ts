@@ -1,3 +1,5 @@
+import { LifeEvent } from '../types';
+
 export type FireScenario = 'conservative' | 'neutral' | 'optimistic';
 
 // ─── Monte Carlo ──────────────────────────────────────────────────────────────
@@ -13,6 +15,8 @@ export type MonteCarloInput = {
   volatility: number;       // e.g. 0.12 (12% annual std dev)
   simulations?: number;     // default 500
   maxYears?: number;        // default 50
+  taxRate?: number;         // e.g. 0.05 (5% effective tax)
+  lifeEvents?: LifeEvent[];
 };
 
 export type MonteCarloYearData = {
@@ -45,24 +49,44 @@ function percentile(sorted: number[], pct: number): number {
 
 export function runMonteCarlo(input: MonteCarloInput): MonteCarloResult {
   const swr = input.safeWithdrawalRate;
-  const fireNumber = input.retirementMonthlyExpense * 12 / swr;
   const numSim = input.simulations ?? 500;
   const maxYears = input.maxYears ?? 50;
   const currentYear = new Date().getFullYear();
   const startWealth = Math.max(0, input.currentNetWorth);
+  const taxFactor = 1 - (input.taxRate ?? 0);
 
   // Run all simulations
   const paths: number[][] = Array.from({ length: numSim }, () => {
     const path: number[] = [startWealth];
     let w = startWealth;
+    let currentMonthlyInvestment = input.monthlyInvestment;
+    let currentRetirementExpense = input.retirementMonthlyExpense;
+
     for (let y = 1; y <= maxYears; y++) {
+      const age = input.currentAge + y;
+      
+      // Apply life events for this YEAR (age reaching)
+      const events = input.lifeEvents?.filter(e => e.age === age) ?? [];
+      let extraLumpSum = 0;
+      events.forEach(e => {
+        if (e.type === 'income_jump') currentMonthlyInvestment += e.amount;
+        if (e.type === 'expense_jump') currentRetirementExpense += e.amount;
+        if (e.type === 'one_time_lump_sum') extraLumpSum += e.amount;
+      });
+
       const annualReturn = normalRandom(input.annualReturnRate, input.volatility);
-      const mRate = Math.pow(1 + Math.max(-0.99, annualReturn), 1 / 12) - 1;
-      for (let m = 0; m < 12; m++) w = w * (1 + mRate) + input.monthlyInvestment;
+      // Simplified tax: apply to growth
+      const afterTaxReturn = annualReturn > 0 ? annualReturn * taxFactor : annualReturn;
+      const mRate = Math.pow(1 + Math.max(-0.99, afterTaxReturn), 1 / 12) - 1;
+      
+      w += extraLumpSum;
+      for (let m = 0; m < 12; m++) w = w * (1 + mRate) + currentMonthlyInvestment;
       path.push(Math.max(0, w));
     }
     return path;
   });
+
+  const fireNumber = input.retirementMonthlyExpense * 12 / swr;
 
   const byYear: MonteCarloYearData[] = [];
   for (let y = 0; y <= maxYears; y++) {
@@ -100,6 +124,8 @@ export type FireInput = {
   annualReturnRate: number;   // e.g. 0.06
   inflationRate: number;      // e.g. 0.02
   safeWithdrawalRate?: number; // e.g. 0.04 (4% rule), default 0.04
+  taxRate?: number;
+  lifeEvents?: LifeEvent[];
 };
 
 export type FireYearData = {
@@ -145,14 +171,6 @@ function calcFireNumber(monthlyExpense: number, inflationRate: number, yearsToRe
   return realMonthlyExpense * 12 / swr;
 }
 
-function projectWealth(start: number, monthlyContrib: number, monthlyRate: number, months: number): number {
-  let fv = start;
-  for (let m = 0; m < months; m++) {
-    fv = fv * (1 + monthlyRate) + monthlyContrib;
-  }
-  return Math.round(fv);
-}
-
 const SCENARIOS: FireScenario[] = ['conservative', 'neutral', 'optimistic'];
 const MAX_YEARS = 60;
 
@@ -162,41 +180,79 @@ export function calculateFire(input: FireInput): FireResult {
   const yearsToRetire = Math.max(0, input.targetRetirementAge - input.currentAge);
   const neutralRates = scenarioRates(input, 'neutral');
   const fireNumber = calcFireNumber(input.retirementMonthlyExpense, neutralRates.inflationRate, yearsToRetire, swr);
+  const taxFactor = 1 - (input.taxRate ?? 0);
 
   const fireYears: Record<FireScenario, number | null> = {
     conservative: null, neutral: null, optimistic: null,
   };
   const projectionData: FireYearData[] = [];
-  const startWealth = Math.max(0, input.currentNetWorth);
+  
+  // Track wealth per scenario
+  const currentWealth: Record<FireScenario, number> = {
+    conservative: Math.max(0, input.currentNetWorth),
+    neutral: Math.max(0, input.currentNetWorth),
+    optimistic: Math.max(0, input.currentNetWorth),
+  };
+
+  // Track monthly investment/expense per scenario
+  const currentMonthlyInvestment: Record<FireScenario, number> = {
+    conservative: input.monthlyInvestment,
+    neutral: input.monthlyInvestment,
+    optimistic: input.monthlyInvestment,
+  };
+  const currentBaseMonthlyExpense: Record<FireScenario, number> = {
+    conservative: input.retirementMonthlyExpense,
+    neutral: input.retirementMonthlyExpense,
+    optimistic: input.retirementMonthlyExpense,
+  };
 
   for (let year = 0; year <= MAX_YEARS; year++) {
+    const age = input.currentAge + year;
     const entry: FireYearData = {
       year: currentYear + year,
-      age: input.currentAge + year,
-      conservative: 0, neutral: 0, optimistic: 0,
+      age: age,
+      conservative: Math.round(currentWealth.conservative),
+      neutral: Math.round(currentWealth.neutral),
+      optimistic: Math.round(currentWealth.optimistic),
     };
-
-    for (const scenario of SCENARIOS) {
-      const rates = scenarioRates(input, scenario);
-      const value = projectWealth(startWealth, input.monthlyInvestment, rates.returnRate / 12, year * 12);
-      entry[scenario] = value;
-
-      if (fireYears[scenario] === null) {
-        const targetFireNumber = calcFireNumber(
-          input.retirementMonthlyExpense,
-          rates.inflationRate,
-          Math.max(0, yearsToRetire - year),
-          swr,
-        );
-        if (value >= targetFireNumber) {
-          fireYears[scenario] = currentYear + year;
-        }
-      }
-    }
 
     projectionData.push(entry);
 
-    // 所有情境都找到後，再多投影 5 年供圖表參考
+    // Apply life events for the NEXT year's growth
+    const events = input.lifeEvents?.filter(e => e.age === age + 1) ?? [];
+    
+    for (const scenario of SCENARIOS) {
+      const rates = scenarioRates(input, scenario);
+      const targetFireNumber = calcFireNumber(
+        currentBaseMonthlyExpense[scenario],
+        rates.inflationRate,
+        Math.max(0, input.targetRetirementAge - age),
+        swr,
+      );
+
+      if (fireYears[scenario] === null && currentWealth[scenario] >= targetFireNumber) {
+        fireYears[scenario] = currentYear + year;
+      }
+
+      // Project one year ahead
+      let lumpSum = 0;
+      events.forEach(e => {
+        if (e.type === 'income_jump') currentMonthlyInvestment[scenario] += e.amount;
+        if (e.type === 'expense_jump') currentBaseMonthlyExpense[scenario] += e.amount;
+        if (e.type === 'one_time_lump_sum') lumpSum += e.amount;
+      });
+
+      const afterTaxReturn = rates.returnRate > 0 ? rates.returnRate * taxFactor : rates.returnRate;
+      const mRate = afterTaxReturn / 12;
+      
+      let w = currentWealth[scenario] + lumpSum;
+      for (let m = 0; m < 12; m++) {
+        w = w * (1 + mRate) + currentMonthlyInvestment[scenario];
+      }
+      currentWealth[scenario] = w;
+    }
+
+    // Stop if all scenarios reached and we projected enough
     if (year > 5 && SCENARIOS.every(s => fireYears[s] !== null)) {
       const maxFireYear = Math.max(...SCENARIOS.map(s => fireYears[s] ?? 0));
       if (currentYear + year >= maxFireYear + 5) break;

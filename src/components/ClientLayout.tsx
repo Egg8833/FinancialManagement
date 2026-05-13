@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Navbar } from './Navbar';
 import { DataManager } from './DataManager';
 import { EmailReportSender } from './EmailReportSender';
@@ -10,6 +10,48 @@ import { ToastProvider } from '../context/ToastContext';
 
 function ClientLayoutContent({ children }: { children: ReactNode }) {
   const { showValues, setShowValues } = useAppContext();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // 全局快捷鍵 Alt + P 切換隱私模式
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setShowValues(!showValues);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showValues, setShowValues]);
+
+  // 閒置自動隱私模式 (5分鐘)
+  useEffect(() => {
+    if (!showValues) return;
+    
+    let timer: ReturnType<typeof setTimeout>;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setShowValues(false), 5 * 60 * 1000);
+    };
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keypress', resetTimer);
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keypress', resetTimer);
+    };
+  }, [showValues, setShowValues]);
+
+  if (!mounted) {
+    return <div className="min-h-screen bg-gray-50/50" />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50/50 font-sans text-gray-900 pb-24">

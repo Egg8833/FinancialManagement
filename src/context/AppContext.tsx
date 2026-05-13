@@ -2,7 +2,7 @@
 
 import { createContext, useContext, ReactNode, useMemo, useEffect, useRef, useState } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
-import type { AssetCategory, LiabilityItem } from '../types';
+import type { AssetCategory, LiabilityItem, LifeEvent, FireSettings } from '../types';
 import { calculateHealthScore } from '../lib/healthScore';
 
 // --- Initial Dummy Data ---
@@ -282,6 +282,11 @@ interface AppContextType {
   // 自訂類別
   customCategories: string[];
   setCustomCategories: (cats: string[] | ((prev: string[]) => string[])) => void;
+  // FIRE 相關
+  fireSettings: FireSettings;
+  setFireSettings: (s: FireSettings | ((prev: FireSettings) => FireSettings)) => void;
+  lifeEvents: LifeEvent[];
+  setLifeEvents: (e: LifeEvent[] | ((prev: LifeEvent[]) => LifeEvent[])) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -324,6 +329,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lastReportSent, setLastReportSent] = useStickyState('', 'app-last-report-sent-v1');
   const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
   const [customCategories, setCustomCategories] = useStickyState<string[]>(DEFAULT_CATEGORIES, 'app-custom-categories-v1');
+  const [fireSettings, setFireSettings] = useStickyState<FireSettings>({
+    currentAge: 30,
+    targetRetirementAge: 55,
+    annualReturnRate: 6,
+    inflationRate: 2,
+    swr: 4,
+    taxRate: 0,
+  }, 'app-fire-settings-v1');
+  const [lifeEvents, setLifeEvents] = useStickyState<LifeEvent[]>([], 'app-life-events-v1');
 
   // ref so the interval always calls the latest version without restarting
   const refreshRef = useRef<() => Promise<void>>(undefined);
@@ -614,6 +628,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setGoals,
       customCategories,
       setCustomCategories,
+      fireSettings,
+      setFireSettings,
+      lifeEvents,
+      setLifeEvents,
     }}>
       {children}
     </AppContext.Provider>
