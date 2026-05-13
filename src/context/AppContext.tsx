@@ -143,6 +143,7 @@ export type FinancialGoal = {
   deadline?: string; // YYYY-MM-DD
   color: string;
   icon: 'home' | 'car' | 'travel' | 'emergency' | 'retirement' | 'education' | 'other';
+  linkedAssetItemIds?: string[];
 };
 
 export type StockSector =
