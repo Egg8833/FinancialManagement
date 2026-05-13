@@ -191,6 +191,7 @@ export type CashFlowItem = {
   isRecurring: boolean;
   budget?: number;           // 月預算上限（支出項目用）
   expenseTag?: 'needs' | 'wants' | 'savings'; // 50/30/20 分類
+  customCategory?: string;
 };
 
 export type AnnualEntryCategory = 'dividend' | 'bonus' | 'other_income' | 'one_time_expense';
@@ -277,6 +278,9 @@ interface AppContextType {
   // 財務目標
   goals: FinancialGoal[];
   setGoals: (g: FinancialGoal[] | ((prev: FinancialGoal[]) => FinancialGoal[])) => void;
+  // 自訂類別
+  customCategories: string[];
+  setCustomCategories: (cats: string[] | ((prev: string[]) => string[])) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -288,6 +292,8 @@ export function useAppContext() {
   }
   return context;
 }
+
+const DEFAULT_CATEGORIES = ['餐飲', '交通', '房租', '娛樂', '醫療', '購物', '其他'];
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [showValues, setShowValues] = useStickyState<boolean>(true, 'app-show-values');
@@ -316,6 +322,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [reportSchedule, setReportSchedule] = useStickyState<'none' | 'weekly' | 'monthly'>('none', 'app-report-schedule-v1');
   const [lastReportSent, setLastReportSent] = useStickyState('', 'app-last-report-sent-v1');
   const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
+  const [customCategories, setCustomCategories] = useStickyState<string[]>(DEFAULT_CATEGORIES, 'app-custom-categories-v1');
 
   // ref so the interval always calls the latest version without restarting
   const refreshRef = useRef<() => Promise<void>>(undefined);
@@ -542,6 +549,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAnnualEntries([]);
     setSnapshots([]);
     setGoals([]);
+    setCustomCategories(DEFAULT_CATEGORIES);
   };
 
   return (
@@ -603,6 +611,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLastReportSent,
       goals,
       setGoals,
+      customCategories,
+      setCustomCategories,
     }}>
       {children}
     </AppContext.Provider>
