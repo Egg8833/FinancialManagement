@@ -271,6 +271,7 @@ export function AssetCategoryCard({ category, showValues, formatCurrency, onUpda
               onClick={() => setCollapsed(c => !c)}
               className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors ml-1"
               title={collapsed ? '展開' : '折疊'}
+              aria-label={collapsed ? '展開類別' : '折疊類別'}
             >
               {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
             </button>
