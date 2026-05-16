@@ -559,33 +559,65 @@ function CategoryAnalysisTab({
   );
 }
 
-function RecurringToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+function ItemFormOptions({
+  isRecurring,
+  setIsRecurring,
+  type,
+  customCategory,
+  setCustomCategory,
+  customCategories,
+  borderColor = 'border-gray-200',
+}: {
+  isRecurring: boolean;
+  setIsRecurring: (v: boolean) => void;
+  type: 'income' | 'expense';
+  customCategory: string | undefined;
+  setCustomCategory: (v: string | undefined) => void;
+  customCategories: string[];
+  borderColor?: string;
+}) {
   return (
-    <div className="space-y-1">
-      <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
-        <button
-          type="button"
-          onClick={() => onChange(true)}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors ${
-            value ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          <RefreshCw className="w-3 h-3" />
-          每月固定
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(false)}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors border-l border-gray-200 ${
-            !value ? 'bg-orange-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
-          }`}
-        >
-          <Zap className="w-3 h-3" />
-          單次記錄
-        </button>
+    <div className="space-y-1.5">
+      <div className="flex items-stretch gap-2">
+        {/* Recurring segmented control */}
+        <div className={`flex flex-1 rounded-lg border ${borderColor} overflow-hidden text-xs font-medium`}>
+          <button
+            type="button"
+            onClick={() => setIsRecurring(true)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors ${
+              isRecurring ? 'bg-indigo-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
+            }`}
+          >
+            <RefreshCw className="w-3 h-3 shrink-0" />
+            每月固定
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsRecurring(false)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 border-l ${borderColor} transition-colors ${
+              !isRecurring ? 'bg-orange-500 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
+            }`}
+          >
+            <Zap className="w-3 h-3 shrink-0" />
+            單次記錄
+          </button>
+        </div>
+        {/* Category select — same row, only for expense */}
+        {type === 'expense' && customCategories.length > 0 && (
+          <select
+            value={customCategory ?? ''}
+            onChange={e => setCustomCategory(e.target.value || undefined)}
+            className={`shrink-0 text-xs border ${borderColor} rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 bg-white text-gray-600`}
+          >
+            <option value="">不分類</option>
+            {customCategories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        )}
       </div>
-      <p className="text-[10px] text-gray-400 text-center">
-        {value ? '計入每月固定收支統計' : '不計入月均，適合獎金、報銷等臨時項目'}
+      <p className="text-[10px] text-gray-400 pl-0.5">
+        {isRecurring ? '計入每月固定收支統計' : '不計入月均，適合獎金、報銷等臨時項目'}
       </p>
     </div>
   );
@@ -629,69 +661,67 @@ function CashFlowRow({
 
   if (isEditing) {
     return (
-      <div className="p-4 bg-gray-50 space-y-2">
-        <div className="flex items-center gap-3">
-          <input type="text" value={name} onChange={e => setName(e.target.value)} className="flex-1 border rounded px-2 py-1 text-sm" placeholder="名稱" />
-          <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="w-24 border rounded px-2 py-1 text-sm text-right" placeholder="金額" />
-          <button onClick={handleSave} className="text-indigo-600"><Check className="w-4 h-4" /></button>
-          <button onClick={() => setIsEditing(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
+      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <input
+            type="text" value={name} onChange={e => setName(e.target.value)}
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-indigo-400 bg-white"
+            placeholder="項目名稱"
+          />
+          <input
+            type="number" value={amount} onChange={e => setAmount(e.target.value)}
+            className="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-indigo-400 bg-white"
+            placeholder="金額"
+          />
+          <button onClick={handleSave} className="p-1.5 text-indigo-600 hover:text-indigo-800"><Check className="w-4 h-4" /></button>
+          <button onClick={() => setIsEditing(false)} className="p-1.5 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
         </div>
-        <div className="space-y-2">
-          <RecurringToggle value={isRecurring} onChange={setIsRecurring} />
-          {type === 'expense' && (
-            <select
-              value={customCategory ?? ''}
-              onChange={e => setCustomCategory(e.target.value || undefined)}
-              className="text-xs border border-gray-200 rounded px-2 py-1 outline-none focus:border-indigo-300 bg-white"
-            >
-              <option value="">不分類</option>
-              {customCategories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          )}
-        </div>
+        <ItemFormOptions
+          isRecurring={isRecurring}
+          setIsRecurring={setIsRecurring}
+          type={type}
+          customCategory={customCategory}
+          setCustomCategory={setCustomCategory}
+          customCategories={customCategories}
+        />
       </div>
     );
   }
 
   return (
     <div className="px-4 py-3 hover:bg-gray-50 group transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700">{item.name}</span>
-            {item.customCategory && (
-              <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-bold"
-                style={{
-                  backgroundColor: `${getCategoryColor(item.customCategory, customCategories)}20`,
-                  color: getCategoryColor(item.customCategory, customCategories),
-                }}
-              >
-                {item.customCategory}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-              recurring ? 'bg-indigo-50 text-indigo-600' : 'bg-orange-50 text-orange-600'
-            }`}>
-              {recurring
-                ? <><RefreshCw className="w-2.5 h-2.5" /> 每月固定</>
-                : <><Zap className="w-2.5 h-2.5" /> 單次記錄</>
-              }
+      <div className="flex items-center justify-between gap-3">
+        {/* Left: name + badges */}
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="text-sm font-medium text-gray-800 truncate">{item.name}</span>
+          <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+            recurring ? 'bg-indigo-50 text-indigo-500' : 'bg-orange-50 text-orange-500'
+          }`}>
+            {recurring
+              ? <><RefreshCw className="w-2.5 h-2.5" /> 固定</>
+              : <><Zap className="w-2.5 h-2.5" /> 單次</>
+            }
+          </span>
+          {item.customCategory && (
+            <span
+              className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold"
+              style={{
+                backgroundColor: `${getCategoryColor(item.customCategory, customCategories)}20`,
+                color: getCategoryColor(item.customCategory, customCategories),
+              }}
+            >
+              {item.customCategory}
             </span>
-            {!recurring && <span className="text-[10px] text-gray-400">不計入月均</span>}
-          </div>
+          )}
         </div>
-        <div className="flex items-center gap-4">
-          <span className={`font-bold text-sm ${recurring ? 'text-gray-900' : 'text-gray-400'}`}>
+        {/* Right: amount + actions */}
+        <div className="flex items-center gap-3 shrink-0">
+          <span className={`font-bold text-sm tabular-nums ${recurring ? 'text-gray-900' : 'text-gray-400'}`}>
             {showValues ? item.amount.toLocaleString() : '****'}
           </span>
-          <div className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1">
-            <button onClick={() => setIsEditing(true)} className="p-1 text-gray-400 hover:text-indigo-600"><Pencil className="w-3.5 h-3.5" /></button>
-            <button onClick={() => setConfirmDelete(true)} className="p-1 text-gray-400 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
+          <div className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 flex gap-0.5 transition-opacity">
+            <button onClick={() => setIsEditing(true)} className="p-1.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
         </div>
       </div>
@@ -723,28 +753,30 @@ function AddItemRow({
   const [customCategory, setCustomCategory] = useState<string | undefined>(undefined);
 
   return (
-    <div className="p-4 bg-indigo-50 space-y-2">
-      <div className="flex items-center gap-3">
-        <input type="text" placeholder="名稱" value={name} onChange={e => setName(e.target.value)} className="flex-1 border border-indigo-200 rounded px-2 py-1 text-sm outline-none" autoFocus />
-        <input type="number" placeholder="金額" value={amount} onChange={e => setAmount(e.target.value)} className="w-24 border border-indigo-200 rounded px-2 py-1 text-sm text-right outline-none" />
-        <button onClick={() => onConfirm(name, Number(amount) || 0, isRecurring, customCategory)} className="text-indigo-600 font-bold"><Check className="w-4 h-4" /></button>
-        <button onClick={onCancel} className="text-gray-400"><X className="w-4 h-4" /></button>
+    <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 space-y-2.5">
+      <div className="flex items-center gap-2">
+        <input
+          type="text" placeholder="項目名稱" value={name} onChange={e => setName(e.target.value)}
+          className="flex-1 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-indigo-400 bg-white"
+          autoFocus
+        />
+        <input
+          type="number" placeholder="金額" value={amount} onChange={e => setAmount(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onConfirm(name, Number(amount) || 0, isRecurring, customCategory); }}
+          className="w-28 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-indigo-400 bg-white"
+        />
+        <button onClick={() => onConfirm(name, Number(amount) || 0, isRecurring, customCategory)} className="p-1.5 text-indigo-600 hover:text-indigo-800"><Check className="w-4 h-4" /></button>
+        <button onClick={onCancel} className="p-1.5 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
       </div>
-      <div className="space-y-2">
-        <RecurringToggle value={isRecurring} onChange={setIsRecurring} />
-        {type === 'expense' && (
-          <select
-            value={customCategory ?? ''}
-            onChange={e => setCustomCategory(e.target.value || undefined)}
-            className="text-xs border border-indigo-200 rounded px-2 py-1 outline-none bg-white"
-          >
-            <option value="">不分類</option>
-            {customCategories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-        )}
-      </div>
+      <ItemFormOptions
+        isRecurring={isRecurring}
+        setIsRecurring={setIsRecurring}
+        type={type}
+        customCategory={customCategory}
+        setCustomCategory={setCustomCategory}
+        customCategories={customCategories}
+        borderColor="border-indigo-200"
+      />
     </div>
   );
 }
