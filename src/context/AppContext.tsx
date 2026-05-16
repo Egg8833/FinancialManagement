@@ -288,6 +288,8 @@ interface AppContextType {
   setFireSettings: (s: FireSettings | ((prev: FireSettings) => FireSettings)) => void;
   lifeEvents: LifeEvent[];
   setLifeEvents: (e: LifeEvent[] | ((prev: LifeEvent[]) => LifeEvent[])) => void;
+  onboardingDone: boolean;
+  setOnboardingDone: (v: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -346,6 +348,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     taxRate: 0,
   }, 'app-fire-settings-v1');
   const [lifeEvents, setLifeEvents] = useStickyState<LifeEvent[]>([], 'app-life-events-v1');
+  const [onboardingDone, setOnboardingDone] = useStickyState<boolean>(false, 'assetdash-onboarding-done');
 
   // Schema version migration — runs once on mount
   useEffect(() => {
@@ -631,6 +634,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setFireSettings,
       lifeEvents,
       setLifeEvents,
+      onboardingDone,
+      setOnboardingDone,
     }}>
       {children}
     </AppContext.Provider>

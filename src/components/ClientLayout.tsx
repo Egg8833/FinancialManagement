@@ -8,6 +8,7 @@ import { BackupBanner } from './BackupBanner';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import { StockProvider } from '../context/StockContext';
 import { ToastProvider } from '../context/ToastContext';
+import { OnboardingWizard } from './OnboardingWizard';
 
 function ClientLayoutContent({ children }: { children: ReactNode }) {
   const { showValues, setShowValues } = useAppContext();
@@ -65,6 +66,7 @@ function ClientLayoutContent({ children }: { children: ReactNode }) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
         {children}
       </main>
+      <OnboardingWizard />
     </div>
   );
 }
