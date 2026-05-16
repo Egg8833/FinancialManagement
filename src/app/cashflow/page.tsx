@@ -33,13 +33,13 @@ export default function CashFlowPage() {
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
 
-  const handleAddItem = (type: 'income' | 'expense', name: string, amount: number, customCategory?: string) => {
+  const handleAddItem = (type: 'income' | 'expense', name: string, amount: number, isRecurring: boolean, customCategory?: string) => {
     const newItem: CashFlowItem = {
       id: Date.now().toString(),
       name,
       amount,
       category: 'General',
-      isRecurring: true,
+      isRecurring,
       customCategory,
     };
     if (type === 'income') setIncomeItems(prev => [...prev, newItem]);
@@ -51,9 +51,9 @@ export default function CashFlowPage() {
     else setExpenseItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const handleUpdateItem = (type: 'income' | 'expense', id: string, name: string, amount: number, customCategory?: string) => {
+  const handleUpdateItem = (type: 'income' | 'expense', id: string, name: string, amount: number, isRecurring: boolean, customCategory?: string) => {
     const updateFn = (prev: CashFlowItem[]) =>
-      prev.map(item => item.id === id ? { ...item, name, amount, customCategory } : item);
+      prev.map(item => item.id === id ? { ...item, name, amount, isRecurring, customCategory } : item);
     if (type === 'income') setIncomeItems(updateFn);
     else setExpenseItems(updateFn);
   };
@@ -151,7 +151,7 @@ export default function CashFlowPage() {
                     <AddItemRow
                       type="income"
                       customCategories={customCategories}
-                      onConfirm={(n, a, c) => { handleAddItem('income', n, a, c); setIsAddingIncome(false); }}
+                      onConfirm={(n, a, r, c) => { handleAddItem('income', n, a, r, c); setIsAddingIncome(false); }}
                       onCancel={() => setIsAddingIncome(false)}
                     />
                   )}
@@ -161,7 +161,7 @@ export default function CashFlowPage() {
                       item={item}
                       type="income"
                       customCategories={customCategories}
-                      onUpdate={(n, a, c) => handleUpdateItem('income', item.id, n, a, c)}
+                      onUpdate={(n, a, r, c) => handleUpdateItem('income', item.id, n, a, r, c)}
                       onDelete={() => handleDeleteItem('income', item.id)}
                       showValues={showValues}
                     />
@@ -188,7 +188,7 @@ export default function CashFlowPage() {
                     <AddItemRow
                       type="expense"
                       customCategories={customCategories}
-                      onConfirm={(n, a, c) => { handleAddItem('expense', n, a, c); setIsAddingExpense(false); }}
+                      onConfirm={(n, a, r, c) => { handleAddItem('expense', n, a, r, c); setIsAddingExpense(false); }}
                       onCancel={() => setIsAddingExpense(false)}
                     />
                   )}
@@ -198,7 +198,7 @@ export default function CashFlowPage() {
                       item={item}
                       type="expense"
                       customCategories={customCategories}
-                      onUpdate={(n, a, c) => handleUpdateItem('expense', item.id, n, a, c)}
+                      onUpdate={(n, a, r, c) => handleUpdateItem('expense', item.id, n, a, r, c)}
                       onDelete={() => handleDeleteItem('expense', item.id)}
                       showValues={showValues}
                     />
@@ -569,7 +569,7 @@ function CashFlowRow({
 }: {
   item: CashFlowItem;
   type: 'income' | 'expense';
-  onUpdate: (n: string, a: number, c?: string) => void;
+  onUpdate: (n: string, a: number, r: boolean, c?: string) => void;
   onDelete: () => void;
   showValues: boolean;
   customCategories: string[];
@@ -578,11 +578,12 @@ function CashFlowRow({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState(item.name);
   const [amount, setAmount] = useState(item.amount.toString());
+  const [isRecurring, setIsRecurring] = useState(item.isRecurring !== false);
   const [customCategory, setCustomCategory] = useState<string | undefined>(item.customCategory);
   const { toast } = useToast();
 
   const handleSave = () => {
-    onUpdate(name, Number(amount) || 0, customCategory);
+    onUpdate(name, Number(amount) || 0, isRecurring, customCategory);
     setIsEditing(false);
     toast('已更新項目');
   };
@@ -591,6 +592,8 @@ function CashFlowRow({
     onDelete();
     toast(`已刪除「${item.name}」`, 'info');
   };
+
+  const recurring = item.isRecurring !== false;
 
   if (isEditing) {
     return (
@@ -601,8 +604,20 @@ function CashFlowRow({
           <button onClick={handleSave} className="text-indigo-600"><Check className="w-4 h-4" /></button>
           <button onClick={() => setIsEditing(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
         </div>
-        {type === 'expense' && (
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsRecurring(r => !r)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+              isRecurring
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                : 'bg-orange-50 border-orange-200 text-orange-700'
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isRecurring ? 'bg-indigo-500' : 'bg-orange-400'}`} />
+            {isRecurring ? '每月固定' : '一次性'}
+          </button>
+          {type === 'expense' && (
             <select
               value={customCategory ?? ''}
               onChange={e => setCustomCategory(e.target.value || undefined)}
@@ -613,8 +628,8 @@ function CashFlowRow({
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     );
   }
@@ -637,10 +652,17 @@ function CashFlowRow({
               </span>
             )}
           </div>
-          <span className="text-[10px] text-gray-400 uppercase tracking-tighter">每月固定</span>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className={`w-1 h-1 rounded-full ${recurring ? 'bg-indigo-400' : 'bg-orange-400'}`} />
+            <span className={`text-[10px] font-medium ${recurring ? 'text-indigo-400' : 'text-orange-500'}`}>
+              {recurring ? '每月固定' : '一次性・不計入月均'}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-4">
-          <span className="font-bold text-gray-900 text-sm">{showValues ? item.amount.toLocaleString() : '****'}</span>
+          <span className={`font-bold text-sm ${recurring ? 'text-gray-900' : 'text-gray-400'}`}>
+            {showValues ? item.amount.toLocaleString() : '****'}
+          </span>
           <div className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 flex gap-1">
             <button onClick={() => setIsEditing(true)} className="p-1 text-gray-400 hover:text-indigo-600"><Pencil className="w-3.5 h-3.5" /></button>
             <button onClick={() => setConfirmDelete(true)} className="p-1 text-gray-400 hover:text-rose-600"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -665,12 +687,13 @@ function AddItemRow({
   customCategories,
 }: {
   type: 'income' | 'expense';
-  onConfirm: (n: string, a: number, c?: string) => void;
+  onConfirm: (n: string, a: number, r: boolean, c?: string) => void;
   onCancel: () => void;
   customCategories: string[];
 }) {
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
+  const [isRecurring, setIsRecurring] = useState(true);
   const [customCategory, setCustomCategory] = useState<string | undefined>(undefined);
 
   return (
@@ -678,11 +701,23 @@ function AddItemRow({
       <div className="flex items-center gap-3">
         <input type="text" placeholder="名稱" value={name} onChange={e => setName(e.target.value)} className="flex-1 border border-indigo-200 rounded px-2 py-1 text-sm outline-none" autoFocus />
         <input type="number" placeholder="金額" value={amount} onChange={e => setAmount(e.target.value)} className="w-24 border border-indigo-200 rounded px-2 py-1 text-sm text-right outline-none" />
-        <button onClick={() => onConfirm(name, Number(amount) || 0, customCategory)} className="text-indigo-600 font-bold"><Check className="w-4 h-4" /></button>
+        <button onClick={() => onConfirm(name, Number(amount) || 0, isRecurring, customCategory)} className="text-indigo-600 font-bold"><Check className="w-4 h-4" /></button>
         <button onClick={onCancel} className="text-gray-400"><X className="w-4 h-4" /></button>
       </div>
-      {type === 'expense' && (
-        <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          type="button"
+          onClick={() => setIsRecurring(r => !r)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
+            isRecurring
+              ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
+              : 'bg-orange-50 border-orange-200 text-orange-700'
+          }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full ${isRecurring ? 'bg-indigo-500' : 'bg-orange-400'}`} />
+          {isRecurring ? '每月固定' : '一次性'}
+        </button>
+        {type === 'expense' && (
           <select
             value={customCategory ?? ''}
             onChange={e => setCustomCategory(e.target.value || undefined)}
@@ -693,8 +728,8 @@ function AddItemRow({
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
