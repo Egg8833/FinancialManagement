@@ -375,6 +375,7 @@ function CategoryAnalysisTab({
   setExpenseItems: (fn: (prev: CashFlowItem[]) => CashFlowItem[]) => void;
   showValues: boolean;
 }) {
+  const { categoryBudgets, setCategoryBudgets } = useAppContext();
   const donutData = useMemo(() => buildDonutData(expenseItems), [expenseItems]);
   const categoryMonthData = useMemo(() => buildCategoryMonthData(expenseItems), [expenseItems]);
   const allCats = useMemo(() => {
@@ -391,6 +392,58 @@ function CategoryAnalysisTab({
           setCustomCategories={setCustomCategories}
           setExpenseItems={setExpenseItems}
         />
+        {customCategories.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">類別月預算</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {customCategories.map((cat) => {
+                const spent = expenseItems
+                  .filter(e => e.customCategory === cat)
+                  .reduce((s, e) => s + e.amount, 0);
+                const budget = categoryBudgets[cat] ?? 0;
+                const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+                const color = getCategoryColor(cat, customCategories);
+                return (
+                  <div key={cat} className="bg-gray-50 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-medium" style={{ color }}>{cat}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-gray-400">預算</span>
+                        <input
+                          type="number"
+                          value={budget || ''}
+                          onChange={e => setCategoryBudgets(prev => ({
+                            ...prev,
+                            [cat]: Number(e.target.value) || 0,
+                          }))}
+                          placeholder="未設定"
+                          className="w-20 text-xs text-right border border-gray-200 rounded px-1.5 py-0.5 outline-none focus:border-indigo-300"
+                        />
+                      </div>
+                    </div>
+                    {budget > 0 && (
+                      <>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
+                          <div
+                            className="h-1.5 rounded-full transition-all"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: pct >= 90 ? '#f43f5e' : pct >= 70 ? '#f59e0b' : color,
+                            }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-gray-400">
+                          <span>已用 {showValues ? spent.toLocaleString() : '****'}</span>
+                          <span>{pct.toFixed(0)}%</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {donutData.length === 0 ? (
           <div className="h-48 flex items-center justify-center text-sm text-gray-400">
             尚無支出項目，請在「收支管理」tab 新增支出並設定類別

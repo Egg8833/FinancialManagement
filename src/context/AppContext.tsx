@@ -188,8 +188,6 @@ export type CashFlowItem = {
   amount: number;
   category: string;
   isRecurring: boolean;
-  budget?: number;           // 月預算上限（支出項目用）
-  expenseTag?: 'needs' | 'wants' | 'savings'; // 50/30/20 分類
   customCategory?: string;
 };
 
@@ -282,6 +280,9 @@ interface AppContextType {
   // 自訂類別
   customCategories: string[];
   setCustomCategories: (cats: string[] | ((prev: string[]) => string[])) => void;
+  // 類別月預算
+  categoryBudgets: Record<string, number>;
+  setCategoryBudgets: (v: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void;
   // FIRE 相關
   fireSettings: FireSettings;
   setFireSettings: (s: FireSettings | ((prev: FireSettings) => FireSettings)) => void;
@@ -332,6 +333,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lastReportSent, setLastReportSent] = useStickyState('', 'app-last-report-sent-v1');
   const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
   const [customCategories, setCustomCategories] = useStickyState<string[]>(DEFAULT_CATEGORIES, 'app-custom-categories-v1');
+  const [categoryBudgets, setCategoryBudgets] = useStickyState<Record<string, number>>(
+    {},
+    'assetdash-category-budgets',
+  );
   const [fireSettings, setFireSettings] = useStickyState<FireSettings>({
     currentAge: 30,
     targetRetirementAge: 55,
@@ -620,6 +625,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setGoals,
       customCategories,
       setCustomCategories,
+      categoryBudgets,
+      setCategoryBudgets,
       fireSettings,
       setFireSettings,
       lifeEvents,
