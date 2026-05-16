@@ -29,6 +29,7 @@ export default function CashFlowPage() {
   const [isAddingIncome, setIsAddingIncome] = useState(false);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [activeTab, setActiveTab] = useState<'flow' | 'category'>('flow');
+  const [selectedMonth, setSelectedMonth] = useState<{ label: string; income: number; expense: number; net: number } | null>(null);
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
 
@@ -224,7 +225,17 @@ export default function CashFlowPage() {
             </div>
             <p className="text-xs text-gray-400 mb-5">每月固定收支 + 年度一次性項目（獎金、股利、臨時支出）</p>
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={monthTrend} margin={{ top: 5, right: 5, left: 0, bottom: 0 }} barCategoryGap="30%">
+              <BarChart
+                data={monthTrend}
+                margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
+                barCategoryGap="30%"
+                onClick={(data: any) => {
+                  if (data?.activePayload?.[0]?.payload) {
+                    setSelectedMonth(data.activePayload[0].payload);
+                  }
+                }}
+                style={{ cursor: 'pointer' }}
+              >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
                 <YAxis
@@ -247,6 +258,50 @@ export default function CashFlowPage() {
           </div>
 
           <AnnualTracker />
+
+          {selectedMonth && (
+            <div
+              className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+              onClick={() => setSelectedMonth(null)}
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-bold text-gray-900">{selectedMonth.label} 收支摘要</h3>
+                  <button
+                    onClick={() => setSelectedMonth(null)}
+                    className="p-1 text-gray-400 hover:text-gray-600"
+                    aria-label="關閉"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">收入</span>
+                    <span className="font-bold text-emerald-600">{formatCurrency(selectedMonth.income)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-sm text-gray-600">支出</span>
+                    <span className="font-bold text-rose-600">{formatCurrency(selectedMonth.expense)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-sm font-bold text-gray-900">淨盈餘</span>
+                    <span className={`font-bold text-lg ${selectedMonth.net >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
+                      {formatCurrency(selectedMonth.net)}
+                    </span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-100">
+                    <p className="text-xs text-gray-400 text-center">
+                      儲蓄率：{selectedMonth.income > 0 ? ((selectedMonth.net / selectedMonth.income) * 100).toFixed(1) : 0}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 
