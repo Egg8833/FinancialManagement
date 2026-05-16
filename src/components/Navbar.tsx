@@ -97,8 +97,8 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
 
             {/* 中：導覽（佔滿剩餘空間，flex-1 + justify-center） */}
             <div className="flex-1 flex justify-center">
-              {/* 平板：icon only，md ~ xl */}
-              <div className="hidden md:flex gap-5 xl:hidden items-center gap-0.5">
+              {/* 平板：icon only，md ~ lg */}
+              <div className="hidden md:flex lg:hidden items-center gap-0.5">
                 {NAV_LINKS.map(({ href, label, Icon }) => (
                   <Link key={href} href={href} title={label} className={getIconNavClass(href)}>
                     <Icon className="w-5 h-5" />
@@ -106,8 +106,8 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                 ))}
               </div>
 
-              {/* 桌機：icon + label，xl+ */}
-              <div className="hidden xl:flex items-center gap-0.5">
+              {/* 桌機：icon + label，lg+ */}
+              <div className="hidden lg:flex items-center gap-0.5">
                 {NAV_LINKS.map(({ href, label, Icon }) => (
                   <Link key={href} href={href} className={getNavClass(href)}>
                     <Icon className="w-4 h-4" />
