@@ -121,7 +121,7 @@ function parseAssets(rows: string[][], categories: AssetCategory[]): ParseResult
 function parseCashflow(rows: string[][], type: 'income' | 'expense'): ParseResult<ParsedCashflow> {
   const dataRows = rows.slice(1).filter(r => r.some(c => String(c).trim()));
   const parsed: ParsedRow<ParsedCashflow>[] = dataRows.map(row => {
-    const [rowType, name, amountRaw, category, recurringRaw, budgetRaw] =
+    const [rowType, name, amountRaw, category, recurringRaw] =
       row.map(c => String(c).trim());
     const raw = { type: rowType, name, amount: amountRaw };
     if (rowType !== type) return { valid: false, data: raw, reason: `類型須為「${type}」` };
@@ -130,14 +130,12 @@ function parseCashflow(rows: string[][], type: 'income' | 'expense'): ParseResul
     if (!amountRaw || isNaN(amount) || amount < 0)
       return { valid: false, data: raw, reason: '金額格式錯誤' };
     const isRecurring = recurringRaw.toLowerCase() !== 'false';
-    const budget = budgetRaw ? Number(budgetRaw) : undefined;
     return {
       valid: true,
       data: {
         name, amount,
         category: category || '',
         isRecurring,
-        budget: budget !== undefined && !isNaN(budget) && budget >= 0 ? budget : undefined,
       },
     };
   });
@@ -303,7 +301,7 @@ const PREVIEW_HEADERS: Record<ImportType, string[]> = {
   stocks:  ['代號', '股數', '平均成本', '平台', '產業'],
   assets:  ['類別', '名稱', '金額'],
   income:  ['名稱', '金額', '類別', '週期性'],
-  expense: ['名稱', '金額', '類別', '週期性', '月預算'],
+  expense: ['名稱', '金額', '類別', '週期性'],
 };
 
 function getRowCells(
@@ -320,9 +318,7 @@ function getRowCells(
     return [d.categoryTitle, d.item.name, d.item.amount.toLocaleString()];
   }
   const d = (row as ValidRow<ParsedCashflow>).data;
-  const cells = [d.name, d.amount.toLocaleString(), d.category, d.isRecurring ? '是' : '否'];
-  if (importType === 'expense') cells.push(d.budget ? d.budget.toLocaleString() : '—');
-  return cells;
+  return [d.name, d.amount.toLocaleString(), d.category, d.isRecurring ? '是' : '否'];
 }
 
 function Step3Preview({

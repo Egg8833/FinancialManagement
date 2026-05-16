@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area,
 } from 'recharts';
-import { Camera, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 
 const CATEGORY_COLORS = {
@@ -16,24 +16,12 @@ const CATEGORY_COLORS = {
 };
 
 export default function ChartPage() {
-  const { netWorth, totalAssets, totalLiabilities, snapshots, setSnapshots } = useAppContext();
+  const { snapshots, setSnapshots } = useAppContext();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  const handleSaveSnapshot = () => {
-    const now = new Date();
-    const label = now.toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    setSnapshots(prev => [...prev, {
-      id: Date.now().toString(),
-      date: label,
-      totalAssets,
-      totalLiabilities,
-      netWorth,
-    }]);
-  };
 
   const handleDeleteSnapshot = (id: string) => {
     setSnapshots(prev => prev.filter(s => s.id !== id));
@@ -68,15 +56,8 @@ export default function ChartPage() {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">資產狀態圖</h1>
-          <p className="text-sm text-gray-500 mt-1">手動記錄快照，追蹤資產負債變化趨勢</p>
+          <p className="text-sm text-gray-500 mt-1">每日自動記錄快照，追蹤資產負債變化趨勢</p>
         </div>
-        <button
-          onClick={handleSaveSnapshot}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <Camera className="w-4 h-4" />
-          儲存今日快照
-        </button>
       </div>
 
       {/* Net Worth Bar Chart */}
@@ -85,8 +66,7 @@ export default function ChartPage() {
 
         {snapshots.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center text-gray-400 gap-3">
-            <Camera className="w-10 h-10 opacity-30" />
-            <p className="text-sm">尚無快照資料，請點擊「儲存今日快照」開始記錄</p>
+            <p className="text-sm">尚無快照資料，回到總覽頁面讓資料自動產生第一筆快照</p>
           </div>
         ) : (
           <div className="h-96 w-full">
