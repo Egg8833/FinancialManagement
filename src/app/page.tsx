@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Plus, TrendingUp, TrendingDown, Wallet, X, Check, Shield } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Wallet, X, Check, Shield, Sparkles } from 'lucide-react';
 import { HeroKPI } from '../components/HeroKPI';
 import { NetWorthChart } from '../components/NetWorthChart';
 import { AssetAllocationChart } from '../components/AssetAllocationChart';
@@ -36,7 +36,15 @@ export default function DashboardPage() {
     netWorthGoal,
     setNetWorthGoal,
     snapshots,
+    clearAllData,
+    stakingItems,
   } = useAppContext();
+
+  const isDemoData = useMemo(
+    () => assets.some(cat => cat.items.some(item => item.id === 'l1')),
+    [assets],
+  );
+  const [demoDismissed, setDemoDismissed] = useState(false);
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
 
@@ -45,6 +53,27 @@ export default function DashboardPage() {
     [assets],
   );
   const runwayMonths = totalMonthlyExpense > 0 ? liquidAssets / totalMonthlyExpense : null;
+
+  const alerts = useMemo(() => {
+    const result: Array<{ level: 'warn' | 'info'; message: string }> = [];
+
+    if (monthlyNetCashFlow < 0) {
+      result.push({ level: 'warn', message: `本月預計現金流為負（${formatCurrency(monthlyNetCashFlow)}），支出超過收入` });
+    }
+
+    if (runwayMonths !== null && runwayMonths < 3) {
+      result.push({ level: 'warn', message: `現金彈藥僅剩 ${runwayMonths.toFixed(1)} 個月，建議補充流動資金` });
+    }
+
+    const borrowItems = stakingItems.filter((i: { stakingType?: string }) => (i.stakingType ?? 'borrow') === 'borrow');
+    for (const item of borrowItems) {
+      if (item.apy > 10) {
+        result.push({ level: 'warn', message: `「${item.name}」借貸年利率 ${item.apy}%，注意資金成本` });
+      }
+    }
+
+    return result;
+  }, [monthlyNetCashFlow, runwayMonths, stakingItems, formatCurrency]);
 
   const colorOptions = [
     { colorClass: 'bg-violet-400', bgClass: 'bg-violet-50' },
@@ -136,10 +165,50 @@ export default function DashboardPage() {
 
   return (
     <>
-<div className="mb-8">
+      <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">個人資產狀態總覽</h1>
         <p className="text-sm text-gray-500 mt-1">追蹤與管理您的財務狀況 (資料將保存在您的設備中)</p>
       </div>
+
+      {isDemoData && !demoDismissed && (
+        <div className="mb-6 flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4">
+          <Sparkles className="w-5 h-5 text-indigo-500 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-indigo-900">目前顯示的是範例資料</p>
+            <p className="text-xs text-indigo-600 mt-0.5">這些數字只是示範用途，請清除後輸入你自己的財務資料。</p>
+          </div>
+          <button
+            onClick={clearAllData}
+            className="shrink-0 px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            清除範例資料
+          </button>
+          <button
+            onClick={() => setDemoDismissed(true)}
+            className="shrink-0 p-1 text-indigo-400 hover:text-indigo-600 transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {alerts.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {alerts.map((alert, i) => (
+            <div
+              key={i}
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium ${
+                alert.level === 'warn'
+                  ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                  : 'bg-indigo-50 border border-indigo-200 text-indigo-800'
+              }`}
+            >
+              <span className="shrink-0">{alert.level === 'warn' ? '⚠️' : '💡'}</span>
+              {alert.message}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="mb-6 flex flex-wrap gap-4">
         <div className="flex-1 bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
