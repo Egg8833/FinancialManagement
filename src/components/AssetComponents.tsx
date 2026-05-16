@@ -71,7 +71,7 @@ export function EditableAssetRow({ item, showValues, onUpdate, onDelete }: Edita
         )}
       </div>
       <span className="font-medium text-gray-900 mx-4">{showValues ? item.amount.toLocaleString('en-US') : '****'}</span>
-      <div className={`flex gap-1 transition-opacity ${item.id.startsWith('auto-') ? 'invisible' : 'opacity-0 group-hover:opacity-100'}`}>
+      <div className={`flex gap-1 transition-opacity ${item.id.startsWith('auto-') ? 'invisible' : 'opacity-60 sm:opacity-0 sm:group-hover:opacity-100'}`}>
         <button onClick={() => setIsEditing(true)} className="p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"><Pencil className="w-3.5 h-3.5" /></button>
         <button onClick={() => setConfirmDelete(true)} className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
