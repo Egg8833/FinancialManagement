@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area,
 } from 'recharts';
-import { Trash2, Clock } from 'lucide-react';
+import { Trash2, Clock, Camera } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 
 const CATEGORY_COLORS = {
@@ -16,7 +16,7 @@ const CATEGORY_COLORS = {
 };
 
 export default function ChartPage() {
-  const { snapshots, setSnapshots } = useAppContext();
+  const { snapshots, setSnapshots, showValues, takeSnapshot } = useAppContext();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -60,6 +60,13 @@ export default function ChartPage() {
           <h1 className="text-2xl font-bold text-gray-900">資產狀態圖</h1>
           <p className="text-sm text-gray-500 mt-1">每日自動記錄快照，追蹤資產負債變化趨勢</p>
         </div>
+        <button
+          onClick={takeSnapshot}
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
+        >
+          <Camera className="w-4 h-4" />
+          立即快照
+        </button>
       </div>
 
       {/* 資料累積提示 */}
@@ -188,9 +195,9 @@ export default function ChartPage() {
               <div key={s.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 group transition-colors">
                 <span className="text-sm font-medium text-gray-700 w-28 shrink-0">{s.date}</span>
                 <div className="flex items-center gap-6 text-sm flex-wrap">
-                  <span className="text-gray-500">總資產: <span className="font-semibold text-gray-900">{s.totalAssets.toLocaleString('en-US')}</span></span>
-                  <span className="text-gray-500">總負債: <span className="font-semibold text-rose-600">{s.totalLiabilities.toLocaleString('en-US')}</span></span>
-                  <span className="text-gray-500">淨資產: <span className="font-semibold text-indigo-600">{s.netWorth.toLocaleString('en-US')}</span></span>
+                  <span className="text-gray-500">總資產: <span className="font-semibold text-gray-900">{showValues ? s.totalAssets.toLocaleString('en-US') : '****'}</span></span>
+                  <span className="text-gray-500">總負債: <span className="font-semibold text-rose-600">{showValues ? s.totalLiabilities.toLocaleString('en-US') : '****'}</span></span>
+                  <span className="text-gray-500">淨資產: <span className="font-semibold text-indigo-600">{showValues ? s.netWorth.toLocaleString('en-US') : '****'}</span></span>
                 </div>
                 <button
                   onClick={() => handleDeleteSnapshot(s.id)}

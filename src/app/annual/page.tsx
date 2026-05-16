@@ -22,7 +22,10 @@ const INCOME_CATS = [
 ] as const;
 
 const EXPENSE_CATS = [
-  { key: 'one_time_expense' as AnnualEntryCategory, label: '一次性支出', color: 'text-rose-600', bar: '#f43f5e' },
+  { key: 'travel'           as AnnualEntryCategory, label: '旅遊',       color: 'text-orange-600', bar: '#f97316' },
+  { key: 'medical'          as AnnualEntryCategory, label: '醫療/健康',  color: 'text-pink-600',   bar: '#ec4899' },
+  { key: 'equipment'        as AnnualEntryCategory, label: '設備購置',   color: 'text-amber-600',  bar: '#f59e0b' },
+  { key: 'one_time_expense' as AnnualEntryCategory, label: '其他支出',   color: 'text-rose-600',   bar: '#f43f5e' },
 ] as const;
 
 // ─── 小工具 ────────────────────────────────────────────────────────────────────
@@ -130,9 +133,9 @@ export default function AnnualPage() {
   const [view, setView] = useState<'table' | 'chart'>('table');
   const [modal, setModal] = useState<{ month: number; cat: AnnualEntryCategory; label: string } | null>(null);
 
-  // 固定月收入 / 月支出（來自收支管理）
-  const fixedIncome  = useMemo(() => incomeItems.reduce((s, i) => s + i.amount, 0), [incomeItems]);
-  const fixedExpense = useMemo(() => expenseItems.reduce((s, i) => s + i.amount, 0), [expenseItems]);
+  // 固定月收入 / 月支出（來自收支管理，排除一次性項目）
+  const fixedIncome  = useMemo(() => incomeItems.filter(i => i.isRecurring !== false).reduce((s, i) => s + i.amount, 0), [incomeItems]);
+  const fixedExpense = useMemo(() => expenseItems.filter(i => i.isRecurring !== false).reduce((s, i) => s + i.amount, 0), [expenseItems]);
 
   // 依年份過濾
   const yearEntries = useMemo(() => annualEntries.filter(e => e.year === year), [annualEntries, year]);
@@ -162,13 +165,16 @@ export default function AnnualPage() {
       const dividend    = getTotal(m, 'dividend');
       const bonus       = getTotal(m, 'bonus');
       const otherIncome = getTotal(m, 'other_income');
+      const travel      = getTotal(m, 'travel');
+      const medical     = getTotal(m, 'medical');
+      const equipment   = getTotal(m, 'equipment');
       const oneTimeExp  = getTotal(m, 'one_time_expense');
 
       const totalIncome  = fixedIncome + dividend + bonus + otherIncome;
-      const totalExpense = fixedExpense + oneTimeExp;
+      const totalExpense = fixedExpense + travel + medical + equipment + oneTimeExp;
       const net          = totalIncome - totalExpense;
 
-      return { label, m, dividend, bonus, otherIncome, oneTimeExp, totalIncome, totalExpense, net };
+      return { label, m, dividend, bonus, otherIncome, travel, medical, equipment, oneTimeExp, totalIncome, totalExpense, net };
     });
   }, [yearEntries, fixedIncome, fixedExpense]);
 
@@ -180,6 +186,9 @@ export default function AnnualPage() {
     otherIncome:  monthRows.reduce((s, r) => s + r.otherIncome, 0),
     totalIncome:  monthRows.reduce((s, r) => s + r.totalIncome, 0),
     fixedExpense: fixedExpense * 12,
+    travel:       monthRows.reduce((s, r) => s + r.travel, 0),
+    medical:      monthRows.reduce((s, r) => s + r.medical, 0),
+    equipment:    monthRows.reduce((s, r) => s + r.equipment, 0),
     oneTimeExp:   monthRows.reduce((s, r) => s + r.oneTimeExp, 0),
     totalExpense: monthRows.reduce((s, r) => s + r.totalExpense, 0),
     net:          monthRows.reduce((s, r) => s + r.net, 0),
@@ -275,13 +284,16 @@ export default function AnnualPage() {
                 <th className="px-3 py-3 text-right font-semibold text-gray-700 text-xs bg-emerald-50/50">收入小計</th>
                 {/* Expense */}
                 <th className="px-3 py-3 text-right font-semibold text-gray-500 text-xs">固定支出</th>
-                <th className="px-3 py-3 text-right font-semibold text-rose-600 text-xs">一次性支出 ✦</th>
+                <th className="px-3 py-3 text-right font-semibold text-orange-600 text-xs">旅遊 ✦</th>
+                <th className="px-3 py-3 text-right font-semibold text-pink-600 text-xs">醫療/健康 ✦</th>
+                <th className="px-3 py-3 text-right font-semibold text-amber-600 text-xs">設備購置 ✦</th>
+                <th className="px-3 py-3 text-right font-semibold text-rose-600 text-xs">其他支出 ✦</th>
                 <th className="px-3 py-3 text-right font-semibold text-gray-700 text-xs bg-rose-50/50">支出小計</th>
                 {/* Net */}
                 <th className="px-3 py-3 text-right font-semibold text-gray-700 text-xs bg-indigo-50/50">月淨結餘</th>
               </tr>
               <tr className="border-b border-gray-100">
-                <td colSpan={10} className="px-4 py-1.5 text-[10px] text-gray-400">✦ 點擊儲存格可新增／編輯一次性項目</td>
+                <td colSpan={13} className="px-4 py-1.5 text-[10px] text-gray-400">✦ 點擊儲存格可新增／編輯一次性項目</td>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -300,8 +312,11 @@ export default function AnnualPage() {
                   </td>
                   {/* Fixed expense */}
                   <td className="px-3 py-2.5 text-right text-sm text-gray-400">{showValues ? fixedExpense.toLocaleString('en-US') : '****'}</td>
-                  {/* One-time expense */}
-                  <ClickableCell month={row.m} cat="one_time_expense" label="一次性支出" value={row.oneTimeExp} />
+                  {/* One-time expenses */}
+                  <ClickableCell month={row.m} cat="travel"     label="旅遊"      value={row.travel} />
+                  <ClickableCell month={row.m} cat="medical"    label="醫療/健康" value={row.medical} />
+                  <ClickableCell month={row.m} cat="equipment"  label="設備購置"  value={row.equipment} />
+                  <ClickableCell month={row.m} cat="one_time_expense" label="其他支出" value={row.oneTimeExp} />
                   {/* Expense subtotal */}
                   <td className="px-3 py-2.5 text-right text-sm font-bold text-rose-700 bg-rose-50/30">
                     {showValues ? row.totalExpense.toLocaleString('en-US') : '****'}
@@ -323,6 +338,9 @@ export default function AnnualPage() {
                 <td className="px-3 py-3 text-right text-sm font-bold text-violet-700">{showValues ? fmt(yearTotals.otherIncome) : '****'}</td>
                 <td className="px-3 py-3 text-right text-sm font-bold text-emerald-800 bg-emerald-50">{showValues ? yearTotals.totalIncome.toLocaleString('en-US') : '****'}</td>
                 <td className="px-3 py-3 text-right text-sm font-bold text-gray-700">{showValues ? yearTotals.fixedExpense.toLocaleString('en-US') : '****'}</td>
+                <td className="px-3 py-3 text-right text-sm font-bold text-orange-700">{showValues ? fmt(yearTotals.travel) : '****'}</td>
+                <td className="px-3 py-3 text-right text-sm font-bold text-pink-700">{showValues ? fmt(yearTotals.medical) : '****'}</td>
+                <td className="px-3 py-3 text-right text-sm font-bold text-amber-700">{showValues ? fmt(yearTotals.equipment) : '****'}</td>
                 <td className="px-3 py-3 text-right text-sm font-bold text-rose-700">{showValues ? fmt(yearTotals.oneTimeExp) : '****'}</td>
                 <td className="px-3 py-3 text-right text-sm font-bold text-rose-800 bg-rose-50">{showValues ? yearTotals.totalExpense.toLocaleString('en-US') : '****'}</td>
                 <td className="px-3 py-3 text-right bg-indigo-50">{showValues ? fmtSigned(yearTotals.net) : '****'}</td>

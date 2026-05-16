@@ -191,7 +191,7 @@ export type CashFlowItem = {
   customCategory?: string;
 };
 
-export type AnnualEntryCategory = 'dividend' | 'bonus' | 'other_income' | 'one_time_expense';
+export type AnnualEntryCategory = 'dividend' | 'bonus' | 'other_income' | 'one_time_expense' | 'travel' | 'medical' | 'equipment';
 
 export type AnnualEntry = {
   id: string;
@@ -253,6 +253,7 @@ interface AppContextType {
   netWorth: number;
   momDelta: number | null;
   clearAllData: () => void;
+  takeSnapshot: () => void;
   // 備份提醒
   lastExportDate: string;
   setLastExportDate: (date: string) => void;
@@ -565,6 +566,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     clearStockData();
   };
 
+  const takeSnapshot = () => {
+    if (totalAssets === 0 && netWorth === 0) return;
+    const today = new Date().toISOString().split('T')[0];
+    const liquidAmt = assets.find(c => c.id === 'liquid')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
+    const investmentAmt = combinedAssets.find(c => c.id === 'investment')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
+    const fixedAmt = assets.find(c => c.id === 'fixed')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
+    const receivableAmt = assets.find(c => c.id === 'receivable')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
+    const healthResult = calculateHealthScore({
+      totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
+      totalAssets, totalLiabilities, liquidAssets: liquidAmt, investmentAssets: investmentAmt, snapshots,
+    });
+    const newSnap = {
+      id: `snap-${Date.now()}`, date: today, totalAssets, totalLiabilities, netWorth,
+      healthScore: healthResult.totalScore,
+      liquid: liquidAmt, investment: investmentAmt, fixed: fixedAmt, receivable: receivableAmt,
+    };
+    setSnapshots(prev => {
+      const withoutToday = prev.filter(s => s.date !== today);
+      return [...withoutToday.slice(-364), newSnap];
+    });
+  };
+
   return (
     <AppContext.Provider value={{
       showValues, 
@@ -607,6 +630,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       netWorth,
       momDelta,
       clearAllData,
+      takeSnapshot,
       lastExportDate,
       setLastExportDate,
       netWorthGoal,

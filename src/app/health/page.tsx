@@ -121,7 +121,7 @@ type ActionItem = {
 export default function HealthPage() {
   const {
     totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
-    totalAssets, totalLiabilities, assets, combinedAssets, snapshots,
+    totalAssets, totalLiabilities, assets, combinedAssets, snapshots, showValues,
   } = useAppContext();
 
   const liquidAssets = assets.find(c => c.id === 'liquid')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
@@ -331,8 +331,7 @@ export default function HealthPage() {
                   <div className="text-right">
                     <p className="text-xs text-gray-400">{item.action}</p>
                     <p className="text-base font-black text-gray-900">
-                      {item.isMonthly ? '每月 ' : ''}
-                      NT${Math.round(item.amount).toLocaleString()}
+                      {showValues ? <>{item.isMonthly ? '每月 ' : ''}NT${Math.round(item.amount).toLocaleString()}</> : '****'}
                     </p>
                   </div>
                   <div className="text-right">

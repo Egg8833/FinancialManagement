@@ -21,6 +21,7 @@ export default function SettingsPage() {
     snapshots, setSnapshots,
     borrowingLimits, setBorrowingLimits,
     netWorthGoal, setNetWorthGoal,
+    categoryBudgets, setCategoryBudgets,
     setLastExportDate,
     reportSchedule, setReportSchedule,
     lastReportSent,
@@ -68,6 +69,7 @@ export default function SettingsPage() {
       snapshots,
       borrowingLimits,
       netWorthGoal,
+      categoryBudgets,
       usdToTwd,
       userName,
       userEmail,
@@ -106,6 +108,7 @@ export default function SettingsPage() {
         if (data.snapshots) setSnapshots(data.snapshots);
         if (data.borrowingLimits) setBorrowingLimits(data.borrowingLimits);
         if (typeof data.netWorthGoal === 'number') setNetWorthGoal(data.netWorthGoal);
+        if (data.categoryBudgets && typeof data.categoryBudgets === 'object') setCategoryBudgets(data.categoryBudgets);
         if (typeof data.usdToTwd === 'number') { setUsdToTwd(data.usdToTwd); setLocalUsdRate(data.usdToTwd.toString()); }
         if (data.userName) { setUserName(data.userName); setLocalName(data.userName); }
         if (data.userEmail) { setUserEmail(data.userEmail); setLocalEmail(data.userEmail); }
