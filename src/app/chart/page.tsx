@@ -5,7 +5,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   AreaChart, Area,
 } from 'recharts';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Clock } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 
 const CATEGORY_COLORS = {
@@ -50,6 +50,8 @@ export default function ChartPage() {
   }, [snapshots]);
 
   const hasCategoryData = categoryData.length >= 2;
+  const isAccumulating = snapshots.length > 0 && snapshots.length < 7;
+  const accumulatingDaysLeft = Math.max(0, 7 - snapshots.length);
 
   return (
     <>
@@ -60,13 +62,36 @@ export default function ChartPage() {
         </div>
       </div>
 
+      {/* 資料累積提示 */}
+      {isAccumulating && (
+        <div className="mb-6 flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4">
+          <Clock className="w-5 h-5 text-indigo-400 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-indigo-900">資料累積中</p>
+            <p className="text-xs text-indigo-600 mt-0.5">
+              目前已有 {snapshots.length} 筆快照，再累積 {accumulatingDaysLeft} 天資料後趨勢圖將更完整。每天造訪即可自動新增一筆快照。
+            </p>
+          </div>
+          <div className="shrink-0 flex items-center gap-1">
+            {Array.from({ length: 7 }, (_, i) => (
+              <div
+                key={i}
+                className={`w-2.5 h-2.5 rounded-full ${i < snapshots.length ? 'bg-indigo-500' : 'bg-indigo-200'}`}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Net Worth Bar Chart */}
       <div className="bg-white rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100 p-6 mb-6">
         <h3 className="text-lg font-bold text-gray-900 mb-6">資產負債趨勢 (TWD)</h3>
 
         {snapshots.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center text-gray-400 gap-3">
-            <p className="text-sm">尚無快照資料，回到總覽頁面讓資料自動產生第一筆快照</p>
+            <Clock className="w-10 h-10 text-gray-300" />
+            <p className="text-sm font-medium">尚無快照資料</p>
+            <p className="text-xs text-gray-400">回到總覽頁面，系統會自動產生今日第一筆快照</p>
           </div>
         ) : (
           <div className="h-96 w-full">
@@ -101,6 +126,15 @@ export default function ChartPage() {
       </div>
 
       {/* Asset Category Stacked Area Chart */}
+      {!hasCategoryData && snapshots.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100 p-6 mb-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-1">資產分類趨勢</h3>
+          <div className="h-40 flex flex-col items-center justify-center gap-2 text-gray-400">
+            <Clock className="w-8 h-8 text-gray-300" />
+            <p className="text-sm">需要至少 2 筆快照才能顯示趨勢，資料累積中…</p>
+          </div>
+        </div>
+      )}
       {hasCategoryData && mounted && (
         <div className="bg-white rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100 p-6 mb-6">
           <h3 className="text-lg font-bold text-gray-900 mb-1">資產分類趨勢</h3>
