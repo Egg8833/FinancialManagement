@@ -338,7 +338,7 @@ function useNameLookup(symbol: string): string {
 }
 
 export default function StocksPage() {
-  const { stockItems, setStockItems, stockQuotes, refreshQuotes, lastUpdated, usdToTwd } = useAppContext();
+  const { stockItems, setStockItems, stockQuotes, refreshQuotes, lastUpdated, quoteError, usdToTwd } = useAppContext();
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ label: string; action: () => void } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -437,6 +437,19 @@ export default function StocksPage() {
 
   return (
     <>
+      {quoteError && lastUpdated && (
+        <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-amber-700">
+          <span className="text-amber-500 text-base">⚠</span>
+          <span>行情更新失敗，目前顯示 <strong>{lastUpdated}</strong> 的快取報價，數值可能不是最新。</span>
+          <button
+            onClick={handleRefresh}
+            className="ml-auto text-xs font-medium underline underline-offset-2 hover:text-amber-900"
+          >
+            重試
+          </button>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">投資追蹤 (Stocks & Crypto)</h1>

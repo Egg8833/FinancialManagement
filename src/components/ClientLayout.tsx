@@ -6,6 +6,7 @@ import { DataManager } from './DataManager';
 import { EmailReportSender } from './EmailReportSender';
 import { BackupBanner } from './BackupBanner';
 import { AppProvider, useAppContext } from '../context/AppContext';
+import { StockProvider } from '../context/StockContext';
 import { ToastProvider } from '../context/ToastContext';
 
 function ClientLayoutContent({ children }: { children: ReactNode }) {
@@ -70,10 +71,12 @@ function ClientLayoutContent({ children }: { children: ReactNode }) {
 
 export function ClientLayout({ children }: { children: ReactNode }) {
   return (
-    <AppProvider>
-      <ToastProvider>
-        <ClientLayoutContent>{children}</ClientLayoutContent>
-      </ToastProvider>
-    </AppProvider>
+    <StockProvider>
+      <AppProvider>
+        <ToastProvider>
+          <ClientLayoutContent>{children}</ClientLayoutContent>
+        </ToastProvider>
+      </AppProvider>
+    </StockProvider>
   );
 }

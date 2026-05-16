@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Wallet, ArrowUpRight, Target, Pencil, Check, X, Trophy } from 'lucide-react';
+import { Wallet, ArrowUpRight, ArrowDownRight, Target, Pencil, Check, X, Trophy } from 'lucide-react';
 
 interface HeroKPIProps {
   netWorth: number;
@@ -12,9 +12,10 @@ interface HeroKPIProps {
   netWorthGoal: number;
   setNetWorthGoal: (goal: number) => void;
   monthlyNetCashFlow: number;
+  momDelta: number | null;
 }
 
-export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrency, showValues, netWorthGoal, setNetWorthGoal, monthlyNetCashFlow }: HeroKPIProps) {
+export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrency, showValues, netWorthGoal, setNetWorthGoal, monthlyNetCashFlow, momDelta }: HeroKPIProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState('');
 
@@ -56,7 +57,15 @@ export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrenc
           <Wallet className="w-24 h-24 text-indigo-600" />
         </div>
         <p className="text-sm font-medium text-gray-500 mb-2">我的淨資產 (TWD)</p>
-        <h2 className="text-4xl font-bold text-gray-900 mb-3">{formatCurrency(netWorth)}</h2>
+        <h2 className="text-4xl font-bold text-gray-900 mb-2">{formatCurrency(netWorth)}</h2>
+        {momDelta !== null && (
+          <div className={`inline-flex items-center gap-1 text-xs font-semibold mb-3 px-2.5 py-1 rounded-full ${momDelta >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+            {momDelta >= 0 ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+            {showValues
+              ? `${momDelta >= 0 ? '+' : ''}${(momDelta / 10000).toLocaleString('zh-TW', { maximumFractionDigits: 1 })} 萬（較上月）`
+              : `較上月 ${momDelta >= 0 ? '↑' : '↓'}`}
+          </div>
+        )}
 
         {/* 目標進度 */}
         {hasGoal && !editingGoal && (

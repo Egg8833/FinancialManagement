@@ -468,6 +468,7 @@ function PaymentDueDialog({ loans, onRecord, onClose }: {
   onRecord: (id: string) => void;
   onClose: () => void;
 }) {
+  const { showValues } = useAppContext();
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
 
   const handleConfirm = (id: string) => {

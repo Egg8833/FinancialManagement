@@ -1,9 +1,12 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useMemo, useEffect, useRef, useState } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
 import type { AssetCategory, LiabilityItem, LifeEvent, FireSettings } from '../types';
 import { calculateHealthScore } from '../lib/healthScore';
+import { useStockContext } from './StockContext';
+
+const STORAGE_SCHEMA_VERSION = 1;
 
 // --- Initial Dummy Data ---
 const initialAssets: AssetCategory[] = [
@@ -179,11 +182,6 @@ export type DividendRecord = {
   source: 'auto' | 'manual';
 };
 
-const initialStockData: StockItem[] = [
-  { id: 'st1', symbol: '2330.TW', shares: 2000, avgCost: 600 },
-  { id: 'st2', symbol: 'AAPL', shares: 100, avgCost: 150 },
-];
-
 export type CashFlowItem = {
   id: string;
   name: string;
@@ -232,6 +230,7 @@ interface AppContextType {
   stockQuotes: Record<string, StockQuote>;
   refreshQuotes: () => Promise<void>;
   lastUpdated: string;
+  quoteError: boolean;
   incomeItems: CashFlowItem[];
   setIncomeItems: (items: CashFlowItem[] | ((prev: CashFlowItem[]) => CashFlowItem[])) => void;
   expenseItems: CashFlowItem[];
@@ -254,6 +253,7 @@ interface AppContextType {
   totalMonthlyExpense: number;
   monthlyNetCashFlow: number;
   netWorth: number;
+  momDelta: number | null;
   clearAllData: () => void;
   // 備份提醒
   lastExportDate: string;
@@ -302,16 +302,19 @@ export function useAppContext() {
 const DEFAULT_CATEGORIES = ['餐飲', '交通', '房租', '娛樂', '醫療', '購物', '其他'];
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const {
+    stockItems, setStockItems,
+    dividendRecords, setDividendRecords,
+    borrowingLimits, setBorrowingLimits,
+    stockQuotes, lastUpdated, quoteError,
+    refreshQuotes, clearStockData,
+  } = useStockContext();
+
   const [showValues, setShowValues] = useStickyState<boolean>(true, 'app-show-values');
   const [assets, setAssets] = useStickyState<AssetCategory[]>(initialAssets, 'app-assets-v1');
   const [liabilities, setLiabilities] = useStickyState<LiabilityItem[]>(initialLiabilities, 'app-liabilities-v1');
   const [stakingItems, setStakingItems] = useStickyState<StakingItem[]>(initialStakingData, 'app-staking-v5');
   const [snapshots, setSnapshots] = useStickyState<AssetSnapshot[]>([], 'app-snapshots-v1');
-  const [borrowingLimits, setBorrowingLimits] = useStickyState<Record<string, number>>({}, 'app-borrowing-limits-v1');
-  const [stockItems, setStockItems] = useStickyState<StockItem[]>(initialStockData, 'app-stocks-v1');
-  const [dividendRecords, setDividendRecords] = useStickyState<DividendRecord[]>([], 'app-dividends-v1');
-  const [stockQuotes, setStockQuotes] = useState<Record<string, StockQuote>>({});
-  const [lastUpdated, setLastUpdated] = useState<string>('');
   const [incomeItems, setIncomeItems] = useStickyState<CashFlowItem[]>(initialIncomeData, 'app-income-v1');
   const [expenseItems, setExpenseItems] = useStickyState<CashFlowItem[]>(initialExpenseData, 'app-expense-v1');
   const [annualEntries, setAnnualEntries] = useStickyState<AnnualEntry[]>([], 'app-annual-v1');
@@ -339,40 +342,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, 'app-fire-settings-v1');
   const [lifeEvents, setLifeEvents] = useStickyState<LifeEvent[]>([], 'app-life-events-v1');
 
-  // ref so the interval always calls the latest version without restarting
-  const refreshRef = useRef<() => Promise<void>>(undefined);
-  const refreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const refreshQuotes = async () => {
-    const symbols = new Set(stockItems.map(item => item.symbol));
-    const symbolsParam = Array.from(symbols).join(',');
-    if (!symbolsParam) return;
-    try {
-      const res = await fetch(`/api/quote?symbols=${symbolsParam}`);
-      if (res.ok) {
-        const data = await res.json();
-        setStockQuotes(data);
-        setLastUpdated(new Date().toLocaleTimeString());
-      }
-    } catch (err) {
-      console.error('Failed to fetch stock quotes', err);
+  // Schema version migration — runs once on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('app-schema-version');
+    const version = stored ? parseInt(stored) : 0;
+    if (version < STORAGE_SCHEMA_VERSION) {
+      localStorage.setItem('app-schema-version', String(STORAGE_SCHEMA_VERSION));
     }
-  };
-
-  refreshRef.current = refreshQuotes;
-
-  // Stable 60-second interval — never restarted
-  useEffect(() => {
-    const interval = setInterval(() => refreshRef.current?.(), 60000);
-    return () => clearInterval(interval);
   }, []);
-
-  // Immediate refresh when stock list changes — debounced to collapse rapid hydration updates into one call
-  useEffect(() => {
-    if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current);
-    refreshDebounceRef.current = setTimeout(() => refreshRef.current?.(), 150);
-    return () => { if (refreshDebounceRef.current) clearTimeout(refreshDebounceRef.current); };
-  }, [stockItems]);
 
   // Compute Collateral Market Value (for pledge ratio)
   const totalCollateralValueTWD = useMemo(() => {
@@ -523,6 +500,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const netWorth = totalAssets - totalLiabilities;
 
+  const momDelta = useMemo(() => {
+    if (snapshots.length < 2) return null;
+    const now = new Date();
+    const thisMonth = now.getMonth();
+    const thisYear = now.getFullYear();
+    const lastMonthSnap = [...snapshots].reverse().find(s => {
+      const d = new Date(s.date);
+      if (thisMonth === 0) return d.getFullYear() === thisYear - 1 && d.getMonth() === 11;
+      return d.getFullYear() === thisYear && d.getMonth() === thisMonth - 1;
+    });
+    if (!lastMonthSnap) return null;
+    return netWorth - lastMonthSnap.netWorth;
+  }, [snapshots, netWorth]);
+
   // Auto daily snapshot — fires after quotes load (or immediately if no stocks)
   useEffect(() => {
     if (stockItems.length > 0 && !lastUpdated) return;
@@ -557,14 +548,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLiabilities([]);
     setStakingItems([]);
     setLoans([]);
-    setStockItems([]);
-    setDividendRecords([]);
     setIncomeItems([]);
     setExpenseItems([]);
     setAnnualEntries([]);
     setSnapshots([]);
     setGoals([]);
     setCustomCategories(DEFAULT_CATEGORIES);
+    clearStockData();
   };
 
   return (
@@ -584,6 +574,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       stockQuotes,
       refreshQuotes,
       lastUpdated,
+      quoteError,
       incomeItems,
       setIncomeItems,
       expenseItems,
@@ -606,6 +597,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       totalMonthlyExpense,
       monthlyNetCashFlow,
       netWorth,
+      momDelta,
       clearAllData,
       lastExportDate,
       setLastExportDate,

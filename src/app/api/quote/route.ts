@@ -68,6 +68,10 @@ export async function GET(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('Error fetching quotes:', message);
+    const stale = quoteCache.get(cacheKey);
+    if (stale) {
+      return NextResponse.json({ ...stale.data, _stale: true });
+    }
     return NextResponse.json({ error: 'Failed to fetch quotes', details: message }, { status: 500 });
   } finally {
     inflightMap.delete(cacheKey);

@@ -32,6 +32,7 @@ export default function DashboardPage() {
     totalAssets,
     totalLiabilities,
     netWorth,
+    momDelta,
     netWorthGoal,
     setNetWorthGoal,
     snapshots,
@@ -207,6 +208,7 @@ export default function DashboardPage() {
         netWorthGoal={netWorthGoal}
         setNetWorthGoal={setNetWorthGoal}
         monthlyNetCashFlow={monthlyNetCashFlow}
+        momDelta={momDelta}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
