@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { ShieldAlert, Download, X } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Download, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 
@@ -16,9 +16,10 @@ export function BackupBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   const days = daysSince(ctx.lastExportDate);
+  const neverExported = !ctx.lastExportDate;
   const isOverdue = days >= 7;
 
-  if (!isOverdue || dismissed) return null;
+  if (dismissed && !isOverdue) return null;
 
   const handleExportNow = () => {
     const data = {
@@ -47,29 +48,53 @@ export function BackupBanner() {
     setDismissed(true);
   };
 
-  const neverExported = !ctx.lastExportDate;
-  const label = neverExported
-    ? '您尚未備份過資料'
-    : `距上次備份已 ${days} 天`;
+  if (isOverdue || neverExported) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-3">
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
+          <p className="flex-1 text-sm text-amber-800 font-medium">
+            {neverExported ? '您尚未備份過資料' : `距上次備份已 ${days} 天`}，建議立即備份以避免資料遺失。
+          </p>
+          <button
+            onClick={handleExportNow}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors shrink-0"
+          >
+            <Download className="w-3.5 h-3.5" />
+            立即備份
+          </button>
+          <button
+            onClick={() => setDismissed(true)}
+            className="p-1 text-amber-400 hover:text-amber-600 transition-colors shrink-0"
+            title="暫時忽略"
+            aria-label="暫時忽略備份提醒"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-3">
-      <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-        <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
-        <p className="flex-1 text-sm text-amber-800 font-medium">
-          {label}，建議立即備份以避免資料遺失。
+      <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
+        <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+        <p className="flex-1 text-sm text-emerald-700">
+          上次備份：{days === 0 ? '今天' : `${days} 天前`}
         </p>
         <button
           onClick={handleExportNow}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors shrink-0"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-xs font-semibold rounded-lg transition-colors shrink-0"
         >
           <Download className="w-3.5 h-3.5" />
-          立即備份
+          備份
         </button>
         <button
           onClick={() => setDismissed(true)}
-          className="p-1 text-amber-400 hover:text-amber-600 transition-colors shrink-0"
-          title="暫時忽略"
+          className="p-1 text-emerald-400 hover:text-emerald-600 transition-colors shrink-0"
+          title="關閉"
+          aria-label="關閉備份狀態"
         >
           <X className="w-4 h-4" />
         </button>
