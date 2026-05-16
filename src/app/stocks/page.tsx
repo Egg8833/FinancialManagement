@@ -338,18 +338,20 @@ function useNameLookup(symbol: string): string {
 }
 
 export default function StocksPage() {
-  const { stockItems, setStockItems, stockQuotes, refreshQuotes, lastUpdated, quoteError, usdToTwd } = useAppContext();
+  const { stockItems, setStockItems, stockQuotes, refreshQuotes, lastUpdated, quoteError, usdToTwd, showValues } = useAppContext();
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ label: string; action: () => void } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'holdings' | 'performance'>('holdings');
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   const quotesLoading = stockItems.length > 0 && lastUpdated === '';
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refreshQuotes();
+    setLastRefreshed(new Date());
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -467,6 +469,11 @@ export default function StocksPage() {
                 </button>
               </span>
             )}
+            {lastRefreshed && (
+              <span className="ml-1 text-xs text-gray-400">
+                · 報價更新於 {lastRefreshed.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
           </div>
         </div>
         <button
@@ -529,6 +536,36 @@ export default function StocksPage() {
           </p>
         </div>
       </div>
+
+      {/* Portfolio KPI Summary */}
+      {stockItems.length > 0 && (() => {
+        const fmtCurrency = (n: number) => showValues ? `NT$${Math.round(n).toLocaleString()}` : '****';
+        // avgCost in this app = 總成本 (total cost), not per-share price
+        const totalCost = totalCostTWD;
+        const totalMarket = totalValueTWD;
+        const pnl = totalMarket - totalCost;
+        const pnlPct = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">持倉成本</p>
+              <p className="font-bold text-gray-900">{fmtCurrency(totalCost)}</p>
+            </div>
+            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">市值</p>
+              <p className="font-bold text-gray-900">{fmtCurrency(totalMarket)}</p>
+            </div>
+            <div className={`rounded-2xl p-4 border shadow-sm ${pnl >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">損益</p>
+              <p className={`font-bold ${pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmtCurrency(pnl)}</p>
+            </div>
+            <div className={`rounded-2xl p-4 border shadow-sm ${pnlPct >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">報酬率</p>
+              <p className={`font-bold ${pnlPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{showValues ? `${pnlPct.toFixed(2)}%` : '****'}</p>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Stock List */}
       <div className="bg-white rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100 overflow-hidden">
