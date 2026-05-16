@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Wallet, Plus, Trash2, Pencil, Check, X, ArrowUpCircle, ArrowDownCircle, TrendingUp } from 'lucide-react';
+import { Wallet, Plus, Trash2, Pencil, Check, X, ArrowUpCircle, ArrowDownCircle, TrendingUp, RefreshCw, Zap } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine, PieChart, Pie, Cell,
@@ -559,6 +559,38 @@ function CategoryAnalysisTab({
   );
 }
 
+function RecurringToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors ${
+            value ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          <RefreshCw className="w-3 h-3" />
+          每月固定
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors border-l border-gray-200 ${
+            !value ? 'bg-orange-500 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+          }`}
+        >
+          <Zap className="w-3 h-3" />
+          單次記錄
+        </button>
+      </div>
+      <p className="text-[10px] text-gray-400 text-center">
+        {value ? '計入每月固定收支統計' : '不計入月均，適合獎金、報銷等臨時項目'}
+      </p>
+    </div>
+  );
+}
+
 function CashFlowRow({
   item,
   type,
@@ -604,19 +636,8 @@ function CashFlowRow({
           <button onClick={handleSave} className="text-indigo-600"><Check className="w-4 h-4" /></button>
           <button onClick={() => setIsEditing(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setIsRecurring(r => !r)}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-              isRecurring
-                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                : 'bg-orange-50 border-orange-200 text-orange-700'
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${isRecurring ? 'bg-indigo-500' : 'bg-orange-400'}`} />
-            {isRecurring ? '每月固定' : '一次性'}
-          </button>
+        <div className="space-y-2">
+          <RecurringToggle value={isRecurring} onChange={setIsRecurring} />
           {type === 'expense' && (
             <select
               value={customCategory ?? ''}
@@ -653,10 +674,15 @@ function CashFlowRow({
             )}
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className={`w-1 h-1 rounded-full ${recurring ? 'bg-indigo-400' : 'bg-orange-400'}`} />
-            <span className={`text-[10px] font-medium ${recurring ? 'text-indigo-400' : 'text-orange-500'}`}>
-              {recurring ? '每月固定' : '一次性・不計入月均'}
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+              recurring ? 'bg-indigo-50 text-indigo-600' : 'bg-orange-50 text-orange-600'
+            }`}>
+              {recurring
+                ? <><RefreshCw className="w-2.5 h-2.5" /> 每月固定</>
+                : <><Zap className="w-2.5 h-2.5" /> 單次記錄</>
+              }
             </span>
+            {!recurring && <span className="text-[10px] text-gray-400">不計入月均</span>}
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -704,19 +730,8 @@ function AddItemRow({
         <button onClick={() => onConfirm(name, Number(amount) || 0, isRecurring, customCategory)} className="text-indigo-600 font-bold"><Check className="w-4 h-4" /></button>
         <button onClick={onCancel} className="text-gray-400"><X className="w-4 h-4" /></button>
       </div>
-      <div className="flex items-center gap-3 flex-wrap">
-        <button
-          type="button"
-          onClick={() => setIsRecurring(r => !r)}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors ${
-            isRecurring
-              ? 'bg-indigo-100 border-indigo-300 text-indigo-700'
-              : 'bg-orange-50 border-orange-200 text-orange-700'
-          }`}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${isRecurring ? 'bg-indigo-500' : 'bg-orange-400'}`} />
-          {isRecurring ? '每月固定' : '一次性'}
-        </button>
+      <div className="space-y-2">
+        <RecurringToggle value={isRecurring} onChange={setIsRecurring} />
         {type === 'expense' && (
           <select
             value={customCategory ?? ''}
