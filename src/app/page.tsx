@@ -58,7 +58,7 @@ export default function DashboardPage() {
     const result: Array<{ level: 'warn' | 'info'; message: string }> = [];
 
     if (monthlyNetCashFlow < 0) {
-      result.push({ level: 'warn', message: `本月預計現金流為負（${formatCurrency(monthlyNetCashFlow)}），支出超過收入` });
+      result.push({ level: 'warn', message: `本月預計現金流為負（${_fmt(monthlyNetCashFlow, showValues)}），支出超過收入` });
     }
 
     if (runwayMonths !== null && runwayMonths < 3) {
@@ -73,7 +73,7 @@ export default function DashboardPage() {
     }
 
     return result;
-  }, [monthlyNetCashFlow, runwayMonths, stakingItems, formatCurrency]);
+  }, [monthlyNetCashFlow, runwayMonths, stakingItems, showValues]);
 
   const colorOptions = [
     { colorClass: 'bg-violet-400', bgClass: 'bg-violet-50' },
