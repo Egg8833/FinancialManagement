@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Pencil, Trash2, Check, X, Plus } from 'lucide-react';
+import { Pencil, Trash2, Check, X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import type { AssetItem, AssetCategory } from '../types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useToast } from '../context/ToastContext';
@@ -170,6 +170,7 @@ interface AssetCategoryCardProps {
 export function AssetCategoryCard({ category, showValues, formatCurrency, onUpdateAsset, onDeleteAsset, onAddAsset, onUpdateCategory, onDeleteCategory }: AssetCategoryCardProps) {
   const [isEditingCard, setIsEditingCard] = useState(false);
   const [confirmDeleteCard, setConfirmDeleteCard] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [editTitle, setEditTitle] = useState(category.title);
   const [editDesc, setEditDesc] = useState(category.description);
   const [editColor, setEditColor] = useState({ colorClass: category.colorClass, bgClass: category.bgClass });
@@ -251,38 +252,49 @@ export function AssetCategoryCard({ category, showValues, formatCurrency, onUpda
             </div>
             <h4 className="font-bold text-2xl text-gray-900">{formatCurrency(categoryTotal)}</h4>
           </div>
-          {(onUpdateCategory || onDeleteCategory) && (
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
-              {onUpdateCategory && (
-                <button onClick={() => setIsEditingCard(true)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-              )}
-              {onDeleteCategory && (
-                <button onClick={() => setConfirmDeleteCard(true)} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-1 mt-1">
+            {(onUpdateCategory || onDeleteCategory) && (
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {onUpdateCategory && (
+                  <button onClick={() => setIsEditingCard(true)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {onDeleteCategory && (
+                  <button onClick={() => setConfirmDeleteCard(true)} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+            <button
+              onClick={() => setCollapsed(c => !c)}
+              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors ml-1"
+              title={collapsed ? '展開' : '折疊'}
+            >
+              {collapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       )}
 
       {!isEditingCard && <p className="text-sm text-gray-500 mb-4">{category.description}</p>}
 
-      <div className="space-y-1 pt-4 border-t border-gray-50 flex-grow">
-        {category.items.map(item => (
-          <EditableAssetRow
-            key={item.id}
-            item={item}
-            showValues={showValues}
-            onUpdate={(name, amount) => onUpdateAsset(category.id, item.id, name, amount)}
-            onDelete={() => onDeleteAsset(category.id, item.id)}
-          />
-        ))}
+      {!collapsed && (
+        <div className="space-y-1 pt-4 border-t border-gray-50 flex-grow">
+          {category.items.map(item => (
+            <EditableAssetRow
+              key={item.id}
+              item={item}
+              showValues={showValues}
+              onUpdate={(name, amount) => onUpdateAsset(category.id, item.id, name, amount)}
+              onDelete={() => onDeleteAsset(category.id, item.id)}
+            />
+          ))}
 
-        <AddAssetRow onAdd={(name, amount) => onAddAsset(category.id, name, amount)} />
-      </div>
+          <AddAssetRow onAdd={(name, amount) => onAddAsset(category.id, name, amount)} />
+        </div>
+      )}
 
       {confirmDeleteCard && (
         <ConfirmDialog
