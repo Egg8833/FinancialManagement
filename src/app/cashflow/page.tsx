@@ -647,9 +647,12 @@ export default function CashFlowPage() {
     customCategories, setCustomCategories,
   } = useAppContext();
 
-  const now = new Date();
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [viewDate, setViewDate] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() + 1 };
+  });
+  const selectedYear  = viewDate.year;
+  const selectedMonth = viewDate.month;
   const [activeTab, setActiveTab] = useState<'flow' | 'category'>('flow');
   const [isAddingIncome, setIsAddingIncome] = useState(false);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
@@ -657,16 +660,15 @@ export default function CashFlowPage() {
   const [isAddingOneTimeExpense, setIsAddingOneTimeExpense] = useState(false);
 
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
+  const { toast } = useToast();
 
-  // Month navigation
-  const prevMonth = () => {
-    if (selectedMonth === 1) { setSelectedMonth(12); setSelectedYear(y => y - 1); }
-    else setSelectedMonth(m => m - 1);
-  };
-  const nextMonth = () => {
-    if (selectedMonth === 12) { setSelectedMonth(1); setSelectedYear(y => y + 1); }
-    else setSelectedMonth(m => m + 1);
-  };
+  // Month navigation — compound state avoids stale-closure bugs at year boundaries
+  const prevMonth = () => setViewDate(({ year, month }) =>
+    month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
+  );
+  const nextMonth = () => setViewDate(({ year, month }) =>
+    month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 }
+  );
 
   // This month's one-time entries
   const monthEntries = useMemo(() =>
@@ -675,8 +677,8 @@ export default function CashFlowPage() {
   );
   const monthOneTimeIncome  = useMemo(() => monthEntries.filter(e => INCOME_ENTRY_KEYS.has(e.category)), [monthEntries]);
   const monthOneTimeExpense = useMemo(() => monthEntries.filter(e => !INCOME_ENTRY_KEYS.has(e.category)), [monthEntries]);
-  const monthOneTimeIncomeTotal  = monthOneTimeIncome.reduce((s, e) => s + e.amount, 0);
-  const monthOneTimeExpenseTotal = monthOneTimeExpense.reduce((s, e) => s + e.amount, 0);
+  const monthOneTimeIncomeTotal  = useMemo(() => monthOneTimeIncome.reduce((s, e) => s + e.amount, 0),  [monthOneTimeIncome]);
+  const monthOneTimeExpenseTotal = useMemo(() => monthOneTimeExpense.reduce((s, e) => s + e.amount, 0), [monthOneTimeExpense]);
 
   // KPI for selected month
   const monthTotalIncome  = totalMonthlyIncome  + monthOneTimeIncomeTotal;
@@ -704,8 +706,11 @@ export default function CashFlowPage() {
 
   // One-time entry handlers
   const handleAddOneTimeEntry = (category: AnnualEntryCategory, name: string, amount: number) => {
-    if (!name || !amount) return;
-    setAnnualEntries(prev => [...prev, { id: Date.now().toString(), year: selectedYear, month: selectedMonth, name, amount, category }]);
+    if (!name.trim() || !amount) {
+      toast('請輸入名稱與金額', 'error');
+      return;
+    }
+    setAnnualEntries(prev => [...prev, { id: Date.now().toString(), year: selectedYear, month: selectedMonth, name: name.trim(), amount, category }]);
     if (INCOME_ENTRY_KEYS.has(category)) setIsAddingOneTimeIncome(false);
     else setIsAddingOneTimeExpense(false);
   };
