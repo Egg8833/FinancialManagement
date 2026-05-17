@@ -1,12 +1,18 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Wallet, Plus, Trash2, Pencil, Check, X, ArrowUpCircle, ArrowDownCircle, TrendingUp, RefreshCw, Zap } from 'lucide-react';
+import {
+  Wallet, Plus, Trash2, Pencil, Check, X,
+  ArrowUpCircle, ArrowDownCircle, TrendingUp, ChevronLeft, ChevronRight,
+} from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, ReferenceLine, PieChart, Pie, Cell,
 } from 'recharts';
-import { useAppContext, type CashFlowItem, type LoanItem } from '../../context/AppContext';
+import {
+  useAppContext,
+  type CashFlowItem, type LoanItem, type AnnualEntry, type AnnualEntryCategory,
+} from '../../context/AppContext';
 import {
   CATEGORY_COLORS, UNCATEGORIZED_COLOR,
   buildDonutData, buildCategoryMonthData, getCategoryColor,
@@ -16,307 +22,380 @@ import { AnnualTracker } from '../../components/AnnualTracker';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 
-export default function CashFlowPage() {
-  const {
-    incomeItems, setIncomeItems,
-    expenseItems, setExpenseItems,
-    annualEntries,
-    totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
-    showValues,
-    customCategories, setCustomCategories,
-  } = useAppContext();
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-  const [isAddingIncome, setIsAddingIncome] = useState(false);
-  const [isAddingExpense, setIsAddingExpense] = useState(false);
-  const [activeTab, setActiveTab] = useState<'flow' | 'category'>('flow');
-  const [selectedMonth, setSelectedMonth] = useState<{ label: string; income: number; expense: number; net: number } | null>(null);
+const INCOME_ENTRY_CATS: { key: AnnualEntryCategory; label: string }[] = [
+  { key: 'other_income', label: '其他收入' },
+  { key: 'bonus',        label: '業績獎金' },
+  { key: 'dividend',     label: '股利收入' },
+];
 
-  const formatCurrency = (amount: number) => _fmt(amount, showValues);
+const EXPENSE_ENTRY_CATS: { key: AnnualEntryCategory; label: string }[] = [
+  { key: 'one_time_expense', label: '其他支出' },
+  { key: 'travel',           label: '旅遊'     },
+  { key: 'medical',          label: '醫療/健康' },
+  { key: 'equipment',        label: '設備購置' },
+];
 
-  const handleAddItem = (type: 'income' | 'expense', name: string, amount: number, isRecurring: boolean, customCategory?: string) => {
-    const newItem: CashFlowItem = {
-      id: Date.now().toString(),
-      name,
-      amount,
-      category: 'General',
-      isRecurring,
-      customCategory,
-    };
-    if (type === 'income') setIncomeItems(prev => [...prev, newItem]);
-    else setExpenseItems(prev => [...prev, newItem]);
-  };
+const INCOME_ENTRY_KEYS = new Set<AnnualEntryCategory>(['other_income', 'bonus', 'dividend']);
 
-  const handleDeleteItem = (type: 'income' | 'expense', id: string) => {
-    if (type === 'income') setIncomeItems(prev => prev.filter(item => item.id !== id));
-    else setExpenseItems(prev => prev.filter(item => item.id !== id));
-  };
+// ─── MonthNavigator ───────────────────────────────────────────────────────────
 
-  const handleUpdateItem = (type: 'income' | 'expense', id: string, name: string, amount: number, isRecurring: boolean, customCategory?: string) => {
-    const updateFn = (prev: CashFlowItem[]) =>
-      prev.map(item => item.id === id ? { ...item, name, amount, isRecurring, customCategory } : item);
-    if (type === 'income') setIncomeItems(updateFn);
-    else setExpenseItems(updateFn);
-  };
+function MonthNavigator({
+  year, month, onPrev, onNext,
+}: { year: number; month: number; onPrev: () => void; onNext: () => void }) {
+  const now = new Date();
+  const isCurrent = year === now.getFullYear() && month === now.getMonth() + 1;
+  return (
+    <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm shrink-0">
+      <button onClick={onPrev} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+        <ChevronLeft className="w-4 h-4 text-gray-500" />
+      </button>
+      <div className="text-center min-w-[88px]">
+        <p className="font-bold text-gray-900 text-sm leading-tight">{year} 年 {month} 月</p>
+        {isCurrent && <p className="text-[10px] text-indigo-500 leading-tight">本月</p>}
+      </div>
+      <button onClick={onNext} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+        <ChevronRight className="w-4 h-4 text-gray-500" />
+      </button>
+    </div>
+  );
+}
 
-  // 12-month trend
-  const monthTrend = useMemo(() => {
-    const now = new Date();
-    return Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
-      const year = d.getFullYear();
-      const month = d.getMonth() + 1;
-      let income = totalMonthlyIncome;
-      let expense = totalMonthlyExpense;
-      for (const entry of annualEntries) {
-        if (entry.year === year && entry.month === month) {
-          if (entry.category === 'dividend' || entry.category === 'bonus' || entry.category === 'other_income') {
-            income += entry.amount;
-          } else if (entry.category === 'one_time_expense') {
-            expense += entry.amount;
-          }
-        }
-      }
-      return { label: `${month}月`, income: Math.round(income), expense: Math.round(expense), net: Math.round(income - expense) };
-    });
-  }, [totalMonthlyIncome, totalMonthlyExpense, annualEntries]);
+// ─── OneTimeEntryRow ──────────────────────────────────────────────────────────
+
+function OneTimeEntryRow({
+  entry, onDelete, showValues,
+}: { entry: AnnualEntry; onDelete: () => void; showValues: boolean }) {
+  const [confirm, setConfirm] = useState(false);
+  const catLabel = [
+    ...INCOME_ENTRY_CATS,
+    ...EXPENSE_ENTRY_CATS,
+  ].find(c => c.key === entry.category)?.label ?? entry.category;
 
   return (
-    <>
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">收支管理 (Cash Flow)</h1>
-          <p className="text-sm text-gray-500 mt-1">追蹤每月的收入與支出流量</p>
+    <div className="px-4 py-3 flex items-center justify-between hover:bg-gray-50 group transition-colors">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span className="text-sm font-medium text-gray-800 truncate">{entry.name}</span>
+        <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
+          {catLabel}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        <span className="font-bold text-sm tabular-nums text-gray-900">
+          {showValues ? entry.amount.toLocaleString('en-US') : '****'}
+        </span>
+        <div className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => setConfirm(true)}
+            className="p-1.5 rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
-
-      {/* Tab Bar */}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
-        {(['flow', 'category'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === tab
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab === 'flow' ? '收支管理' : '類別分析'}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'flow' && (
-        <>
-          {/* Summary KPI */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 text-emerald-600 mb-2">
-                <ArrowUpCircle className="w-5 h-5" />
-                <span className="text-xs font-bold uppercase tracking-wider">每月總收入</span>
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900">{formatCurrency(totalMonthlyIncome)}</h2>
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 text-rose-600 mb-2">
-                <ArrowDownCircle className="w-5 h-5" />
-                <span className="text-xs font-bold uppercase tracking-wider">每月總支出</span>
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900">{formatCurrency(totalMonthlyExpense)}</h2>
-            </div>
-
-            <div className={`rounded-2xl p-6 shadow-lg text-white ${monthlyNetCashFlow >= 0 ? 'bg-gradient-to-br from-indigo-500 to-indigo-700' : 'bg-gradient-to-br from-rose-500 to-rose-700'}`}>
-              <div className="flex items-center gap-2 mb-2 opacity-80">
-                <Wallet className="w-5 h-5" />
-                <span className="text-xs font-bold uppercase tracking-wider">每月預計盈餘</span>
-              </div>
-              <h2 className="text-3xl font-bold">{formatCurrency(monthlyNetCashFlow)}</h2>
-              <p className="text-xs mt-2 opacity-70">儲蓄率: {totalMonthlyIncome > 0 ? ((monthlyNetCashFlow / totalMonthlyIncome) * 100).toFixed(1) : 0}%</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Income Column */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">收入項目</h3>
-                <button onClick={() => setIsAddingIncome(true)} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> 新增收入
-                </button>
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                <div className="divide-y divide-gray-50">
-                  {isAddingIncome && (
-                    <AddItemRow
-                      type="income"
-                      customCategories={customCategories}
-                      onConfirm={(n, a, r, c) => { handleAddItem('income', n, a, r, c); setIsAddingIncome(false); }}
-                      onCancel={() => setIsAddingIncome(false)}
-                    />
-                  )}
-                  {incomeItems.map(item => (
-                    <CashFlowRow
-                      key={item.id}
-                      item={item}
-                      type="income"
-                      customCategories={customCategories}
-                      onUpdate={(n, a, r, c) => handleUpdateItem('income', item.id, n, a, r, c)}
-                      onDelete={() => handleDeleteItem('income', item.id)}
-                      showValues={showValues}
-                    />
-                  ))}
-                  <AutoStakingIncomeRow />
-                  {incomeItems.length === 0 && !isAddingIncome && (
-                    <div className="p-8 text-center text-gray-400 text-sm">尚無手動收入項目</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Expense Column */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">支出項目</h3>
-                <button onClick={() => setIsAddingExpense(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> 新增支出
-                </button>
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                <div className="divide-y divide-gray-50">
-                  {isAddingExpense && (
-                    <AddItemRow
-                      type="expense"
-                      customCategories={customCategories}
-                      onConfirm={(n, a, r, c) => { handleAddItem('expense', n, a, r, c); setIsAddingExpense(false); }}
-                      onCancel={() => setIsAddingExpense(false)}
-                    />
-                  )}
-                  {expenseItems.map(item => (
-                    <CashFlowRow
-                      key={item.id}
-                      item={item}
-                      type="expense"
-                      customCategories={customCategories}
-                      onUpdate={(n, a, r, c) => handleUpdateItem('expense', item.id, n, a, r, c)}
-                      onDelete={() => handleDeleteItem('expense', item.id)}
-                      showValues={showValues}
-                    />
-                  ))}
-                  <AutoStakingExpenseRow />
-                  <AutoLoanExpenseRow />
-                  {expenseItems.length === 0 && !isAddingExpense && (
-                    <div className="p-8 text-center text-gray-400 text-sm">尚無手動支出項目</div>
-                  )}
-                </div>
-                <div className="border-t-2 border-gray-100 px-4 py-3 flex items-center justify-between bg-gray-50">
-                  <span className="text-sm font-bold text-gray-600">支出合計</span>
-                  <span className="text-base font-bold text-rose-600">{formatCurrency(totalMonthlyExpense)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 12-month trend chart */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm mb-8">
-            <div className="flex items-center gap-2 mb-1">
-              <TrendingUp className="w-4 h-4 text-indigo-500" />
-              <h3 className="text-base font-bold text-gray-900">近 12 個月收支趨勢</h3>
-            </div>
-            <p className="text-xs text-gray-400 mb-5">每月固定收支 + 年度一次性項目（獎金、股利、臨時支出）</p>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart
-                data={monthTrend}
-                margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
-                barCategoryGap="30%"
-                onClick={(data: any) => {
-                  if (data?.activePayload?.[0]?.payload) {
-                    setSelectedMonth(data.activePayload[0].payload);
-                  }
-                }}
-                style={{ cursor: 'pointer' }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
-                <YAxis
-                  axisLine={false} tickLine={false}
-                  tick={{ fontSize: 10, fill: '#94a3b8' }}
-                  tickFormatter={v => showValues ? `${(v / 1000).toFixed(0)}K` : ''}
-                  width={38}
-                />
-                <Tooltip
-                  formatter={(v: number, name: string) => [formatCurrency(v), name]}
-                  contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12 }}
-                />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                <ReferenceLine y={0} stroke="#e2e8f0" />
-                <Bar dataKey="income" name="收入" fill="#10b981" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="expense" name="支出" fill="#f43f5e" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="net" name="淨盈餘" fill="#6366f1" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <AnnualTracker />
-
-          {selectedMonth && (
-            <div
-              className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
-              onClick={() => setSelectedMonth(null)}
-            >
-              <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
-                onClick={e => e.stopPropagation()}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-base font-bold text-gray-900">{selectedMonth.label} 收支摘要</h3>
-                  <button
-                    onClick={() => setSelectedMonth(null)}
-                    className="p-1 text-gray-400 hover:text-gray-600"
-                    aria-label="關閉"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">收入</span>
-                    <span className="font-bold text-emerald-600">{formatCurrency(selectedMonth.income)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                    <span className="text-sm text-gray-600">支出</span>
-                    <span className="font-bold text-rose-600">{formatCurrency(selectedMonth.expense)}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2">
-                    <span className="text-sm font-bold text-gray-900">淨盈餘</span>
-                    <span className={`font-bold text-lg ${selectedMonth.net >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
-                      {formatCurrency(selectedMonth.net)}
-                    </span>
-                  </div>
-                  <div className="mt-2 pt-2 border-t border-gray-100">
-                    <p className="text-xs text-gray-400 text-center">
-                      儲蓄率：{selectedMonth.income > 0 ? ((selectedMonth.net / selectedMonth.income) * 100).toFixed(1) : 0}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {activeTab === 'category' && (
-        <CategoryAnalysisTab
-          expenseItems={expenseItems}
-          customCategories={customCategories}
-          setCustomCategories={setCustomCategories}
-          setExpenseItems={setExpenseItems}
-          showValues={showValues}
+      {confirm && (
+        <ConfirmDialog
+          message={`確定要刪除「${entry.name}」嗎？`}
+          onConfirm={onDelete}
+          onCancel={() => setConfirm(false)}
         />
       )}
+    </div>
+  );
+}
+
+// ─── AddOneTimeEntryRow ───────────────────────────────────────────────────────
+
+function AddOneTimeEntryRow({
+  type, onConfirm, onCancel,
+}: {
+  type: 'income' | 'expense';
+  onConfirm: (name: string, amount: number, category: AnnualEntryCategory) => void;
+  onCancel: () => void;
+}) {
+  const cats = type === 'income' ? INCOME_ENTRY_CATS : EXPENSE_ENTRY_CATS;
+  const [name, setName] = useState('');
+  const [amount, setAmount] = useState('');
+  const [category, setCategory] = useState<AnnualEntryCategory>(cats[0].key);
+
+  const submit = () => onConfirm(name.trim(), Number(amount) || 0, category);
+  const bgClass = type === 'income' ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100';
+  const borderColor = type === 'income' ? 'border-emerald-200' : 'border-rose-200';
+  const focusColor = type === 'income' ? 'focus:border-emerald-400' : 'focus:border-rose-400';
+
+  return (
+    <div className={`px-4 py-3 ${bgClass} border-b`}>
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        <input
+          autoFocus
+          type="text"
+          placeholder="項目名稱"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          className={`flex-1 min-w-0 border ${borderColor} rounded-lg px-3 py-1.5 text-sm outline-none ${focusColor} bg-white`}
+        />
+        <input
+          type="number"
+          placeholder="金額"
+          value={amount}
+          onChange={e => setAmount(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+          className={`w-28 border ${borderColor} rounded-lg px-3 py-1.5 text-sm text-right outline-none ${focusColor} bg-white`}
+        />
+        <select
+          value={category}
+          onChange={e => setCategory(e.target.value as AnnualEntryCategory)}
+          className={`shrink-0 text-xs border ${borderColor} rounded-lg px-2 py-1.5 outline-none ${focusColor} bg-white text-gray-600`}
+        >
+          {cats.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+        </select>
+        <button onClick={submit} className="p-1.5 text-indigo-600 hover:text-indigo-800 shrink-0">
+          <Check className="w-4 h-4" />
+        </button>
+        <button onClick={onCancel} className="p-1.5 text-gray-400 hover:text-gray-600 shrink-0">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── CashFlowRow (fixed items — no isRecurring) ───────────────────────────────
+
+function CashFlowRow({
+  item, type, onUpdate, onDelete, showValues, customCategories,
+}: {
+  item: CashFlowItem;
+  type: 'income' | 'expense';
+  onUpdate: (name: string, amount: number, customCategory?: string) => void;
+  onDelete: () => void;
+  showValues: boolean;
+  customCategories: string[];
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [name, setName] = useState(item.name);
+  const [amount, setAmount] = useState(item.amount.toString());
+  const [customCategory, setCustomCategory] = useState<string | undefined>(item.customCategory);
+  const { toast } = useToast();
+
+  const handleSave = () => {
+    onUpdate(name, Number(amount) || 0, customCategory);
+    setIsEditing(false);
+    toast('已更新項目');
+  };
+
+  const handleDelete = () => {
+    onDelete();
+    toast(`已刪除「${item.name}」`, 'info');
+  };
+
+  if (isEditing) {
+    return (
+      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <input
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="flex-1 min-w-0 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-indigo-400 bg-white"
+            placeholder="項目名稱"
+          />
+          <input
+            type="number"
+            value={amount}
+            onChange={e => setAmount(e.target.value)}
+            className="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-indigo-400 bg-white"
+            placeholder="金額"
+          />
+          {type === 'expense' && customCategories.length > 0 && (
+            <select
+              value={customCategory ?? ''}
+              onChange={e => setCustomCategory(e.target.value || undefined)}
+              className="shrink-0 text-xs border border-gray-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 bg-white text-gray-600"
+            >
+              <option value="">不分類</option>
+              {customCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
+          )}
+          <button onClick={handleSave} className="p-1.5 text-indigo-600 hover:text-indigo-800 shrink-0">
+            <Check className="w-4 h-4" />
+          </button>
+          <button onClick={() => setIsEditing(false)} className="p-1.5 text-gray-400 hover:text-gray-600 shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 py-3 hover:bg-gray-50 group transition-colors">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="text-sm font-medium text-gray-800 truncate">{item.name}</span>
+          {item.customCategory && (
+            <span
+              className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold"
+              style={{
+                backgroundColor: `${getCategoryColor(item.customCategory, customCategories)}20`,
+                color: getCategoryColor(item.customCategory, customCategories),
+              }}
+            >
+              {item.customCategory}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="font-bold text-sm tabular-nums text-gray-900">
+            {showValues ? item.amount.toLocaleString('en-US') : '****'}
+          </span>
+          <div className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 flex gap-0.5 transition-opacity">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="p-1.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="p-1.5 rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`確定要刪除「${item.name}」嗎？`}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── AddFixedItemRow (no isRecurring toggle) ──────────────────────────────────
+
+function AddFixedItemRow({
+  type, onConfirm, onCancel, customCategories,
+}: {
+  type: 'income' | 'expense';
+  onConfirm: (name: string, amount: number, customCategory?: string) => void;
+  onCancel: () => void;
+  customCategories: string[];
+}) {
+  const [name, setName] = useState('');
+  const [amount, setAmount] = useState('');
+  const [customCategory, setCustomCategory] = useState<string | undefined>(undefined);
+
+  const submit = () => onConfirm(name.trim(), Number(amount) || 0, customCategory);
+
+  return (
+    <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100">
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        <input
+          autoFocus
+          type="text"
+          placeholder="項目名稱"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          className="flex-1 min-w-0 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-indigo-400 bg-white"
+        />
+        <input
+          type="number"
+          placeholder="金額"
+          value={amount}
+          onChange={e => setAmount(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(); }}
+          className="w-28 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-indigo-400 bg-white"
+        />
+        {type === 'expense' && customCategories.length > 0 && (
+          <select
+            value={customCategory ?? ''}
+            onChange={e => setCustomCategory(e.target.value || undefined)}
+            className="shrink-0 text-xs border border-indigo-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 bg-white text-gray-600"
+          >
+            <option value="">不分類</option>
+            {customCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
+        )}
+        <button onClick={submit} className="p-1.5 text-indigo-600 hover:text-indigo-800 shrink-0">
+          <Check className="w-4 h-4" />
+        </button>
+        <button onClick={onCancel} className="p-1.5 text-gray-400 hover:text-gray-600 shrink-0">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Auto rows ─────────────────────────────────────────────────────────────────
+
+function AutoStakingIncomeRow() {
+  const { stakingItems, showValues } = useAppContext();
+  const total = useMemo(() => stakingItems
+    .filter(i => (i.stakingType ?? 'borrow') === 'earn')
+    .reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0), [stakingItems]);
+  if (total === 0) return null;
+  return (
+    <div className="px-4 py-3 flex items-center justify-between bg-emerald-50/50">
+      <div>
+        <span className="text-sm font-medium text-gray-700">活存/Earn 收益</span>
+        <span className="ml-2 px-1 py-0.5 bg-emerald-100 text-emerald-600 text-[9px] font-bold rounded uppercase animate-pulse">Auto</span>
+      </div>
+      <span className="font-bold text-emerald-700 text-sm tabular-nums">
+        {showValues ? Math.round(total).toLocaleString('en-US') : '****'}
+      </span>
+    </div>
+  );
+}
+
+function AutoStakingExpenseRow() {
+  const { stakingItems, showValues } = useAppContext();
+  const total = useMemo(() => stakingItems
+    .filter(i => (i.stakingType ?? 'borrow') === 'borrow')
+    .reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0), [stakingItems]);
+  if (total === 0) return null;
+  return (
+    <div className="px-4 py-3 flex items-center justify-between bg-rose-50/50">
+      <div>
+        <span className="text-sm font-medium text-gray-700">質押利息支出</span>
+        <span className="ml-2 px-1 py-0.5 bg-rose-100 text-rose-500 text-[9px] font-bold rounded uppercase animate-pulse">Auto</span>
+      </div>
+      <span className="font-bold text-rose-700 text-sm tabular-nums">
+        {showValues ? Math.round(total).toLocaleString('en-US') : '****'}
+      </span>
+    </div>
+  );
+}
+
+function AutoLoanExpenseRow() {
+  const { loans, showValues } = useAppContext();
+  const active = loans.filter(l => l.principal > 0);
+  if (active.length === 0) return null;
+  return (
+    <>
+      {active.map((loan: LoanItem) => (
+        <div key={loan.id} className="px-4 py-3 flex items-center justify-between bg-rose-50/30">
+          <div>
+            <span className="text-sm font-medium text-gray-700">{loan.name}（{loan.bank}）月繳</span>
+            <span className="ml-2 px-1 py-0.5 bg-rose-100 text-rose-500 text-[9px] font-bold rounded uppercase animate-pulse">Auto</span>
+          </div>
+          <span className="font-bold text-rose-700 text-sm tabular-nums">
+            {showValues ? loan.monthlyPayment.toLocaleString('en-US') : '****'}
+          </span>
+        </div>
+      ))}
     </>
   );
 }
+
+// ─── CategoryManager ──────────────────────────────────────────────────────────
 
 function CategoryManager({
   customCategories,
@@ -340,18 +419,18 @@ function CategoryManager({
 
   const handleDelete = (cat: string) => {
     setCustomCategories(prev => prev.filter(c => c !== cat));
-    setExpenseItems(prev =>
-      prev.map(item => item.customCategory === cat ? { ...item, customCategory: undefined } : item)
-    );
+    setExpenseItems(prev => prev.map(item =>
+      item.customCategory === cat ? { ...item, customCategory: undefined } : item
+    ));
   };
 
   const handleRename = (oldName: string) => {
     const trimmed = editValue.trim();
     if (!trimmed || (trimmed !== oldName && customCategories.includes(trimmed))) return;
     setCustomCategories(prev => prev.map(c => c === oldName ? trimmed : c));
-    setExpenseItems(prev =>
-      prev.map(item => item.customCategory === oldName ? { ...item, customCategory: trimmed } : item)
-    );
+    setExpenseItems(prev => prev.map(item =>
+      item.customCategory === oldName ? { ...item, customCategory: trimmed } : item
+    ));
     setEditingCat(null);
   };
 
@@ -417,6 +496,8 @@ function CategoryManager({
   );
 }
 
+// ─── CategoryAnalysisTab ──────────────────────────────────────────────────────
+
 function CategoryAnalysisTab({
   expenseItems,
   customCategories,
@@ -451,10 +532,8 @@ function CategoryAnalysisTab({
           <div className="mb-6">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">類別月預算</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {customCategories.map((cat) => {
-                const spent = expenseItems
-                  .filter(e => e.customCategory === cat)
-                  .reduce((s, e) => s + e.amount, 0);
+              {customCategories.map(cat => {
+                const spent = expenseItems.filter(e => e.customCategory === cat).reduce((s, e) => s + e.amount, 0);
                 const budget = categoryBudgets[cat] ?? 0;
                 const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
                 const color = getCategoryColor(cat, customCategories);
@@ -467,10 +546,7 @@ function CategoryAnalysisTab({
                         <input
                           type="number"
                           value={budget || ''}
-                          onChange={e => setCategoryBudgets(prev => ({
-                            ...prev,
-                            [cat]: Number(e.target.value) || 0,
-                          }))}
+                          onChange={e => setCategoryBudgets(prev => ({ ...prev, [cat]: Number(e.target.value) || 0 }))}
                           placeholder="未設定"
                           className="w-20 text-xs text-right border border-gray-200 rounded px-1.5 py-0.5 outline-none focus:border-indigo-300"
                         />
@@ -510,7 +586,7 @@ function CategoryAnalysisTab({
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie data={donutData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} dataKey="value" paddingAngle={2}>
-                    {donutData.map((entry) => {
+                    {donutData.map(entry => {
                       const color = entry.name === '未分類' ? UNCATEGORIZED_COLOR : getCategoryColor(entry.name, customCategories);
                       return <Cell key={entry.name} fill={color} />;
                     })}
@@ -559,302 +635,383 @@ function CategoryAnalysisTab({
   );
 }
 
-function ItemFormOptions({
-  isRecurring,
-  setIsRecurring,
-  type,
-  customCategory,
-  setCustomCategory,
-  customCategories,
-  borderColor = 'border-gray-200',
-}: {
-  isRecurring: boolean;
-  setIsRecurring: (v: boolean) => void;
-  type: 'income' | 'expense';
-  customCategory: string | undefined;
-  setCustomCategory: (v: string | undefined) => void;
-  customCategories: string[];
-  borderColor?: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-stretch gap-2">
-        {/* Recurring segmented control */}
-        <div className={`flex flex-1 rounded-lg border ${borderColor} overflow-hidden text-xs font-medium`}>
-          <button
-            type="button"
-            onClick={() => setIsRecurring(true)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 transition-colors ${
-              isRecurring ? 'bg-indigo-600 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
-            }`}
-          >
-            <RefreshCw className="w-3 h-3 shrink-0" />
-            每月固定
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsRecurring(false)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 border-l ${borderColor} transition-colors ${
-              !isRecurring ? 'bg-orange-500 text-white' : 'bg-white text-gray-400 hover:bg-gray-50'
-            }`}
-          >
-            <Zap className="w-3 h-3 shrink-0" />
-            單次記錄
-          </button>
-        </div>
-        {/* Category select — same row, only for expense */}
-        {type === 'expense' && customCategories.length > 0 && (
-          <select
-            value={customCategory ?? ''}
-            onChange={e => setCustomCategory(e.target.value || undefined)}
-            className={`shrink-0 text-xs border ${borderColor} rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 bg-white text-gray-600`}
-          >
-            <option value="">不分類</option>
-            {customCategories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-        )}
-      </div>
-      <p className="text-[10px] text-gray-400 pl-0.5">
-        {isRecurring ? '每月固定發生，視為長期支出承諾' : '本月一次性支出，不視為每月固定承諾'}
-      </p>
-    </div>
-  );
-}
+// ─── Main page ────────────────────────────────────────────────────────────────
 
-function CashFlowRow({
-  item,
-  type,
-  onUpdate,
-  onDelete,
-  showValues,
-  customCategories,
-}: {
-  item: CashFlowItem;
-  type: 'income' | 'expense';
-  onUpdate: (n: string, a: number, r: boolean, c?: string) => void;
-  onDelete: () => void;
-  showValues: boolean;
-  customCategories: string[];
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const [name, setName] = useState(item.name);
-  const [amount, setAmount] = useState(item.amount.toString());
-  const [isRecurring, setIsRecurring] = useState(item.isRecurring !== false);
-  const [customCategory, setCustomCategory] = useState<string | undefined>(item.customCategory);
-  const { toast } = useToast();
+export default function CashFlowPage() {
+  const {
+    incomeItems, setIncomeItems,
+    expenseItems, setExpenseItems,
+    annualEntries, setAnnualEntries,
+    totalMonthlyIncome, totalMonthlyExpense,
+    showValues,
+    customCategories, setCustomCategories,
+  } = useAppContext();
 
-  const handleSave = () => {
-    onUpdate(name, Number(amount) || 0, isRecurring, customCategory);
-    setIsEditing(false);
-    toast('已更新項目');
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+  const [activeTab, setActiveTab] = useState<'flow' | 'category'>('flow');
+  const [isAddingIncome, setIsAddingIncome] = useState(false);
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [isAddingOneTimeIncome, setIsAddingOneTimeIncome] = useState(false);
+  const [isAddingOneTimeExpense, setIsAddingOneTimeExpense] = useState(false);
+
+  const formatCurrency = (amount: number) => _fmt(amount, showValues);
+
+  // Month navigation
+  const prevMonth = () => {
+    if (selectedMonth === 1) { setSelectedMonth(12); setSelectedYear(y => y - 1); }
+    else setSelectedMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (selectedMonth === 12) { setSelectedMonth(1); setSelectedYear(y => y + 1); }
+    else setSelectedMonth(m => m + 1);
   };
 
-  const handleDelete = () => {
-    onDelete();
-    toast(`已刪除「${item.name}」`, 'info');
+  // This month's one-time entries
+  const monthEntries = useMemo(() =>
+    annualEntries.filter(e => e.year === selectedYear && e.month === selectedMonth),
+    [annualEntries, selectedYear, selectedMonth]
+  );
+  const monthOneTimeIncome  = useMemo(() => monthEntries.filter(e => INCOME_ENTRY_KEYS.has(e.category)), [monthEntries]);
+  const monthOneTimeExpense = useMemo(() => monthEntries.filter(e => !INCOME_ENTRY_KEYS.has(e.category)), [monthEntries]);
+  const monthOneTimeIncomeTotal  = monthOneTimeIncome.reduce((s, e) => s + e.amount, 0);
+  const monthOneTimeExpenseTotal = monthOneTimeExpense.reduce((s, e) => s + e.amount, 0);
+
+  // KPI for selected month
+  const monthTotalIncome  = totalMonthlyIncome  + monthOneTimeIncomeTotal;
+  const monthTotalExpense = totalMonthlyExpense + monthOneTimeExpenseTotal;
+  const monthNet          = monthTotalIncome - monthTotalExpense;
+
+  // Fixed item handlers
+  const handleAddFixedIncome = (name: string, amount: number, customCategory?: string) => {
+    setIncomeItems(prev => [...prev, { id: Date.now().toString(), name, amount, category: 'General', isRecurring: true, customCategory }]);
+    setIsAddingIncome(false);
+  };
+  const handleAddFixedExpense = (name: string, amount: number, customCategory?: string) => {
+    setExpenseItems(prev => [...prev, { id: Date.now().toString(), name, amount, category: 'General', isRecurring: true, customCategory }]);
+    setIsAddingExpense(false);
+  };
+  const handleDeleteFixedItem = (type: 'income' | 'expense', id: string) => {
+    if (type === 'income') setIncomeItems(prev => prev.filter(i => i.id !== id));
+    else setExpenseItems(prev => prev.filter(i => i.id !== id));
+  };
+  const handleUpdateFixedItem = (type: 'income' | 'expense', id: string, name: string, amount: number, customCategory?: string) => {
+    const fn = (prev: CashFlowItem[]) => prev.map(i => i.id === id ? { ...i, name, amount, customCategory } : i);
+    if (type === 'income') setIncomeItems(fn);
+    else setExpenseItems(fn);
   };
 
-  const recurring = item.isRecurring !== false;
+  // One-time entry handlers
+  const handleAddOneTimeEntry = (category: AnnualEntryCategory, name: string, amount: number) => {
+    if (!name || !amount) return;
+    setAnnualEntries(prev => [...prev, { id: Date.now().toString(), year: selectedYear, month: selectedMonth, name, amount, category }]);
+    if (INCOME_ENTRY_KEYS.has(category)) setIsAddingOneTimeIncome(false);
+    else setIsAddingOneTimeExpense(false);
+  };
+  const handleDeleteOneTimeEntry = (id: string) => {
+    setAnnualEntries(prev => prev.filter(e => e.id !== id));
+  };
 
-  if (isEditing) {
-    return (
-      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 space-y-2.5">
-        <div className="flex items-center gap-2">
-          <input
-            type="text" value={name} onChange={e => setName(e.target.value)}
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-indigo-400 bg-white"
-            placeholder="項目名稱"
-          />
-          <input
-            type="number" value={amount} onChange={e => setAmount(e.target.value)}
-            className="w-28 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-indigo-400 bg-white"
-            placeholder="金額"
-          />
-          <button onClick={handleSave} className="p-1.5 text-indigo-600 hover:text-indigo-800"><Check className="w-4 h-4" /></button>
-          <button onClick={() => setIsEditing(false)} className="p-1.5 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-        </div>
-        <ItemFormOptions
-          isRecurring={isRecurring}
-          setIsRecurring={setIsRecurring}
-          type={type}
-          customCategory={customCategory}
-          setCustomCategory={setCustomCategory}
-          customCategories={customCategories}
-        />
-      </div>
-    );
-  }
+  // 12-month trend
+  const monthTrend = useMemo(() => {
+    const base = new Date(selectedYear, selectedMonth - 1, 1);
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(base.getFullYear(), base.getMonth() - 11 + i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth() + 1;
+      let inc = totalMonthlyIncome;
+      let exp = totalMonthlyExpense;
+      for (const entry of annualEntries) {
+        if (entry.year === y && entry.month === m) {
+          if (INCOME_ENTRY_KEYS.has(entry.category)) inc += entry.amount;
+          else exp += entry.amount;
+        }
+      }
+      return { label: `${m}月`, income: Math.round(inc), expense: Math.round(exp), net: Math.round(inc - exp) };
+    });
+  }, [totalMonthlyIncome, totalMonthlyExpense, annualEntries, selectedYear, selectedMonth]);
 
-  return (
-    <div className="px-4 py-3 hover:bg-gray-50 group transition-colors">
-      <div className="flex items-center justify-between gap-3">
-        {/* Left: name + badges */}
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className="text-sm font-medium text-gray-800 truncate">{item.name}</span>
-          <span className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${
-            recurring ? 'bg-indigo-50 text-indigo-500' : 'bg-orange-50 text-orange-500'
-          }`}>
-            {recurring
-              ? <><RefreshCw className="w-2.5 h-2.5" /> 固定</>
-              : <><Zap className="w-2.5 h-2.5" /> 單次</>
-            }
-          </span>
-          {item.customCategory && (
-            <span
-              className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold"
-              style={{
-                backgroundColor: `${getCategoryColor(item.customCategory, customCategories)}20`,
-                color: getCategoryColor(item.customCategory, customCategories),
-              }}
-            >
-              {item.customCategory}
-            </span>
-          )}
-        </div>
-        {/* Right: amount + actions */}
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="font-bold text-sm tabular-nums text-gray-900">
-            {showValues ? item.amount.toLocaleString() : '****'}
-          </span>
-          <div className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 flex gap-0.5 transition-opacity">
-            <button onClick={() => setIsEditing(true)} className="p-1.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-            <button onClick={() => setConfirmDelete(true)} className="p-1.5 rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-          </div>
-        </div>
-      </div>
-      {confirmDelete && (
-        <ConfirmDialog
-          message={`確定要刪除「${item.name}」嗎？`}
-          onConfirm={handleDelete}
-          onCancel={() => setConfirmDelete(false)}
-        />
-      )}
-    </div>
-  );
-}
-
-function AddItemRow({
-  type,
-  onConfirm,
-  onCancel,
-  customCategories,
-}: {
-  type: 'income' | 'expense';
-  onConfirm: (n: string, a: number, r: boolean, c?: string) => void;
-  onCancel: () => void;
-  customCategories: string[];
-}) {
-  const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
-  const [isRecurring, setIsRecurring] = useState(true);
-  const [customCategory, setCustomCategory] = useState<string | undefined>(undefined);
-
-  return (
-    <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-100 space-y-2.5">
-      <div className="flex items-center gap-2">
-        <input
-          type="text" placeholder="項目名稱" value={name} onChange={e => setName(e.target.value)}
-          className="flex-1 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-indigo-400 bg-white"
-          autoFocus
-        />
-        <input
-          type="number" placeholder="金額" value={amount} onChange={e => setAmount(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') onConfirm(name, Number(amount) || 0, isRecurring, customCategory); }}
-          className="w-28 border border-indigo-200 rounded-lg px-3 py-1.5 text-sm text-right outline-none focus:border-indigo-400 bg-white"
-        />
-        <button onClick={() => onConfirm(name, Number(amount) || 0, isRecurring, customCategory)} className="p-1.5 text-indigo-600 hover:text-indigo-800"><Check className="w-4 h-4" /></button>
-        <button onClick={onCancel} className="p-1.5 text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-      </div>
-      <ItemFormOptions
-        isRecurring={isRecurring}
-        setIsRecurring={setIsRecurring}
-        type={type}
-        customCategory={customCategory}
-        setCustomCategory={setCustomCategory}
-        customCategories={customCategories}
-        borderColor="border-indigo-200"
-      />
-    </div>
-  );
-}
-
-function AutoStakingIncomeRow() {
-  const { stakingItems, showValues } = useAppContext();
-  const earnItems = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'earn');
-  const totalIncome = earnItems.reduce((sum, item) => sum + (item.value * item.apy / 100 / 12), 0);
-  if (totalIncome === 0) return null;
-  return (
-    <div className="p-4 flex items-center justify-between bg-emerald-50/50">
-      <div className="flex flex-col">
-        <span className="text-sm font-medium text-gray-700">活存/Earn 收益</span>
-        <span className="text-[10px] text-emerald-600 flex items-center gap-1">
-          <span className="px-1 py-0.5 bg-emerald-100 text-emerald-600 text-[9px] font-bold rounded uppercase animate-pulse">Auto</span>
-          同步自質押管理分頁
-        </span>
-      </div>
-      <div className="flex items-center gap-4">
-        <span className="font-bold text-emerald-700 text-sm">{showValues ? Math.round(totalIncome).toLocaleString() : '****'}</span>
-        <div className="invisible flex gap-1">
-          <button className="p-1"><Pencil className="w-3.5 h-3.5" /></button>
-          <button className="p-1"><Trash2 className="w-3.5 h-3.5" /></button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AutoLoanExpenseRow() {
-  const { loans, showValues } = useAppContext();
-  const activeLoans = loans.filter(l => l.principal > 0);
-  if (activeLoans.length === 0) return null;
   return (
     <>
-      {activeLoans.map((loan: LoanItem) => (
-        <div key={loan.id} className="p-4 flex items-center justify-between bg-rose-50/30">
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-gray-700">{loan.name}（{loan.bank}）月繳</span>
-            <span className="text-[10px] text-rose-500 flex items-center gap-1">
-              <span className="px-1 py-0.5 bg-rose-100 text-rose-500 text-[9px] font-bold rounded uppercase animate-pulse">Auto</span>
-              同步自借貸管理分頁
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="font-bold text-rose-700 text-sm">{showValues ? loan.monthlyPayment.toLocaleString('en-US') : '****'}</span>
-            <div className="invisible flex gap-1">
-              <button className="p-1"><Pencil className="w-3.5 h-3.5" /></button>
-              <button className="p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">收支管理</h1>
+          <p className="text-sm text-gray-500 mt-1">記錄固定收支與本月一次性項目</p>
+        </div>
+        <MonthNavigator year={selectedYear} month={selectedMonth} onPrev={prevMonth} onNext={nextMonth} />
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
+        {(['flow', 'category'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+              activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'flow' ? '本月收支' : '類別分析'}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'flow' && (
+        <>
+          {/* KPI row */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 text-emerald-600 mb-2">
+                <ArrowUpCircle className="w-5 h-5" />
+                <span className="text-xs font-bold uppercase tracking-wider">本月總收入</span>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900">{formatCurrency(monthTotalIncome)}</h2>
+              {monthOneTimeIncomeTotal > 0 && (
+                <p className="text-xs text-gray-400 mt-1.5">含本月一次性收入 {formatCurrency(monthOneTimeIncomeTotal)}</p>
+              )}
+            </div>
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div className="flex items-center gap-2 text-rose-600 mb-2">
+                <ArrowDownCircle className="w-5 h-5" />
+                <span className="text-xs font-bold uppercase tracking-wider">本月總支出</span>
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900">{formatCurrency(monthTotalExpense)}</h2>
+              {monthOneTimeExpenseTotal > 0 && (
+                <p className="text-xs text-gray-400 mt-1.5">含本月一次性支出 {formatCurrency(monthOneTimeExpenseTotal)}</p>
+              )}
+            </div>
+            <div className={`rounded-2xl p-6 shadow-lg text-white ${monthNet >= 0 ? 'bg-gradient-to-br from-indigo-500 to-indigo-700' : 'bg-gradient-to-br from-rose-500 to-rose-700'}`}>
+              <div className="flex items-center gap-2 mb-2 opacity-80">
+                <Wallet className="w-5 h-5" />
+                <span className="text-xs font-bold uppercase tracking-wider">本月預計盈餘</span>
+              </div>
+              <h2 className="text-3xl font-bold">{formatCurrency(monthNet)}</h2>
+              <p className="text-xs mt-2 opacity-70">
+                儲蓄率: {monthTotalIncome > 0 ? ((monthNet / monthTotalIncome) * 100).toFixed(1) : 0}%
+              </p>
             </div>
           </div>
-        </div>
-      ))}
-    </>
-  );
-}
 
-function AutoStakingExpenseRow() {
-  const { stakingItems, showValues } = useAppContext();
-  const borrowItems = stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow');
-  const totalInterest = borrowItems.reduce((sum, item) => sum + (item.value * item.apy / 100 / 12), 0);
-  if (totalInterest === 0) return null;
-  return (
-    <div className="p-4 flex items-center justify-between bg-rose-50/50">
-      <div className="flex flex-col">
-        <span className="text-sm font-medium text-gray-700">質押利息支出</span>
-        <span className="text-[10px] text-rose-500 flex items-center gap-1">
-          <span className="px-1 py-0.5 bg-rose-100 text-rose-500 text-[9px] font-bold rounded uppercase animate-pulse">Auto</span>
-          同步自質押管理分頁
-        </span>
-      </div>
-      <div className="flex items-center gap-4">
-        <span className="font-bold text-rose-700 text-sm">{showValues ? Math.round(totalInterest).toLocaleString() : '****'}</span>
-        <div className="invisible flex gap-1">
-          <button className="p-1"><Pencil className="w-3.5 h-3.5" /></button>
-          <button className="p-1"><Trash2 className="w-3.5 h-3.5" /></button>
-        </div>
-      </div>
-    </div>
+          {/* Section 1: Fixed monthly items */}
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-base font-bold text-gray-900">每月固定收支</h2>
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">每月自動套用</span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* Fixed Income */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-600">固定收入</h3>
+                <button onClick={() => setIsAddingIncome(true)} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> 新增
+                </button>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                <div className="divide-y divide-gray-50">
+                  {isAddingIncome && (
+                    <AddFixedItemRow
+                      type="income"
+                      customCategories={customCategories}
+                      onConfirm={handleAddFixedIncome}
+                      onCancel={() => setIsAddingIncome(false)}
+                    />
+                  )}
+                  {incomeItems.map(item => (
+                    <CashFlowRow
+                      key={item.id}
+                      item={item}
+                      type="income"
+                      customCategories={customCategories}
+                      onUpdate={(n, a, c) => handleUpdateFixedItem('income', item.id, n, a, c)}
+                      onDelete={() => handleDeleteFixedItem('income', item.id)}
+                      showValues={showValues}
+                    />
+                  ))}
+                  <AutoStakingIncomeRow />
+                  {incomeItems.length === 0 && !isAddingIncome && (
+                    <div className="p-8 text-center text-gray-400 text-sm">尚無固定收入項目</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Fixed Expense */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-600">固定支出</h3>
+                <button onClick={() => setIsAddingExpense(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> 新增
+                </button>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                <div className="divide-y divide-gray-50">
+                  {isAddingExpense && (
+                    <AddFixedItemRow
+                      type="expense"
+                      customCategories={customCategories}
+                      onConfirm={handleAddFixedExpense}
+                      onCancel={() => setIsAddingExpense(false)}
+                    />
+                  )}
+                  {expenseItems.map(item => (
+                    <CashFlowRow
+                      key={item.id}
+                      item={item}
+                      type="expense"
+                      customCategories={customCategories}
+                      onUpdate={(n, a, c) => handleUpdateFixedItem('expense', item.id, n, a, c)}
+                      onDelete={() => handleDeleteFixedItem('expense', item.id)}
+                      showValues={showValues}
+                    />
+                  ))}
+                  <AutoStakingExpenseRow />
+                  <AutoLoanExpenseRow />
+                  {expenseItems.length === 0 && !isAddingExpense && (
+                    <div className="p-8 text-center text-gray-400 text-sm">尚無固定支出項目</div>
+                  )}
+                </div>
+                <div className="border-t-2 border-gray-100 px-4 py-3 flex items-center justify-between bg-gray-50">
+                  <span className="text-sm font-bold text-gray-600">固定支出合計</span>
+                  <span className="text-base font-bold text-rose-600">{formatCurrency(totalMonthlyExpense)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: This month's one-time entries */}
+          <div className="flex items-center gap-2 mb-4">
+            <h2 className="text-base font-bold text-gray-900">{selectedYear} 年 {selectedMonth} 月 — 一次性記錄</h2>
+            <span className="text-xs bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full">本月限定</span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            {/* One-time Income */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-600">本月一次性收入</h3>
+                <button onClick={() => setIsAddingOneTimeIncome(true)} className="text-xs font-medium text-emerald-600 hover:text-emerald-800 flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> 新增
+                </button>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                <div className="divide-y divide-gray-50">
+                  {isAddingOneTimeIncome && (
+                    <AddOneTimeEntryRow
+                      type="income"
+                      onConfirm={(name, amount, category) => handleAddOneTimeEntry(category, name, amount)}
+                      onCancel={() => setIsAddingOneTimeIncome(false)}
+                    />
+                  )}
+                  {monthOneTimeIncome.map(entry => (
+                    <OneTimeEntryRow
+                      key={entry.id}
+                      entry={entry}
+                      onDelete={() => handleDeleteOneTimeEntry(entry.id)}
+                      showValues={showValues}
+                    />
+                  ))}
+                  {monthOneTimeIncome.length === 0 && !isAddingOneTimeIncome && (
+                    <div className="p-8 text-center text-gray-400 text-sm">本月尚無一次性收入</div>
+                  )}
+                </div>
+                {monthOneTimeIncomeTotal > 0 && (
+                  <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-emerald-50/40">
+                    <span className="text-xs font-bold text-gray-500">本月小計</span>
+                    <span className="text-sm font-bold text-emerald-700">{formatCurrency(monthOneTimeIncomeTotal)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* One-time Expense */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-600">本月一次性支出</h3>
+                <button onClick={() => setIsAddingOneTimeExpense(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
+                  <Plus className="w-3.5 h-3.5" /> 新增
+                </button>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                <div className="divide-y divide-gray-50">
+                  {isAddingOneTimeExpense && (
+                    <AddOneTimeEntryRow
+                      type="expense"
+                      onConfirm={(name, amount, category) => handleAddOneTimeEntry(category, name, amount)}
+                      onCancel={() => setIsAddingOneTimeExpense(false)}
+                    />
+                  )}
+                  {monthOneTimeExpense.map(entry => (
+                    <OneTimeEntryRow
+                      key={entry.id}
+                      entry={entry}
+                      onDelete={() => handleDeleteOneTimeEntry(entry.id)}
+                      showValues={showValues}
+                    />
+                  ))}
+                  {monthOneTimeExpense.length === 0 && !isAddingOneTimeExpense && (
+                    <div className="p-8 text-center text-gray-400 text-sm">本月尚無一次性支出</div>
+                  )}
+                </div>
+                {monthOneTimeExpenseTotal > 0 && (
+                  <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-rose-50/40">
+                    <span className="text-xs font-bold text-gray-500">本月小計</span>
+                    <span className="text-sm font-bold text-rose-700">{formatCurrency(monthOneTimeExpenseTotal)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 12-month trend chart */}
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm mb-8">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="w-4 h-4 text-indigo-500" />
+              <h3 className="text-base font-bold text-gray-900">近 12 個月收支趨勢</h3>
+            </div>
+            <p className="text-xs text-gray-400 mb-5">每月固定收支 + 年度一次性項目（獎金、股利、臨時支出）</p>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart
+                data={monthTrend}
+                margin={{ top: 5, right: 5, left: 0, bottom: 0 }}
+                barCategoryGap="30%"
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                <YAxis
+                  axisLine={false} tickLine={false}
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  tickFormatter={v => showValues ? `${(v / 1000).toFixed(0)}K` : ''}
+                  width={38}
+                />
+                <Tooltip
+                  formatter={(v: number, name: string) => [formatCurrency(v), name]}
+                  contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12 }}
+                />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                <ReferenceLine y={0} stroke="#e2e8f0" />
+                <Bar dataKey="income"  name="收入"   fill="#10b981" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="expense" name="支出"   fill="#f43f5e" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="net"     name="淨盈餘" fill="#6366f1" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <AnnualTracker />
+        </>
+      )}
+
+      {activeTab === 'category' && (
+        <CategoryAnalysisTab
+          expenseItems={expenseItems}
+          customCategories={customCategories}
+          setCustomCategories={setCustomCategories}
+          setExpenseItems={setExpenseItems}
+          showValues={showValues}
+        />
+      )}
+    </>
   );
 }
