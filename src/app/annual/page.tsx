@@ -134,8 +134,8 @@ export default function AnnualPage() {
   const [modal, setModal] = useState<{ month: number; cat: AnnualEntryCategory; label: string } | null>(null);
 
   // 固定月收入 / 月支出（來自收支管理，排除一次性項目）
-  const fixedIncome  = useMemo(() => incomeItems.filter(i => i.isRecurring !== false).reduce((s, i) => s + i.amount, 0), [incomeItems]);
-  const fixedExpense = useMemo(() => expenseItems.filter(i => i.isRecurring !== false).reduce((s, i) => s + i.amount, 0), [expenseItems]);
+  const fixedIncome  = useMemo(() => incomeItems.reduce((s, i) => s + i.amount, 0), [incomeItems]);
+  const fixedExpense = useMemo(() => expenseItems.reduce((s, i) => s + i.amount, 0), [expenseItems]);
 
   // 依年份過濾
   const yearEntries = useMemo(() => annualEntries.filter(e => e.year === year), [annualEntries, year]);
