@@ -494,14 +494,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return combinedLiabilities.reduce((sum, item) => sum + item.amount, 0);
   }, [combinedLiabilities]);
 
-  // Cash Flow Calculations — 只計算「固定」(isRecurring: true) 項目，一次性不計入月均
+  // Cash Flow Calculations — 所有項目（固定 + 單次）皆計入當月收支
   const totalMonthlyIncome = useMemo(() => {
-    const manual = incomeItems.filter(i => i.isRecurring !== false).reduce((sum, item) => sum + item.amount, 0);
+    const manual = incomeItems.reduce((sum, item) => sum + item.amount, 0);
     return manual + Math.round(stakingEarnIncome);
   }, [incomeItems, stakingEarnIncome]);
 
   const totalMonthlyExpense = useMemo(() => {
-    const manualExpense = expenseItems.filter(i => i.isRecurring !== false).reduce((sum, item) => sum + item.amount, 0);
+    const manualExpense = expenseItems.reduce((sum, item) => sum + item.amount, 0);
     return manualExpense + Math.round(stakingBorrowInterest) + totalLoanMonthlyPayments;
   }, [expenseItems, stakingBorrowInterest, totalLoanMonthlyPayments]);
 

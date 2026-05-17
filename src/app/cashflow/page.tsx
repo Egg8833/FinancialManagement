@@ -617,7 +617,7 @@ function ItemFormOptions({
         )}
       </div>
       <p className="text-[10px] text-gray-400 pl-0.5">
-        {isRecurring ? '計入每月固定收支統計' : '不計入月均，適合獎金、報銷等臨時項目'}
+        {isRecurring ? '每月固定發生，視為長期支出承諾' : '本月一次性支出，不視為每月固定承諾'}
       </p>
     </div>
   );
@@ -716,7 +716,7 @@ function CashFlowRow({
         </div>
         {/* Right: amount + actions */}
         <div className="flex items-center gap-3 shrink-0">
-          <span className={`font-bold text-sm tabular-nums ${recurring ? 'text-gray-900' : 'text-gray-400'}`}>
+          <span className="font-bold text-sm tabular-nums text-gray-900">
             {showValues ? item.amount.toLocaleString() : '****'}
           </span>
           <div className="opacity-60 sm:opacity-0 sm:group-hover:opacity-100 flex gap-0.5 transition-opacity">
