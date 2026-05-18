@@ -32,22 +32,23 @@ const METRIC_ICON: Record<string, LucideIcon> = {
   growth: BarChart2,
 };
 
-function LargeGauge({ score, grade }: { score: number; grade: HealthScoreResult['grade'] }) {
+function LargeGauge({ score }: { score: number }) {
   const r = 80;
   const circumference = Math.PI * r;
-  const color = GRADE_COLOR[grade];
   return (
     <svg width="200" height="115" viewBox="0 0 200 115">
-      <path d={`M 20 100 A ${r} ${r} 0 0 1 180 100`} fill="none" stroke="#e2e8f0" strokeWidth="16" strokeLinecap="round" />
+      {/* track：白色半透明，在任何漸層底色上都清晰 */}
+      <path d={`M 20 100 A ${r} ${r} 0 0 1 180 100`} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="16" strokeLinecap="round" />
+      {/* 進度弧：純白，對比最強 */}
       <path
         d={`M 20 100 A ${r} ${r} 0 0 1 180 100`}
-        fill="none" stroke={color} strokeWidth="16" strokeLinecap="round"
+        fill="none" stroke="white" strokeWidth="16" strokeLinecap="round"
         strokeDasharray={circumference}
         strokeDashoffset={circumference * (1 - score / 100)}
         style={{ transition: 'stroke-dashoffset 0.8s ease' }}
       />
-      <text x="100" y="95" textAnchor="middle" fontSize="36" fontWeight="900" fill="#1e293b">{score}</text>
-      <text x="100" y="112" textAnchor="middle" fontSize="12" fill="#64748b">/ 100</text>
+      <text x="100" y="95" textAnchor="middle" fontSize="36" fontWeight="900" fill="white">{score}</text>
+      <text x="100" y="112" textAnchor="middle" fontSize="12" fill="rgba(255,255,255,0.7)">/ 100</text>
     </svg>
   );
 }
@@ -257,7 +258,7 @@ export default function HealthPage() {
       {/* 頂部評分卡 */}
       <div className={`rounded-3xl p-8 mb-8 bg-gradient-to-br ${GRADE_BG[result.grade]} text-white shadow-lg`}>
         <div className="flex flex-col sm:flex-row items-center gap-6">
-          <LargeGauge score={result.totalScore} grade={result.grade} />
+          <LargeGauge score={result.totalScore} />
           <div>
             <p className="text-white/70 text-sm font-bold uppercase tracking-widest mb-1">整體財務健康</p>
             <p className="text-4xl font-black mb-2">{result.grade}</p>
