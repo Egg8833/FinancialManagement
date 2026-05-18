@@ -52,12 +52,25 @@ function LargeGauge({ score, grade }: { score: number; grade: HealthScoreResult[
   );
 }
 
+const METRIC_ACCENT: Record<string, { iconBg: string; iconText: string; bar: string; stripe: string }> = {
+  savings:    { iconBg: 'bg-emerald-50', iconText: 'text-emerald-600', bar: 'bg-emerald-500', stripe: 'bg-emerald-400' },
+  liquidity:  { iconBg: 'bg-sky-50',     iconText: 'text-sky-600',     bar: 'bg-sky-500',     stripe: 'bg-sky-400' },
+  debt:       { iconBg: 'bg-rose-50',    iconText: 'text-rose-500',    bar: 'bg-rose-500',    stripe: 'bg-rose-400' },
+  investment: { iconBg: 'bg-violet-50',  iconText: 'text-violet-600',  bar: 'bg-violet-500',  stripe: 'bg-violet-400' },
+  cashflow:   { iconBg: 'bg-amber-50',   iconText: 'text-amber-600',   bar: 'bg-amber-500',   stripe: 'bg-amber-400' },
+  growth:     { iconBg: 'bg-teal-50',    iconText: 'text-teal-600',    bar: 'bg-teal-500',    stripe: 'bg-teal-400' },
+};
+
+const DEFAULT_ACCENT = { iconBg: 'bg-gray-50', iconText: 'text-gray-500', bar: 'bg-gray-400', stripe: 'bg-gray-300' };
+
 function MetricCard({ metric }: { metric: MetricResult }) {
   const Icon = METRIC_ICON[metric.key] ?? Heart;
-  const barColor =
-    metric.score >= 75 ? 'bg-emerald-500' :
-    metric.score >= 60 ? 'bg-blue-500' :
-    metric.score >= 40 ? 'bg-yellow-400' : 'bg-red-500';
+  const accent = METRIC_ACCENT[metric.key] ?? DEFAULT_ACCENT;
+
+  const scoreColor =
+    metric.score >= 75 ? 'text-emerald-600' :
+    metric.score >= 60 ? 'text-blue-600' :
+    metric.score >= 40 ? 'text-amber-600' : 'text-rose-500';
 
   const displayValue = (() => {
     if (metric.key === 'savings' || metric.key === 'debt' || metric.key === 'investment') {
@@ -69,27 +82,34 @@ function MetricCard({ metric }: { metric: MetricResult }) {
   })();
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="p-2 bg-gray-50 rounded-lg text-gray-500">
-          <Icon className="w-4 h-4" />
+    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+      {/* 頂部色條：各指標固定色 */}
+      <div className={`h-1 w-full ${accent.stripe}`} />
+      <div className="p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`p-2.5 ${accent.iconBg} rounded-xl ${accent.iconText} shrink-0`}>
+            <Icon className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-gray-800">{metric.label}</p>
+            <p className="text-xs text-gray-400 truncate">{metric.benchmark}</p>
+          </div>
+          <span className={`text-xl font-black ${scoreColor} shrink-0`}>{metric.score}</span>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-bold text-gray-800">{metric.label}</p>
-          <p className="text-xs text-gray-400">{metric.benchmark}</p>
+        <div className="relative h-2.5 bg-gray-100 rounded-full overflow-hidden mb-2">
+          <div
+            className={`absolute left-0 top-0 h-full rounded-full transition-all duration-700 ${accent.bar}`}
+            style={{ width: `${metric.score}%` }}
+          />
         </div>
-        <span className="text-lg font-black text-gray-900">{metric.score}</span>
+        <div className="flex justify-between text-xs mb-1">
+          <span className="text-gray-400">當前：{displayValue}</span>
+          <span className={`font-semibold ${scoreColor}`}>{metric.score} / 100</span>
+        </div>
+        {metric.advice && (
+          <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mt-3">{metric.advice}</p>
+        )}
       </div>
-      <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
-        <div className={`absolute left-0 top-0 h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${metric.score}%` }} />
-      </div>
-      <div className="flex justify-between text-xs text-gray-400 mb-2">
-        <span>當前：{displayValue}</span>
-        <span>{metric.score} / 100 分</span>
-      </div>
-      {metric.advice && (
-        <p className="text-xs text-orange-600 bg-orange-50 rounded-lg px-3 py-2 mt-3">{metric.advice}</p>
-      )}
     </div>
   );
 }
