@@ -653,7 +653,7 @@ export default function CashFlowPage() {
   });
   const selectedYear  = viewDate.year;
   const selectedMonth = viewDate.month;
-  const [activeTab, setActiveTab] = useState<'flow' | 'category'>('flow');
+  const [activeTab, setActiveTab] = useState<'flow' | 'category' | 'annual'>('flow');
   const [isAddingIncome, setIsAddingIncome] = useState(false);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isAddingOneTimeIncome, setIsAddingOneTimeIncome] = useState(false);
@@ -750,7 +750,7 @@ export default function CashFlowPage() {
 
       {/* Tab bar */}
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
-        {(['flow', 'category'] as const).map(tab => (
+        {(['flow', 'category', 'annual'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -758,7 +758,7 @@ export default function CashFlowPage() {
               activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab === 'flow' ? '本月收支' : '類別分析'}
+            {tab === 'flow' ? '本月收支' : tab === 'category' ? '類別分析' : '年度總覽'}
           </button>
         ))}
       </div>
@@ -1004,8 +1004,11 @@ export default function CashFlowPage() {
             </ResponsiveContainer>
           </div>
 
-          <AnnualTracker />
         </>
+      )}
+
+      {activeTab === 'annual' && (
+        <AnnualTracker />
       )}
 
       {activeTab === 'category' && (
