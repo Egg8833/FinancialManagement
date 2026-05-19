@@ -291,6 +291,8 @@ interface AppContextType {
   setLifeEvents: (e: LifeEvent[] | ((prev: LifeEvent[]) => LifeEvent[])) => void;
   onboardingDone: boolean;
   setOnboardingDone: (v: boolean) => void;
+  enablePledgeTracking: boolean;
+  setEnablePledgeTracking: (v: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -350,6 +352,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, 'app-fire-settings-v1');
   const [lifeEvents, setLifeEvents] = useStickyState<LifeEvent[]>([], 'app-life-events-v1');
   const [onboardingDone, setOnboardingDone] = useStickyState<boolean>(false, 'assetdash-onboarding-done');
+  const [enablePledgeTracking, setEnablePledgeTracking] = useStickyState<boolean>(false, 'app-enable-pledge-tracking-v1');
 
   // Schema version migration — runs once on mount
   useEffect(() => {
@@ -660,6 +663,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setLifeEvents,
       onboardingDone,
       setOnboardingDone,
+      enablePledgeTracking,
+      setEnablePledgeTracking,
     }}>
       {children}
     </AppContext.Provider>

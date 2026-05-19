@@ -338,20 +338,18 @@ function useNameLookup(symbol: string): string {
 }
 
 export default function StocksPage() {
-  const { stockItems, setStockItems, stockQuotes, refreshQuotes, lastUpdated, quoteError, usdToTwd, showValues } = useAppContext();
+  const { stockItems, setStockItems, stockQuotes, refreshQuotes, lastUpdated, usdToTwd, enablePledgeTracking } = useAppContext();
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ label: string; action: () => void } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'holdings' | 'performance'>('holdings');
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
   const quotesLoading = stockItems.length > 0 && lastUpdated === '';
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refreshQuotes();
-    setLastRefreshed(new Date());
     setTimeout(() => setIsRefreshing(false), 500);
   };
 
@@ -439,19 +437,6 @@ export default function StocksPage() {
 
   return (
     <>
-      {quoteError && lastUpdated && (
-        <div className="mb-4 flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-amber-700">
-          <span className="text-amber-500 text-base">⚠</span>
-          <span>行情更新失敗，目前顯示 <strong>{lastUpdated}</strong> 的快取報價，數值可能不是最新。</span>
-          <button
-            onClick={handleRefresh}
-            className="ml-auto text-xs font-medium underline underline-offset-2 hover:text-amber-900"
-          >
-            重試
-          </button>
-        </div>
-      )}
-
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">投資追蹤 (Stocks & Crypto)</h1>
@@ -467,11 +452,6 @@ export default function StocksPage() {
                 >
                   <RotateCcw className="w-2.5 h-2.5" />
                 </button>
-              </span>
-            )}
-            {lastRefreshed && (
-              <span className="ml-1 text-xs text-gray-400">
-                · 報價更新於 {lastRefreshed.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
           </div>
@@ -536,36 +516,6 @@ export default function StocksPage() {
           </p>
         </div>
       </div>
-
-      {/* Portfolio KPI Summary */}
-      {stockItems.length > 0 && (() => {
-        const fmtCurrency = (n: number) => showValues ? `NT$${Math.round(n).toLocaleString()}` : '****';
-        // avgCost in this app = 總成本 (total cost), not per-share price
-        const totalCost = totalCostTWD;
-        const totalMarket = totalValueTWD;
-        const pnl = totalMarket - totalCost;
-        const pnlPct = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
-        return (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">持倉成本</p>
-              <p className="font-bold text-gray-900">{fmtCurrency(totalCost)}</p>
-            </div>
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">市值</p>
-              <p className="font-bold text-gray-900">{fmtCurrency(totalMarket)}</p>
-            </div>
-            <div className={`rounded-2xl p-4 border shadow-sm ${pnl >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">損益</p>
-              <p className={`font-bold ${pnl >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{fmtCurrency(pnl)}</p>
-            </div>
-            <div className={`rounded-2xl p-4 border shadow-sm ${pnlPct >= 0 ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`}>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mb-1">報酬率</p>
-              <p className={`font-bold ${pnlPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{showValues ? `${pnlPct.toFixed(2)}%` : '****'}</p>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Stock List */}
       <div className="bg-white rounded-2xl shadow-[0_2px_15px_rgba(0,0,0,0.03)] border border-gray-100 overflow-hidden">
@@ -701,6 +651,7 @@ export default function StocksPage() {
                       quote={stockQuotes[item.symbol]}
                       usdToTwd={usdToTwd}
                       totalPortfolioTWD={totalValueTWD}
+                      enablePledgeTracking={enablePledgeTracking}
                       onUpdate={(data) => handleUpdate(item.id, data)}
                       onDelete={() => handleDelete(item.id, item.symbol)}
                     />
@@ -740,6 +691,7 @@ function StockRow({
   quote,
   usdToTwd,
   totalPortfolioTWD,
+  enablePledgeTracking,
   onUpdate,
   onDelete
 }: {
@@ -747,6 +699,7 @@ function StockRow({
   quote?: StockQuote,
   usdToTwd: number,
   totalPortfolioTWD: number,
+  enablePledgeTracking: boolean,
   onUpdate: (data: Partial<StockItem>) => void,
   onDelete: () => void
 }) {
@@ -854,6 +807,7 @@ function StockRow({
             <label className="block text-xs text-gray-500 mb-1">備註</label>
             <input type="text" placeholder="如: 長期持有, 定期定額" value={editNotes} onChange={e => setEditNotes(e.target.value)} className="w-full border rounded p-2 text-sm" />
           </div>
+          {enablePledgeTracking && (
           <div>
             <label className="block text-xs text-gray-500 mb-1">
               擔保品（{editMarket === '台股' ? '張，0 表示無' : '股，0 表示無'}）
@@ -873,6 +827,7 @@ function StockRow({
               className="w-full border rounded p-2 text-sm"
             />
           </div>
+          )}
         </div>
         <div className="mt-4 flex gap-2">
           <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 flex items-center gap-1"><Check className="w-4 h-4" /> 儲存</button>
@@ -898,7 +853,7 @@ function StockRow({
               <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${MARKET_BADGE[market]}`}>
                 {market}
               </span>
-              {!!item.collateralShares && (
+              {enablePledgeTracking && !!item.collateralShares && (
                 <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded font-semibold bg-amber-100 text-amber-700">
                   <ShieldCheck className="w-2.5 h-2.5" />
                   擔保品 {sharesToUnit(item.collateralShares, market).value.toLocaleString()} {sharesToUnit(item.collateralShares, market).unit}
@@ -1007,6 +962,7 @@ function StockRow({
                 {market}{item.platform ? ` · ${item.platform}` : ''}
               </p>
             </div>
+            {enablePledgeTracking && (
             <div>
               <p className="text-xs text-gray-400 mb-1 flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3" />擔保品
@@ -1036,6 +992,7 @@ function StockRow({
                 </p>
               )}
             </div>
+            )}
             {quote && (
               <div>
                 <p className="text-xs text-gray-400 mb-1">今日漲跌幅</p>

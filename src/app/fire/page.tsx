@@ -92,7 +92,7 @@ function ResultBadge({ label, year, age, color }: { label: string; year: number 
 export default function FirePage() {
   const { 
     netWorth, monthlyNetCashFlow, totalMonthlyExpense, 
-    showValues, fireSettings, setFireSettings, lifeEvents, setLifeEvents 
+    showValues, fireSettings, setFireSettings,
   } = useAppContext();
 
   const [activeTab, setActiveTab] = useState<'single' | 'compare'>('single');
@@ -129,8 +129,7 @@ export default function FirePage() {
     inflationRate: inflationRate / 100,
     safeWithdrawalRate: swr / 100,
     taxRate: taxRate / 100,
-    lifeEvents,
-  }), [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, taxRate, extraMonthly, lifeEvents]);
+  }), [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, taxRate, extraMonthly]);
 
   // 基準結果（無額外儲蓄）
   const baseResult: FireResult = useMemo(() => {
@@ -141,9 +140,8 @@ export default function FirePage() {
       annualReturnRate: annualReturnRate / 100, inflationRate: inflationRate / 100,
       safeWithdrawalRate: swr / 100,
       taxRate: taxRate / 100,
-      lifeEvents,
     });
-  }, [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, taxRate, extraMonthly, lifeEvents]);
+  }, [currentAge, targetRetirementAge, currentNetWorth, monthlyInvestment, retirementMonthlyExpense, annualReturnRate, inflationRate, swr, taxRate, extraMonthly]);
 
   const [volatility, setVolatility] = useState(12);
 
@@ -402,7 +400,7 @@ export default function FirePage() {
                         monthlyInvestment: monthlyInvestment + 5000,
                         retirementMonthlyExpense, annualReturnRate: annualReturnRate / 100,
                         inflationRate: inflationRate / 100, safeWithdrawalRate: swr / 100,
-                        taxRate: taxRate / 100, lifeEvents,
+                        taxRate: taxRate / 100,
                       });
                       return (result.neutralFireYear && opt.neutralFireYear) ? result.neutralFireYear - opt.neutralFireYear : 0;
                     })()} 年
@@ -518,58 +516,6 @@ export default function FirePage() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* ── 人生重大事件 (Life Events) ── */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-gray-900">人生重大事件模擬</h2>
-            <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">預測非線性收支</span>
-          </div>
-          <button
-            onClick={() => {
-              const name = prompt('事件名稱 (如：買房、加薪)');
-              const age = Number(prompt('發生年齡', String(currentAge + 5)));
-              const type = prompt('類型: 1.加薪(月) 2.增加支出(月) 3.單筆支出/收入(一次性)', '1');
-              const amount = Number(prompt('金額', '10000'));
-              if (name && age && type && amount) {
-                const eventType = type === '1' ? 'income_jump' : type === '2' ? 'expense_jump' : 'one_time_lump_sum';
-                setLifeEvents([...lifeEvents, { id: `le-${Date.now()}`, name, age, type: eventType as any, amount }]);
-              }
-            }}
-            className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-gray-800 transition-colors"
-          >
-            + 新增事件
-          </button>
-        </div>
-
-        {lifeEvents.length === 0 ? (
-          <div className="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-8 text-center">
-            <p className="text-sm text-gray-400">尚未設定任何重大事件。你可以加入如「35歲買房支出」、「40歲職位晉升加薪」等設定。</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {lifeEvents.map(event => (
-              <div key={event.id} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm flex justify-between items-center">
-                <div>
-                  <p className="text-xs font-bold text-gray-400 mb-0.5">{event.age} 歲</p>
-                  <p className="text-sm font-bold text-gray-900">{event.name}</p>
-                  <p className={`text-xs font-medium ${event.amount > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {event.type === 'income_jump' ? '加薪' : event.type === 'expense_jump' ? '增加支出' : '單筆收支'} 
-                    : {event.amount > 0 ? '+' : ''}{event.amount.toLocaleString()}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setLifeEvents(lifeEvents.filter(e => e.id !== event.id))}
-                  className="text-gray-300 hover:text-rose-500 transition-colors"
-                >
-                  <span className="text-lg">×</span>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ── Monte Carlo 模擬 ── */}
