@@ -560,6 +560,7 @@ export default function BorrowingPage() {
     pledgeAlertLastSent, setPledgeAlertLastSent,
     userEmail,
     showValues,
+    enablePledgeTracking,
   } = useAppContext();
   const { toast } = useToast();
 
@@ -697,7 +698,7 @@ export default function BorrowingPage() {
 
   return (
     <>
-      {alertLevel && (
+      {enablePledgeTracking && alertLevel && (
         <PledgeAlertBanner
           level={alertLevel}
           platformName={minPlatform}
