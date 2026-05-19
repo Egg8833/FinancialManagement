@@ -9,7 +9,6 @@ import { AssetCategoryCard } from '../components/AssetComponents';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
 import { HealthScoreCard } from '../components/HealthScoreCard';
 import { FinancialGoals } from '../components/FinancialGoals';
-import { NetWorthMilestones } from '../components/NetWorthMilestones';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency as _fmt, nowTs } from '../lib/utils';
 
@@ -379,7 +378,6 @@ export default function DashboardPage() {
       />
 
       <FinancialGoals />
-      <NetWorthMilestones />
     </>
   );
 }
