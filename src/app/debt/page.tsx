@@ -728,7 +728,7 @@ export default function BorrowingPage() {
         );
       })}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">借貸管理</h1>
+        <h1 className="text-2xl font-bold text-gray-900">負債 &amp; 生息資產</h1>
         <p className="text-sm text-gray-500 mt-1">信貸、質押借款與活儲的統整追蹤</p>
       </div>
 

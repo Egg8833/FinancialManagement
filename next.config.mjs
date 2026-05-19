@@ -6,6 +6,25 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: __dirname,
+  async redirects() {
+    return [
+      {
+        source: '/chart',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/annual',
+        destination: '/cashflow',
+        permanent: true,
+      },
+      {
+        source: '/staking',
+        destination: '/debt',
+        permanent: true,
+      },
+    ];
+  },
   eslint: {
     // Warning: This allows production builds to successfully complete even if
     // your project has ESLint errors.

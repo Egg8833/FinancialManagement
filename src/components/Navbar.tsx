@@ -15,7 +15,7 @@ interface NavbarProps {
 const NAV_LINKS = [
   { href: '/', label: '總覽', Icon: LayoutDashboard },
   { href: '/cashflow', label: '收支管理', Icon: Wallet },
-  { href: '/staking', label: '借貸 & 活儲', Icon: Coins },
+  { href: '/debt', label: '負債管理', Icon: Coins },
   { href: '/stocks', label: '投資追蹤', Icon: Activity },
   { href: '/health', label: '健康評分', Icon: Heart },
   { href: '/fire', label: 'FIRE 計算機', Icon: Flame },
@@ -124,6 +124,15 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                 {showValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 <span className="hidden lg:inline">{showValues ? '隱藏金額' : '顯示金額'}</span>
               </button>
+
+              {/* 設定齒輪 — 平板以上顯示 */}
+              <Link
+                href="/settings"
+                className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors hidden md:flex items-center justify-center"
+                title="設定"
+              >
+                <Settings className="w-5 h-5" />
+              </Link>
 
               {/* 用戶選單 — 平板以上顯示 */}
               <div className="hidden md:block relative pl-3 border-l border-gray-200" ref={assetMenuRef}>
