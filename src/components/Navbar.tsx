@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Eye, EyeOff, BarChart3, Coins, Activity, Wallet, Menu, X, Trash2, Settings, Heart, Flame } from 'lucide-react';
+import { LayoutDashboard, Eye, EyeOff, Coins, Activity, Wallet, Menu, X, Trash2, Settings, Heart, Flame } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppContext } from '../context/AppContext';
@@ -19,7 +19,6 @@ const NAV_LINKS = [
   { href: '/stocks', label: '投資追蹤', Icon: Activity },
   { href: '/health', label: '健康評分', Icon: Heart },
   { href: '/fire', label: 'FIRE 計算機', Icon: Flame },
-  { href: '/chart', label: '資產狀態圖', Icon: BarChart3 },
 ];
 
 export function Navbar({ showValues, onToggleValues }: NavbarProps) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Plus, TrendingUp, TrendingDown, Wallet, X, Check, Shield, Sparkles } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Wallet, X, Check, Shield, Sparkles, ChevronDown, Trash2, Camera } from 'lucide-react';
 import { HeroKPI } from '../components/HeroKPI';
 import { NetWorthChart } from '../components/NetWorthChart';
 import { AssetAllocationChart } from '../components/AssetAllocationChart';
@@ -35,6 +35,8 @@ export default function DashboardPage() {
     netWorthGoal,
     setNetWorthGoal,
     snapshots,
+    setSnapshots,
+    takeSnapshot,
     clearAllData,
     stakingItems,
   } = useAppContext();
@@ -164,9 +166,18 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">個人資產狀態總覽</h1>
-        <p className="text-sm text-gray-500 mt-1">追蹤與管理您的財務狀況 (資料將保存在您的設備中)</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">個人資產狀態總覽</h1>
+          <p className="text-sm text-gray-500 mt-1">追蹤與管理您的財務狀況 (資料將保存在您的設備中)</p>
+        </div>
+        <button
+          onClick={takeSnapshot}
+          className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200"
+        >
+          <Camera className="w-4 h-4" />
+          拍快照
+        </button>
       </div>
 
       {isDemoData && !demoDismissed && (
@@ -378,6 +389,68 @@ export default function DashboardPage() {
       />
 
       <FinancialGoals />
+
+      {/* Snapshot Manager - moved from /chart */}
+      <div className="mt-6">
+        <details className="group">
+          <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-500 hover:text-gray-700 select-none list-none">
+            <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+            快照紀錄（{snapshots.length} 筆）
+            <button
+              onClick={e => { e.preventDefault(); takeSnapshot(); }}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
+            >
+              <Camera className="w-4 h-4" />
+              拍快照
+            </button>
+          </summary>
+          <div className="mt-3 rounded-xl border border-gray-100 overflow-hidden">
+            {snapshots.length === 0 ? (
+              <p className="p-4 text-sm text-gray-400 text-center">尚無快照，點擊「拍快照」開始紀錄</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-gray-500 font-medium">日期</th>
+                    <th className="px-4 py-2 text-right text-gray-500 font-medium">總資產</th>
+                    <th className="px-4 py-2 text-right text-gray-500 font-medium">總負債</th>
+                    <th className="px-4 py-2 text-right text-gray-500 font-medium">淨資產</th>
+                    <th className="px-4 py-2 text-right"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...snapshots].reverse().map((snap) => (
+                    <tr key={snap.id} className="border-t border-gray-50 hover:bg-gray-50">
+                      <td className="px-4 py-2 text-gray-700">{snap.date}</td>
+                      <td className="px-4 py-2 text-right font-mono text-gray-800">
+                        {showValues ? `NT$${snap.totalAssets.toLocaleString()}` : '●●●●●'}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono text-rose-600">
+                        {showValues ? `NT$${snap.totalLiabilities.toLocaleString()}` : '●●●●●'}
+                      </td>
+                      <td className="px-4 py-2 text-right font-mono text-indigo-600">
+                        {showValues ? `NT$${snap.netWorth.toLocaleString()}` : '●●●●●'}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <button
+                          onClick={() => {
+                            if (confirm(`確定刪除 ${snap.date} 的快照？`)) {
+                              setSnapshots(prev => prev.filter(s => s.id !== snap.id));
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-600 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </details>
+      </div>
     </>
   );
 }
