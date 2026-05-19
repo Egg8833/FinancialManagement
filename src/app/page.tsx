@@ -9,8 +9,10 @@ import { AssetCategoryCard } from '../components/AssetComponents';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
 import { HealthScoreCard } from '../components/HealthScoreCard';
 import { FinancialGoals } from '../components/FinancialGoals';
+import DashboardSummaryRow from '../components/DashboardSummaryRow';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency as _fmt, nowTs } from '../lib/utils';
+import Link from 'next/link';
 
 
 export default function DashboardPage() {
@@ -56,20 +58,20 @@ export default function DashboardPage() {
   const runwayMonths = totalMonthlyExpense > 0 ? liquidAssets / totalMonthlyExpense : null;
 
   const alerts = useMemo(() => {
-    const result: Array<{ level: 'warn' | 'info'; message: string }> = [];
+    const result: Array<{ level: 'warn' | 'info'; message: string; href: string; cta: string }> = [];
 
     if (monthlyNetCashFlow < 0) {
-      result.push({ level: 'warn', message: `本月預計現金流為負（${_fmt(monthlyNetCashFlow, showValues)}），支出超過收入` });
+      result.push({ level: 'warn', message: `本月預計現金流為負（${_fmt(monthlyNetCashFlow, showValues)}），支出超過收入`, href: '/cashflow', cta: '調整預算' });
     }
 
     if (runwayMonths !== null && runwayMonths < 3) {
-      result.push({ level: 'warn', message: `現金彈藥僅剩 ${runwayMonths.toFixed(1)} 個月，建議補充流動資金` });
+      result.push({ level: 'warn', message: `現金彈藥僅剩 ${runwayMonths.toFixed(1)} 個月，建議補充流動資金`, href: '/cashflow', cta: '查看現金流' });
     }
 
     const borrowItems = stakingItems.filter((i: { stakingType?: string }) => (i.stakingType ?? 'borrow') === 'borrow');
     for (const item of borrowItems) {
       if (item.apy > 10) {
-        result.push({ level: 'warn', message: `「${item.name}」借貸年利率 ${item.apy}%，注意資金成本` });
+        result.push({ level: 'warn', message: `「${item.name}」借貸年利率 ${item.apy}%，注意資金成本`, href: '/staking', cta: '查看借貸' });
       }
     }
 
@@ -214,7 +216,13 @@ export default function DashboardPage() {
               }`}
             >
               <span className="shrink-0">{alert.level === 'warn' ? '⚠️' : '💡'}</span>
-              {alert.message}
+              <span className="flex-1">{alert.message}</span>
+              <Link
+                href={alert.href}
+                className="ml-2 shrink-0 text-xs font-semibold underline underline-offset-2 opacity-80 hover:opacity-100 transition-opacity"
+              >
+                {alert.cta}
+              </Link>
             </div>
           ))}
         </div>
@@ -289,6 +297,8 @@ export default function DashboardPage() {
         monthlyNetCashFlow={monthlyNetCashFlow}
         momDelta={momDelta}
       />
+
+      <DashboardSummaryRow />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
