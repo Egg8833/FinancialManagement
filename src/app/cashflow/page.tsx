@@ -725,8 +725,8 @@ export default function CashFlowPage() {
     setMonthlyRecords(prev => ({
       ...prev,
       [viewKey]: {
-        income:  source!.income.map( (item, idx) => ({ ...item, id: `${viewKey}-inc-${idx}` })),
-        expense: source!.expense.map((item, idx) => ({ ...item, id: `${viewKey}-exp-${idx}` })),
+        income:  source!.income.map( item => ({ ...item, id: `${viewKey}-inc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` })),
+        expense: source!.expense.map(item => ({ ...item, id: `${viewKey}-exp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}` })),
       },
     }));
     toast('已從上月複製收支項目，可直接編輯本月實際金額');
