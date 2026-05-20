@@ -22,8 +22,10 @@ export function DataManager() {
       stakingItems: ctx.stakingItems,
       loans: ctx.loans,
       stockItems: ctx.stockItems,
-      incomeItems: ctx.incomeItems,
-      expenseItems: ctx.expenseItems,
+      monthlyRecords: ctx.monthlyRecords,
+      cashflowTemplate: ctx.cashflowTemplate,
+      incomeItems: ctx.cashflowTemplate.income,
+      expenseItems: ctx.cashflowTemplate.expense,
       annualEntries: ctx.annualEntries,
       snapshots: ctx.snapshots,
       borrowingLimits: ctx.borrowingLimits,
@@ -53,8 +55,12 @@ export function DataManager() {
         if (data.stakingItems)     ctx.setStakingItems(data.stakingItems);
         if (data.loans)            ctx.setLoans(data.loans);
         if (data.stockItems)       ctx.setStockItems(data.stockItems);
-        if (data.incomeItems)      ctx.setIncomeItems(data.incomeItems);
-        if (data.expenseItems)     ctx.setExpenseItems(data.expenseItems);
+        if (data.monthlyRecords)    ctx.setMonthlyRecords(data.monthlyRecords);
+        if (data.cashflowTemplate)  ctx.setCashflowTemplate(data.cashflowTemplate);
+        // Backward compat: old backups stored global templates as incomeItems/expenseItems
+        if (!data.cashflowTemplate && data.incomeItems && data.expenseItems) {
+          ctx.setCashflowTemplate({ income: data.incomeItems, expense: data.expenseItems });
+        }
         if (data.annualEntries)    ctx.setAnnualEntries(data.annualEntries);
         if (data.snapshots)        ctx.setSnapshots(data.snapshots);
         if (data.borrowingLimits != null) ctx.setBorrowingLimits(data.borrowingLimits);

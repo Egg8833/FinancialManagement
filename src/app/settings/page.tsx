@@ -14,8 +14,8 @@ export default function SettingsPage() {
     liabilities, setLiabilities,
     stakingItems, setStakingItems,
     stockItems, setStockItems,
-    incomeItems, setIncomeItems,
-    expenseItems, setExpenseItems,
+    monthlyRecords, setMonthlyRecords,
+    cashflowTemplate, setCashflowTemplate,
     annualEntries, setAnnualEntries,
     loans, setLoans,
     snapshots, setSnapshots,
@@ -62,8 +62,10 @@ export default function SettingsPage() {
       liabilities,
       stakingItems,
       stockItems,
-      incomeItems,
-      expenseItems,
+      monthlyRecords,
+      cashflowTemplate,
+      incomeItems: cashflowTemplate.income,
+      expenseItems: cashflowTemplate.expense,
       annualEntries,
       loans,
       snapshots,
@@ -100,8 +102,11 @@ export default function SettingsPage() {
         if (data.liabilities) setLiabilities(data.liabilities);
         if (data.stakingItems) setStakingItems(data.stakingItems);
         if (data.stockItems) setStockItems(data.stockItems);
-        if (data.incomeItems) setIncomeItems(data.incomeItems);
-        if (data.expenseItems) setExpenseItems(data.expenseItems);
+        if (data.monthlyRecords)   setMonthlyRecords(data.monthlyRecords);
+        if (data.cashflowTemplate) setCashflowTemplate(data.cashflowTemplate);
+        if (!data.cashflowTemplate && data.incomeItems && data.expenseItems) {
+          setCashflowTemplate({ income: data.incomeItems, expense: data.expenseItems });
+        }
         if (data.annualEntries) setAnnualEntries(data.annualEntries);
         if (data.loans) setLoans(data.loans);
         if (data.snapshots) setSnapshots(data.snapshots);

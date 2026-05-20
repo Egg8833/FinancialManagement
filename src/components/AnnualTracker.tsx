@@ -198,7 +198,7 @@ function ClickableCell({
 export function AnnualTracker() {
   const {
     annualEntries, setAnnualEntries,
-    incomeItems, expenseItems,
+    cashflowTemplate,
     showValues,
   } = useAppContext();
 
@@ -209,8 +209,8 @@ export function AnnualTracker() {
   const [modal, setModal] = useState<{ month: number; cat: AnnualEntryCategory; label: string } | null>(null);
 
   // 預設固定月收入 / 月支出
-  const defaultFixedIncome  = useMemo(() => incomeItems.reduce((s, i)  => s + i.amount, 0), [incomeItems]);
-  const defaultFixedExpense = useMemo(() => expenseItems.reduce((s, i) => s + i.amount, 0), [expenseItems]);
+  const defaultFixedIncome  = useMemo(() => cashflowTemplate.income.reduce( (s, i) => s + i.amount, 0), [cashflowTemplate.income]);
+  const defaultFixedExpense = useMemo(() => cashflowTemplate.expense.reduce((s, i) => s + i.amount, 0), [cashflowTemplate.expense]);
 
   const overrideKey = (month: number) => `${year}-${month}`;
 
