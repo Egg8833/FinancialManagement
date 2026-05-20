@@ -4,6 +4,7 @@ import { createContext, useContext, ReactNode, useMemo, useEffect } from 'react'
 import { useStickyState } from '../hooks/useStickyState';
 import type { AssetCategory, LiabilityItem, LifeEvent, FireSettings } from '../types';
 import { calculateHealthScore } from '../lib/healthScore';
+import { monthKey } from '../lib/utils';
 import { useStockContext } from './StockContext';
 
 const STORAGE_SCHEMA_VERSION = 1;
@@ -202,6 +203,15 @@ export type AnnualEntry = {
   category: AnnualEntryCategory;
 };
 
+export type MonthRecord = {
+  income: CashFlowItem[];
+  expense: CashFlowItem[];
+};
+
+export type CashflowTemplate = {
+  income: CashFlowItem[];
+  expense: CashFlowItem[];
+};
 
 const initialIncomeData: CashFlowItem[] = [
   { id: 'in1', name: '薪資收入', amount: 80000, category: 'Salary', isRecurring: true },
@@ -229,10 +239,10 @@ interface AppContextType {
   refreshQuotes: () => Promise<void>;
   lastUpdated: string;
   quoteError: boolean;
-  incomeItems: CashFlowItem[];
-  setIncomeItems: (items: CashFlowItem[] | ((prev: CashFlowItem[]) => CashFlowItem[])) => void;
-  expenseItems: CashFlowItem[];
-  setExpenseItems: (items: CashFlowItem[] | ((prev: CashFlowItem[]) => CashFlowItem[])) => void;
+  monthlyRecords: Record<string, MonthRecord>;
+  setMonthlyRecords: (v: Record<string, MonthRecord> | ((prev: Record<string, MonthRecord>) => Record<string, MonthRecord>)) => void;
+  cashflowTemplate: CashflowTemplate;
+  setCashflowTemplate: (v: CashflowTemplate | ((prev: CashflowTemplate) => CashflowTemplate)) => void;
   annualEntries: AnnualEntry[];
   setAnnualEntries: (entries: AnnualEntry[] | ((prev: AnnualEntry[]) => AnnualEntry[])) => void;
   borrowingLimits: Record<string, number>;
@@ -321,9 +331,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [liabilities, setLiabilities] = useStickyState<LiabilityItem[]>(initialLiabilities, 'app-liabilities-v1');
   const [stakingItems, setStakingItems] = useStickyState<StakingItem[]>(initialStakingData, 'app-staking-v5');
   const [snapshots, setSnapshots] = useStickyState<AssetSnapshot[]>([], 'app-snapshots-v1');
-  const [incomeItems, setIncomeItems] = useStickyState<CashFlowItem[]>(initialIncomeData, 'app-income-v1');
-  const [expenseItems, setExpenseItems] = useStickyState<CashFlowItem[]>(initialExpenseData, 'app-expense-v1');
   const [annualEntries, setAnnualEntries] = useStickyState<AnnualEntry[]>([], 'app-annual-v1');
+  const [monthlyRecords, setMonthlyRecords] = useStickyState<Record<string, MonthRecord>>(
+    {}, 'app-monthly-records-v1'
+  );
+  const [cashflowTemplate, setCashflowTemplate] = useStickyState<CashflowTemplate>(
+    { income: initialIncomeData, expense: initialExpenseData },
+    'app-cashflow-template-v1'
+  );
   const [loans, setLoans] = useStickyState<LoanItem[]>(initialLoans, 'app-loans-v5');
   const [lastExportDate, setLastExportDate] = useStickyState<string>('', 'app-last-export-v1');
   const [netWorthGoal, setNetWorthGoal] = useStickyState<number>(0, 'app-net-worth-goal-v1');
@@ -362,6 +377,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('app-schema-version', String(STORAGE_SCHEMA_VERSION));
     }
   }, []);
+
+  // One-time migration: incomeItems/expenseItems → cashflowTemplate
+  useEffect(() => {
+    if (localStorage.getItem('app-cashflow-migrated-v1')) return;
+    const rawIncome  = localStorage.getItem('app-income-v1');
+    const rawExpense = localStorage.getItem('app-expense-v1');
+    if (rawIncome || rawExpense) {
+      try {
+        const income  = rawIncome  ? JSON.parse(rawIncome)  : initialIncomeData;
+        const expense = rawExpense ? JSON.parse(rawExpense) : initialExpenseData;
+        setCashflowTemplate({ income, expense });
+      } catch { /* ignore parse errors, fall back to initialData */ }
+    }
+    localStorage.setItem('app-cashflow-migrated-v1', '1');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compute Collateral Market Value (for pledge ratio)
   const totalCollateralValueTWD = useMemo(() => {
@@ -498,15 +528,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [combinedLiabilities]);
 
   // Cash Flow Calculations — 所有項目（固定 + 單次）皆計入當月收支
+  const currentMonthKey = monthKey(new Date());
+
   const totalMonthlyIncome = useMemo(() => {
-    const manual = incomeItems.reduce((sum, item) => sum + item.amount, 0);
-    return manual + Math.round(stakingEarnIncome);
-  }, [incomeItems, stakingEarnIncome]);
+    const record = monthlyRecords[currentMonthKey];
+    const items  = record?.income ?? cashflowTemplate.income;
+    return items.reduce((sum, item) => sum + item.amount, 0) + Math.round(stakingEarnIncome);
+  }, [monthlyRecords, currentMonthKey, cashflowTemplate.income, stakingEarnIncome]);
 
   const totalMonthlyExpense = useMemo(() => {
-    const manualExpense = expenseItems.reduce((sum, item) => sum + item.amount, 0);
-    return manualExpense + Math.round(stakingBorrowInterest) + totalLoanMonthlyPayments;
-  }, [expenseItems, stakingBorrowInterest, totalLoanMonthlyPayments]);
+    const record = monthlyRecords[currentMonthKey];
+    const items  = record?.expense ?? cashflowTemplate.expense;
+    return items.reduce((sum, item) => sum + item.amount, 0) + Math.round(stakingBorrowInterest) + totalLoanMonthlyPayments;
+  }, [monthlyRecords, currentMonthKey, cashflowTemplate.expense, stakingBorrowInterest, totalLoanMonthlyPayments]);
 
   const monthlyNetCashFlow = totalMonthlyIncome - totalMonthlyExpense;
 
@@ -560,8 +594,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setLiabilities([]);
     setStakingItems([]);
     setLoans([]);
-    setIncomeItems([]);
-    setExpenseItems([]);
+    setMonthlyRecords({});
+    setCashflowTemplate({ income: [], expense: [] });
     setAnnualEntries([]);
     setSnapshots([]);
     setGoals([]);
@@ -609,10 +643,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshQuotes,
       lastUpdated,
       quoteError,
-      incomeItems,
-      setIncomeItems,
-      expenseItems,
-      setExpenseItems,
+      monthlyRecords,
+      setMonthlyRecords,
+      cashflowTemplate,
+      setCashflowTemplate,
       annualEntries,
       setAnnualEntries,
       borrowingLimits,
