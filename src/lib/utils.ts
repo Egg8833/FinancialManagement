@@ -16,3 +16,7 @@ export function nowTs(): string {
     minute: '2-digit',
   });
 }
+
+export function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
