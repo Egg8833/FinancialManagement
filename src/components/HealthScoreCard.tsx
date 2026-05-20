@@ -12,12 +12,12 @@ const GRADE_COLOR: Record<HealthScoreResult['grade'], string> = {
   '危險': '#ef4444',
 };
 
-const GRADE_BG: Record<HealthScoreResult['grade'], string> = {
-  '優秀': 'bg-emerald-50',
-  '良好': 'bg-blue-50',
-  '普通': 'bg-yellow-50',
-  '警示': 'bg-orange-50',
-  '危險': 'bg-red-50',
+const GRADE_BADGE: Record<HealthScoreResult['grade'], string> = {
+  '優秀': 'bg-emerald-100 text-emerald-700',
+  '良好': 'bg-blue-100 text-blue-700',
+  '普通': 'bg-yellow-100 text-yellow-700',
+  '警示': 'bg-orange-100 text-orange-700',
+  '危險': 'bg-red-100 text-red-700',
 };
 
 function MiniGauge({ score, color }: { score: number; color: string }) {
@@ -58,12 +58,12 @@ export function HealthScoreCard() {
   const color = GRADE_COLOR[result.grade];
 
   return (
-    <div className={`flex-1 min-w-[200px] ${GRADE_BG[result.grade]} border border-gray-100 rounded-2xl p-4 flex items-center justify-between shadow-sm`}>
+    <div className="flex-1 min-w-50 bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-2">
         <MiniGauge score={result.totalScore} color={color} />
         <div>
           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">財務健康</p>
-          <p className="font-bold text-sm" style={{ color }}>{result.grade}</p>
+          <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold ${GRADE_BADGE[result.grade]}`}>{result.grade}</span>
         </div>
       </div>
       <Link href="/health" className="text-xs text-gray-400 hover:text-indigo-600 transition-colors whitespace-nowrap">

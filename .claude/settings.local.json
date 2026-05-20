@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Remove-Item \"c:\\\\Users\\\\egg8833\\\\Desktop\\\\FinancialManagement\\\\src\\\\components\\\\DashboardSummaryRow.tsx\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\egg8833\\\\Desktop\\\\FinancialManagement\\\\docs\\\\superpowers\\\\plans\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\egg8833\\Desktop\\FinancialManagement\\docs\\superpowers\\plans"
+    ]
+  }
+}

@@ -9,7 +9,6 @@ import { AssetCategoryCard } from '../components/AssetComponents';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
 import { HealthScoreCard } from '../components/HealthScoreCard';
 import { FinancialGoals } from '../components/FinancialGoals';
-import DashboardSummaryRow from '../components/DashboardSummaryRow';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency as _fmt, nowTs } from '../lib/utils';
 import Link from 'next/link';
@@ -298,8 +297,6 @@ export default function DashboardPage() {
         momDelta={momDelta}
       />
 
-      <DashboardSummaryRow />
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
@@ -374,7 +371,7 @@ export default function DashboardPage() {
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             負債明細
           </h3>
-          <LiabilitiesCard 
+          <LiabilitiesCard
             liabilities={combinedLiabilities}
             totalLiabilities={totalLiabilities}
             showValues={showValues}
