@@ -16,11 +16,11 @@ const GRADE_COLOR: Record<HealthScoreResult['grade'], string> = {
 };
 
 const GRADE_BG: Record<HealthScoreResult['grade'], string> = {
-  '優秀': 'from-emerald-500 to-emerald-600',
-  '良好': 'from-blue-500 to-blue-600',
-  '普通': 'from-yellow-400 to-yellow-500',
-  '警示': 'from-orange-400 to-orange-500',
-  '危險': 'from-red-500 to-red-600',
+  '優秀': 'from-emerald-400 via-teal-500 to-cyan-600',
+  '良好': 'from-blue-500 via-indigo-500 to-violet-600',
+  '普通': 'from-amber-400 via-orange-400 to-amber-500',
+  '警示': 'from-orange-500 via-rose-500 to-pink-600',
+  '危險': 'from-red-600 via-rose-700 to-red-800',
 };
 
 const METRIC_ICON: Record<string, LucideIcon> = {
@@ -32,24 +32,27 @@ const METRIC_ICON: Record<string, LucideIcon> = {
   growth: BarChart2,
 };
 
-function LargeGauge({ score }: { score: number }) {
-  const r = 80;
-  const circumference = Math.PI * r;
+function CircularScore({ score }: { score: number }) {
+  const r = 54;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - score / 100);
   return (
-    <svg width="200" height="115" viewBox="0 0 200 115">
-      {/* track：白色半透明，在任何漸層底色上都清晰 */}
-      <path d={`M 20 100 A ${r} ${r} 0 0 1 180 100`} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="16" strokeLinecap="round" />
-      {/* 進度弧：純白，對比最強 */}
-      <path
-        d={`M 20 100 A ${r} ${r} 0 0 1 180 100`}
-        fill="none" stroke="white" strokeWidth="16" strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={circumference * (1 - score / 100)}
-        style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-      />
-      <text x="100" y="95" textAnchor="middle" fontSize="36" fontWeight="900" fill="white">{score}</text>
-      <text x="100" y="112" textAnchor="middle" fontSize="12" fill="rgba(255,255,255,0.7)">/ 100</text>
-    </svg>
+    <div className="relative w-40 h-40 md:w-52 md:h-52 shrink-0">
+      <svg width="100%" height="100%" viewBox="0 0 160 160" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx="80" cy="80" r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="14" />
+        <circle
+          cx="80" cy="80" r={r} fill="none"
+          stroke="white" strokeWidth="14" strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: 'stroke-dashoffset 1s ease' }}
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-4xl font-black text-white leading-none">{score}</span>
+        <span className="text-white/60 text-xs mt-0.5">/ 100</span>
+      </div>
+    </div>
   );
 }
 
@@ -256,19 +259,33 @@ export default function HealthPage() {
       </div>
 
       {/* 頂部評分卡 */}
-      <div className={`rounded-3xl p-8 mb-8 bg-gradient-to-br ${GRADE_BG[result.grade]} text-white shadow-lg`}>
-        <div className="flex flex-col sm:flex-row items-center gap-6">
-          <LargeGauge score={result.totalScore} />
-          <div>
-            <p className="text-white/70 text-sm font-bold uppercase tracking-widest mb-1">整體財務健康</p>
-            <p className="text-4xl font-black mb-2">{result.grade}</p>
-            <p className="text-white/80 text-sm max-w-xs">
+      <div className={`relative rounded-3xl p-8 mb-8 bg-gradient-to-br ${GRADE_BG[result.grade]} text-white shadow-xl overflow-hidden`}>
+        {/* 裝飾背景圓 */}
+        <div className="absolute -top-12 -right-12 w-52 h-52 rounded-full bg-white/5 pointer-events-none" />
+        <div className="absolute -bottom-16 -left-8 w-64 h-64 rounded-full bg-white/5 pointer-events-none" />
+        <div className="absolute top-6 right-28 w-20 h-20 rounded-full bg-white/5 pointer-events-none" />
+        <div className="relative flex flex-col sm:flex-row items-center gap-8">
+          <CircularScore score={result.totalScore} />
+          <div className="flex-1 text-center sm:text-left">
+            <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">整體財務健康</p>
+            <p className="text-5xl font-black mb-2 leading-none">{result.grade}</p>
+            <p className="text-white/80 text-sm max-w-xs mb-5">
               {result.totalScore >= 75
                 ? '你的財務狀況良好，持續保持良好習慣。'
                 : result.totalScore >= 60
                 ? '財務狀況尚可，部分指標有改善空間。'
                 : '有幾項財務指標需要優先關注，請查看下方建議。'}
             </p>
+            <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+              {result.metrics.map(m => (
+                <span
+                  key={m.key}
+                  className="bg-white/15 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-semibold text-white/90 border border-white/10"
+                >
+                  {m.label} · {m.score}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
       </div>

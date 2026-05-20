@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Wallet, Plus, Trash2, Pencil, Check, X,
   ArrowUpCircle, ArrowDownCircle, TrendingUp, ChevronLeft, ChevronRight,
+  Search, Settings2,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -52,7 +53,7 @@ function MonthNavigator({
         <ChevronLeft className="w-4 h-4 text-gray-500" />
       </button>
       <div className="text-center min-w-[88px]">
-        <p className="font-bold text-gray-900 text-sm leading-tight">{year} 年 {month} 月</p>
+        <p className="font-bold text-gray-900 text-sm leading-tight"><span className="hidden md:inline">{year} 年 </span>{month} 月</p>
         {isCurrent && <p className="text-[10px] text-indigo-500 leading-tight">本月</p>}
       </div>
       <button onClick={onNext} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
@@ -659,6 +660,16 @@ export default function CashFlowPage() {
   const [isAddingOneTimeIncome, setIsAddingOneTimeIncome] = useState(false);
   const [isAddingOneTimeExpense, setIsAddingOneTimeExpense] = useState(false);
 
+  // Filter state for the flow tab
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [filterKeyword, setFilterKeyword] = useState('');
+  const [debouncedKeyword, setDebouncedKeyword] = useState('');
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedKeyword(filterKeyword), 200);
+    return () => clearTimeout(t);
+  }, [filterKeyword]);
+
   const formatCurrency = (amount: number) => _fmt(amount, showValues);
   const { toast } = useToast();
 
@@ -748,23 +759,109 @@ export default function CashFlowPage() {
         <MonthNavigator year={selectedYear} month={selectedMonth} onPrev={prevMonth} onNext={nextMonth} />
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
-        {(['flow', 'category', 'annual'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-              activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab === 'flow' ? '本月收支' : tab === 'category' ? '類別分析' : '年度總覽'}
-          </button>
-        ))}
+      {/* Monthly Summary Card */}
+      {(() => {
+        const savingsRate = monthTotalIncome > 0 ? Math.round((monthNet / monthTotalIncome) * 100) : 0;
+        return (
+          <div className="rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 p-4 mb-4">
+            <div className="flex flex-wrap gap-4 items-center justify-between">
+              <div className="flex gap-6">
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">收入</p>
+                  <p className="text-lg font-bold text-green-700">
+                    {showValues ? `+NT$${monthTotalIncome.toLocaleString()}` : '●●●●'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">支出</p>
+                  <p className="text-lg font-bold text-red-600">
+                    {showValues ? `-NT$${monthTotalExpense.toLocaleString()}` : '●●●●'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">結餘</p>
+                  <p className={`text-lg font-bold ${monthNet >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
+                    {showValues ? `${monthNet >= 0 ? '+' : ''}NT$${monthNet.toLocaleString()}` : '●●●●'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-gray-500 mb-1">儲蓄率</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-24 bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${savingsRate >= 30 ? 'bg-green-500' : savingsRate >= 15 ? 'bg-yellow-500' : 'bg-red-500'}`}
+                      style={{ width: `${Math.min(100, Math.max(0, savingsRate))}%` }}
+                    />
+                  </div>
+                  <span className={`text-sm font-bold ${savingsRate >= 30 ? 'text-green-700' : savingsRate >= 15 ? 'text-yellow-700' : 'text-red-700'}`}>
+                    {savingsRate}%
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Tab bar + Category Manager button */}
+      <div className="flex items-center gap-2 mb-6">
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+          {(['flow', 'category', 'annual'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab === 'flow' ? '本月收支' : tab === 'category' ? '類別分析' : '年度總覽'}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setActiveTab('category')}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-200 hover:border-gray-300 rounded-xl transition-colors bg-white"
+        >
+          <Settings2 className="w-4 h-4" />
+          <span className="hidden sm:inline">管理類別</span>
+        </button>
       </div>
 
       {activeTab === 'flow' && (
         <>
+          {/* Filter bar */}
+          <div className="flex flex-wrap items-center gap-2 mb-6">
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-xl text-sm">
+              {(['all', 'income', 'expense'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setFilterType(t)}
+                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                    filterType === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {t === 'all' ? '全部' : t === 'income' ? '收入' : '支出'}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 flex-1 min-w-[160px] bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
+              <Search className="w-4 h-4 text-gray-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="搜尋項目名稱..."
+                value={filterKeyword}
+                onChange={e => setFilterKeyword(e.target.value)}
+                className="flex-1 text-sm outline-none text-gray-700 placeholder-gray-400 bg-transparent"
+              />
+              {filterKeyword && (
+                <button onClick={() => setFilterKeyword('')} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* KPI row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
@@ -807,83 +904,91 @@ export default function CashFlowPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Fixed Income */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-600">固定收入</h3>
-                <button onClick={() => setIsAddingIncome(true)} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> 新增
-                </button>
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                <div className="divide-y divide-gray-50">
-                  {isAddingIncome && (
-                    <AddFixedItemRow
-                      type="income"
-                      customCategories={customCategories}
-                      onConfirm={handleAddFixedIncome}
-                      onCancel={() => setIsAddingIncome(false)}
-                    />
-                  )}
-                  {incomeItems.map(item => (
-                    <CashFlowRow
-                      key={item.id}
-                      item={item}
-                      type="income"
-                      customCategories={customCategories}
-                      onUpdate={(n, a, c) => handleUpdateFixedItem('income', item.id, n, a, c)}
-                      onDelete={() => handleDeleteFixedItem('income', item.id)}
-                      showValues={showValues}
-                    />
-                  ))}
-                  <AutoStakingIncomeRow />
-                  {incomeItems.length === 0 && !isAddingIncome && (
-                    <div className="p-8 text-center text-gray-400 text-sm">尚無固定收入項目</div>
-                  )}
-                </div>
-              </div>
-            </div>
+            {filterType !== 'expense' && (
+              <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-600">固定收入</h3>
+                      <button onClick={() => setIsAddingIncome(true)} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                        <Plus className="w-3.5 h-3.5" /> 新增
+                      </button>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                      <div className="divide-y divide-gray-50">
+                        {isAddingIncome && (
+                          <AddFixedItemRow
+                            type="income"
+                            customCategories={customCategories}
+                            onConfirm={handleAddFixedIncome}
+                            onCancel={() => setIsAddingIncome(false)}
+                          />
+                        )}
+                        {incomeItems
+                          .filter(item => !debouncedKeyword || item.name.toLowerCase().includes(debouncedKeyword.toLowerCase()))
+                          .map(item => (
+                            <CashFlowRow
+                              key={item.id}
+                              item={item}
+                              type="income"
+                              customCategories={customCategories}
+                              onUpdate={(n, a, c) => handleUpdateFixedItem('income', item.id, n, a, c)}
+                              onDelete={() => handleDeleteFixedItem('income', item.id)}
+                              showValues={showValues}
+                            />
+                          ))}
+                        <AutoStakingIncomeRow />
+                        {incomeItems.length === 0 && !isAddingIncome && (
+                          <div className="p-8 text-center text-gray-400 text-sm">尚無固定收入項目</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-            {/* Fixed Expense */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-600">固定支出</h3>
-                <button onClick={() => setIsAddingExpense(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> 新增
-                </button>
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                <div className="divide-y divide-gray-50">
-                  {isAddingExpense && (
-                    <AddFixedItemRow
-                      type="expense"
-                      customCategories={customCategories}
-                      onConfirm={handleAddFixedExpense}
-                      onCancel={() => setIsAddingExpense(false)}
-                    />
-                  )}
-                  {expenseItems.map(item => (
-                    <CashFlowRow
-                      key={item.id}
-                      item={item}
-                      type="expense"
-                      customCategories={customCategories}
-                      onUpdate={(n, a, c) => handleUpdateFixedItem('expense', item.id, n, a, c)}
-                      onDelete={() => handleDeleteFixedItem('expense', item.id)}
-                      showValues={showValues}
-                    />
-                  ))}
-                  <AutoStakingExpenseRow />
-                  <AutoLoanExpenseRow />
-                  {expenseItems.length === 0 && !isAddingExpense && (
-                    <div className="p-8 text-center text-gray-400 text-sm">尚無固定支出項目</div>
-                  )}
-                </div>
-                <div className="border-t-2 border-gray-100 px-4 py-3 flex items-center justify-between bg-gray-50">
-                  <span className="text-sm font-bold text-gray-600">固定支出合計</span>
-                  <span className="text-base font-bold text-rose-600">{formatCurrency(totalMonthlyExpense)}</span>
-                </div>
-              </div>
-            </div>
+                {/* Fixed Expense */}
+                {filterType !== 'income' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-600">固定支出</h3>
+                      <button onClick={() => setIsAddingExpense(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
+                        <Plus className="w-3.5 h-3.5" /> 新增
+                      </button>
+                    </div>
+                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                      <div className="divide-y divide-gray-50">
+                        {isAddingExpense && (
+                          <AddFixedItemRow
+                            type="expense"
+                            customCategories={customCategories}
+                            onConfirm={handleAddFixedExpense}
+                            onCancel={() => setIsAddingExpense(false)}
+                          />
+                        )}
+                        {expenseItems
+                          .filter(item => !debouncedKeyword || item.name.toLowerCase().includes(debouncedKeyword.toLowerCase()))
+                          .map(item => (
+                            <CashFlowRow
+                              key={item.id}
+                              item={item}
+                              type="expense"
+                              customCategories={customCategories}
+                              onUpdate={(n, a, c) => handleUpdateFixedItem('expense', item.id, n, a, c)}
+                              onDelete={() => handleDeleteFixedItem('expense', item.id)}
+                              showValues={showValues}
+                            />
+                          ))}
+                        <AutoStakingExpenseRow />
+                        <AutoLoanExpenseRow />
+                        {expenseItems.length === 0 && !isAddingExpense && (
+                          <div className="p-8 text-center text-gray-400 text-sm">尚無固定支出項目</div>
+                        )}
+                      </div>
+                      <div className="border-t-2 border-gray-100 px-4 py-3 flex items-center justify-between bg-gray-50">
+                        <span className="text-sm font-bold text-gray-600">固定支出合計</span>
+                        <span className="text-base font-bold text-rose-600">{formatCurrency(totalMonthlyExpense)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
           </div>
 
           {/* Section 2: This month's one-time entries */}

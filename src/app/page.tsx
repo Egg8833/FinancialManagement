@@ -167,7 +167,7 @@ export default function DashboardPage() {
   };
 
   return (
-    <>
+    <div className="pb-4">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">個人資產狀態總覽</h1>
@@ -461,6 +461,6 @@ export default function DashboardPage() {
           </div>
         </details>
       </div>
-    </>
+    </div>
   );
 }
