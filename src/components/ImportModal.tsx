@@ -403,7 +403,7 @@ function Step3Preview({
 // ─── Main modal ────────────────────────────────────────────────────────────────
 
 export function ImportModal({ onClose }: { onClose: () => void }) {
-  const { assets, setAssets, setStockItems, setIncomeItems, setExpenseItems } = useAppContext();
+  const { assets, setAssets, setStockItems, setCashflowTemplate } = useAppContext();
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [importType, setImportType] = useState<ImportType | null>(null);
@@ -451,8 +451,11 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
       const validRows = (parseResult as ParseResult<ParsedCashflow>).rows
         .filter((r): r is ValidRow<ParsedCashflow> => r.valid)
         .map(r => r.data);
-      const setter = importType === 'income' ? setIncomeItems : setExpenseItems;
-      setter(prev => [...prev, ...validRows.map(r => ({ ...r, id: genId() }))]);
+      if (importType === 'income') {
+        setCashflowTemplate(prev => ({ ...prev, income: [...prev.income, ...validRows.map(r => ({ ...r, id: genId() }))] }));
+      } else {
+        setCashflowTemplate(prev => ({ ...prev, expense: [...prev.expense, ...validRows.map(r => ({ ...r, id: genId() }))] }));
+      }
       toast(`已匯入 ${validRows.length} 筆${importType === 'income' ? '收入' : '支出'}`);
     }
     onClose();

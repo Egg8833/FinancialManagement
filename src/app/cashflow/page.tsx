@@ -18,7 +18,7 @@ import {
   CATEGORY_COLORS, UNCATEGORIZED_COLOR,
   buildDonutData, buildCategoryMonthData, getCategoryColor,
 } from '../../lib/categoryUtils';
-import { formatCurrency as _fmt } from '../../lib/utils';
+import { formatCurrency as _fmt, monthKey } from '../../lib/utils';
 import { AnnualTracker } from '../../components/AnnualTracker';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
@@ -640,12 +640,13 @@ function CategoryAnalysisTab({
 
 export default function CashFlowPage() {
   const {
-    incomeItems, setIncomeItems,
-    expenseItems, setExpenseItems,
+    monthlyRecords, setMonthlyRecords,
+    cashflowTemplate,
     annualEntries, setAnnualEntries,
-    totalMonthlyIncome, totalMonthlyExpense,
     showValues,
     customCategories, setCustomCategories,
+    stakingItems,
+    loans,
   } = useAppContext();
 
   const [viewDate, setViewDate] = useState(() => {
@@ -654,6 +655,26 @@ export default function CashFlowPage() {
   });
   const selectedYear  = viewDate.year;
   const selectedMonth = viewDate.month;
+  const viewKey = `${viewDate.year}-${String(viewDate.month).padStart(2, '0')}`;
+  const viewRecord = monthlyRecords[viewKey] ?? {
+    income: cashflowTemplate.income,
+    expense: cashflowTemplate.expense,
+  };
+  const incomeItems  = viewRecord.income;
+  const expenseItems = viewRecord.expense;
+
+  const setViewIncome = (fn: (prev: CashFlowItem[]) => CashFlowItem[]) => {
+    setMonthlyRecords(prev => ({
+      ...prev,
+      [viewKey]: { income: fn(viewRecord.income), expense: viewRecord.expense },
+    }));
+  };
+  const setViewExpense = (fn: (prev: CashFlowItem[]) => CashFlowItem[]) => {
+    setMonthlyRecords(prev => ({
+      ...prev,
+      [viewKey]: { income: viewRecord.income, expense: fn(viewRecord.expense) },
+    }));
+  };
   const [activeTab, setActiveTab] = useState<'flow' | 'category' | 'annual'>('flow');
   const [isAddingIncome, setIsAddingIncome] = useState(false);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
@@ -665,13 +686,51 @@ export default function CashFlowPage() {
   const [filterKeyword, setFilterKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
 
+  const formatCurrency = (amount: number) => _fmt(amount, showValues);
+  const { toast } = useToast();
+
+  const stakingEarnIncome = useMemo(() =>
+    stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'earn')
+      .reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0),
+    [stakingItems]
+  );
+  const stakingBorrowCost = useMemo(() =>
+    stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow')
+      .reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0),
+    [stakingItems]
+  );
+  const totalLoanPayments = useMemo(() =>
+    loans.filter(l => l.principal > 0).reduce((s, l) => s + l.monthlyPayment, 0),
+    [loans]
+  );
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedKeyword(filterKeyword), 200);
     return () => clearTimeout(t);
   }, [filterKeyword]);
 
-  const formatCurrency = (amount: number) => _fmt(amount, showValues);
-  const { toast } = useToast();
+  // Auto-seed: when navigating to a month with no data, copy from most recent previous month
+  useEffect(() => {
+    if (monthlyRecords[viewKey]) return;
+
+    let source: { income: CashFlowItem[]; expense: CashFlowItem[] } | null = null;
+    for (let i = 1; i <= 24; i++) {
+      const d = new Date(viewDate.year, viewDate.month - 1 - i, 1);
+      const k = monthKey(d);
+      if (monthlyRecords[k]) { source = monthlyRecords[k]; break; }
+    }
+    if (!source) source = { income: cashflowTemplate.income, expense: cashflowTemplate.expense };
+    if (source.income.length === 0 && source.expense.length === 0) return;
+
+    setMonthlyRecords(prev => ({
+      ...prev,
+      [viewKey]: {
+        income:  source!.income.map( (item, idx) => ({ ...item, id: `${viewKey}-inc-${idx}` })),
+        expense: source!.expense.map((item, idx) => ({ ...item, id: `${viewKey}-exp-${idx}` })),
+      },
+    }));
+    toast('已從上月複製收支項目，可直接編輯本月實際金額');
+  }, [viewKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Month navigation — compound state avoids stale-closure bugs at year boundaries
   const prevMonth = () => setViewDate(({ year, month }) =>
@@ -692,27 +751,29 @@ export default function CashFlowPage() {
   const monthOneTimeExpenseTotal = useMemo(() => monthOneTimeExpense.reduce((s, e) => s + e.amount, 0), [monthOneTimeExpense]);
 
   // KPI for selected month
-  const monthTotalIncome  = totalMonthlyIncome  + monthOneTimeIncomeTotal;
-  const monthTotalExpense = totalMonthlyExpense + monthOneTimeExpenseTotal;
+  const viewBaseIncome  = incomeItems.reduce((s, i) => s + i.amount, 0) + Math.round(stakingEarnIncome);
+  const viewBaseExpense = expenseItems.reduce((s, i) => s + i.amount, 0) + Math.round(stakingBorrowCost) + totalLoanPayments;
+  const monthTotalIncome  = viewBaseIncome  + monthOneTimeIncomeTotal;
+  const monthTotalExpense = viewBaseExpense + monthOneTimeExpenseTotal;
   const monthNet          = monthTotalIncome - monthTotalExpense;
 
   // Fixed item handlers
   const handleAddFixedIncome = (name: string, amount: number, customCategory?: string) => {
-    setIncomeItems(prev => [...prev, { id: Date.now().toString(), name, amount, category: 'General', isRecurring: true, customCategory }]);
+    setViewIncome(prev => [...prev, { id: `${viewKey}-inc-${Date.now()}`, name, amount, category: 'General', isRecurring: true, customCategory }]);
     setIsAddingIncome(false);
   };
   const handleAddFixedExpense = (name: string, amount: number, customCategory?: string) => {
-    setExpenseItems(prev => [...prev, { id: Date.now().toString(), name, amount, category: 'General', isRecurring: true, customCategory }]);
+    setViewExpense(prev => [...prev, { id: `${viewKey}-exp-${Date.now()}`, name, amount, category: 'General', isRecurring: true, customCategory }]);
     setIsAddingExpense(false);
   };
   const handleDeleteFixedItem = (type: 'income' | 'expense', id: string) => {
-    if (type === 'income') setIncomeItems(prev => prev.filter(i => i.id !== id));
-    else setExpenseItems(prev => prev.filter(i => i.id !== id));
+    if (type === 'income') setViewIncome(prev => prev.filter(i => i.id !== id));
+    else setViewExpense(prev => prev.filter(i => i.id !== id));
   };
   const handleUpdateFixedItem = (type: 'income' | 'expense', id: string, name: string, amount: number, customCategory?: string) => {
     const fn = (prev: CashFlowItem[]) => prev.map(i => i.id === id ? { ...i, name, amount, customCategory } : i);
-    if (type === 'income') setIncomeItems(fn);
-    else setExpenseItems(fn);
+    if (type === 'income') setViewIncome(fn);
+    else setViewExpense(fn);
   };
 
   // One-time entry handlers
@@ -733,11 +794,13 @@ export default function CashFlowPage() {
   const monthTrend = useMemo(() => {
     const base = new Date(selectedYear, selectedMonth - 1, 1);
     return Array.from({ length: 12 }, (_, i) => {
-      const d = new Date(base.getFullYear(), base.getMonth() - 11 + i, 1);
-      const y = d.getFullYear();
-      const m = d.getMonth() + 1;
-      let inc = totalMonthlyIncome;
-      let exp = totalMonthlyExpense;
+      const d   = new Date(base.getFullYear(), base.getMonth() - 11 + i, 1);
+      const y   = d.getFullYear();
+      const m   = d.getMonth() + 1;
+      const key = monthKey(d);
+      const rec = monthlyRecords[key] ?? { income: cashflowTemplate.income, expense: cashflowTemplate.expense };
+      let inc = rec.income.reduce( (s, it) => s + it.amount, 0) + Math.round(stakingEarnIncome);
+      let exp = rec.expense.reduce((s, it) => s + it.amount, 0) + Math.round(stakingBorrowCost) + totalLoanPayments;
       for (const entry of annualEntries) {
         if (entry.year === y && entry.month === m) {
           if (INCOME_ENTRY_KEYS.has(entry.category)) inc += entry.amount;
@@ -746,7 +809,8 @@ export default function CashFlowPage() {
       }
       return { label: `${m}月`, income: Math.round(inc), expense: Math.round(exp), net: Math.round(inc - exp) };
     });
-  }, [totalMonthlyIncome, totalMonthlyExpense, annualEntries, selectedYear, selectedMonth]);
+  }, [monthlyRecords, cashflowTemplate, annualEntries, selectedYear, selectedMonth,
+      stakingEarnIncome, stakingBorrowCost, totalLoanPayments]);
 
   return (
     <>
@@ -898,8 +962,8 @@ export default function CashFlowPage() {
 
           {/* Section 1: Fixed monthly items */}
           <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-base font-bold text-gray-900">每月固定收支</h2>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">每月自動套用</span>
+            <h2 className="text-base font-bold text-gray-900">本月收支項目</h2>
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">本月獨立記錄</span>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -984,7 +1048,7 @@ export default function CashFlowPage() {
                       </div>
                       <div className="border-t-2 border-gray-100 px-4 py-3 flex items-center justify-between bg-gray-50">
                         <span className="text-sm font-bold text-gray-600">固定支出合計</span>
-                        <span className="text-base font-bold text-rose-600">{formatCurrency(totalMonthlyExpense)}</span>
+                        <span className="text-base font-bold text-rose-600">{formatCurrency(viewBaseExpense)}</span>
                       </div>
                     </div>
                   </div>
@@ -1121,7 +1185,7 @@ export default function CashFlowPage() {
           expenseItems={expenseItems}
           customCategories={customCategories}
           setCustomCategories={setCustomCategories}
-          setExpenseItems={setExpenseItems}
+          setExpenseItems={(fn) => setViewExpense(fn)}
           showValues={showValues}
         />
       )}
