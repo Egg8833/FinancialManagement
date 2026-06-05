@@ -9,87 +9,14 @@ import type {
   StockQuote, DividendRecord, CashFlowItem,
   AnnualEntryCategory, AnnualEntry, MonthRecord, CashflowTemplate,
 } from '../types';
-import { calculateHealthScore } from '../lib/healthScore';
 import { useStockContext } from './StockContext';
 import { useSettingsContext, SettingsProvider } from './SettingsContext';
 import { useLoanContext, LoanProvider } from './LoanContext';
 import { useCashFlowContext, CashFlowProvider } from './CashFlowContext';
+import { useAssetContext, AssetProvider } from './AssetContext';
+import { buildSnapshot } from '../lib/snapshotUtils';
 
 const STORAGE_SCHEMA_VERSION = 1;
-
-// --- Initial Dummy Data ---
-const initialAssets: AssetCategory[] = [
-  {
-    id: 'liquid',
-    title: '流動資金',
-    description: '現金、存款與數位支付',
-    colorClass: 'bg-emerald-400',
-    bgClass: 'bg-emerald-50',
-    updatedAt: '剛剛',
-    items: [
-      { id: 'l1', name: '銀行活存', amount: 300000 },
-      { id: 'l2', name: '支付寶', amount: 150000 },
-      { id: 'l3', name: 'Paypal', amount: 124000 },
-    ],
-  },
-  {
-    id: 'investment',
-    title: '投資',
-    description: '股票、加密貨幣、基金',
-    colorClass: 'bg-indigo-500',
-    bgClass: 'bg-indigo-50',
-    updatedAt: '剛剛',
-    items: [
-      { id: 'i1', name: '加密貨幣', amount: 150000 },
-      { id: 'i2', name: '台股基金', amount: 100000 },
-      { id: 'i3', name: '海外股票', amount: 88200 },
-    ],
-  },
-  {
-    id: 'fixed',
-    title: '固定資產',
-    description: '房地產與車輛',
-    colorClass: 'bg-blue-500',
-    bgClass: 'bg-blue-50',
-    updatedAt: '剛剛',
-    items: [
-      { id: 'f1', name: '自用住宅', amount: 1200000 },
-      { id: 'f2', name: 'Honda Civic', amount: 320000 },
-    ],
-  },
-  {
-    id: 'receivable',
-    title: '應收款',
-    description: '借款等應收帳款',
-    colorClass: 'bg-sky-400',
-    bgClass: 'bg-sky-50',
-    updatedAt: '剛剛',
-    items: [
-      { id: 'r1', name: '朋友借款', amount: 120000 },
-    ],
-  },
-];
-
-const initialLiabilities: LiabilityItem[] = [
-  {
-    id: 'li1',
-    name: '房貸',
-    description: '剩餘本金',
-    amount: 1000000,
-    updatedAt: '剛剛',
-    icon: 'building',
-  },
-  {
-    id: 'li2',
-    name: '信用卡款',
-    description: '本月未出帳',
-    amount: 80000,
-    updatedAt: '剛剛',
-    icon: 'creditCard',
-  },
-];
-
-
 
 interface AppContextType {
   showValues: boolean;
@@ -184,160 +111,71 @@ export function useAppContext() {
   return context;
 }
 
-function AppProviderInner({ children }: { children: ReactNode }) {
-  const {
-    stockItems, setStockItems,
-    dividendRecords, setDividendRecords,
-    stockQuotes, lastUpdated, quoteError,
-    refreshQuotes, clearStockData,
-  } = useStockContext();
+// ─── AppContextBridge ────────────────────────────────────────────────────────
+// Lives inside AssetProvider so it can call useAssetContext()
 
-  // 從 SettingsContext 取所有設定值（取代原本的 useStickyState）
-  const {
-    showValues, setShowValues,
-    userName, setUserName,
-    userEmail, setUserEmail,
-    usdToTwd, setUsdToTwd,
-    reportSchedule, setReportSchedule,
-    lastReportSent, setLastReportSent,
-    netWorthGoal, setNetWorthGoal,
-    fireSettings, setFireSettings,
-    lifeEvents, setLifeEvents,
-    onboardingDone, setOnboardingDone,
-    enablePledgeTracking, setEnablePledgeTracking,
-    pledgeAlertLastSent, setPledgeAlertLastSent,
-    lastExportDate, setLastExportDate,
-  } = useSettingsContext();
+interface AppContextBridgeProps {
+  children: ReactNode;
+  settingsCtx: ReturnType<typeof useSettingsContext>;
+  loanCtx: ReturnType<typeof useLoanContext>;
+  cashflowCtx: ReturnType<typeof useCashFlowContext>;
+  stockItems: StockItem[];
+  setStockItems: (v: StockItem[] | ((p: StockItem[]) => StockItem[])) => void;
+  dividendRecords: DividendRecord[];
+  setDividendRecords: (v: DividendRecord[] | ((p: DividendRecord[]) => DividendRecord[])) => void;
+  stockQuotes: Record<string, StockQuote>;
+  lastUpdated: string;
+  quoteError: boolean;
+  refreshQuotes: () => Promise<void>;
+  clearStockData: () => void;
+  totalStockValueTWD: number;
+}
 
+function AppContextBridge({
+  children,
+  settingsCtx, loanCtx, cashflowCtx,
+  stockItems, setStockItems, dividendRecords, setDividendRecords,
+  stockQuotes, lastUpdated, quoteError, refreshQuotes, clearStockData,
+  totalStockValueTWD,
+}: AppContextBridgeProps) {
   const {
-    loans, setLoans,
-    stakingItems, setStakingItems,
-    borrowingLimits, setBorrowingLimits,
-    recordLoanPayment, undoLoanPayment,
-    totalLoanMonthlyPayments,
-    stakingBorrowInterest, stakingEarnTotal, stakingEarnIncome,
-    clearLoanData,
-  } = useLoanContext();
+    assets, setAssets, liabilities, setLiabilities, snapshots, setSnapshots,
+    combinedAssets, combinedLiabilities, totalAssets, totalLiabilities, clearAssetData,
+  } = useAssetContext();
 
-  const {
-    monthlyRecords, setMonthlyRecords,
-    cashflowTemplate, setCashflowTemplate,
-    annualEntries, setAnnualEntries,
-    categoryBudgets, setCategoryBudgets,
-    customCategories, setCustomCategories,
-    currentMonthKey,
-    clearCashFlowData,
-  } = useCashFlowContext();
-
-  const [assets, setAssets] = useStickyState<AssetCategory[]>(initialAssets, 'app-assets-v1');
-  const [liabilities, setLiabilities] = useStickyState<LiabilityItem[]>(initialLiabilities, 'app-liabilities-v1');
-  const [snapshots, setSnapshots] = useStickyState<AssetSnapshot[]>([], 'app-snapshots-v1');
   const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
 
-  // Schema version migration — runs once on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('app-schema-version');
-    const version = stored ? parseInt(stored) : 0;
-    if (version < STORAGE_SCHEMA_VERSION) {
-      localStorage.setItem('app-schema-version', String(STORAGE_SCHEMA_VERSION));
-    }
-  }, []);
+  const netWorth = totalAssets - totalLiabilities;
 
-  // Compute Collateral Market Value (for pledge ratio)
+  // totalCollateralValueTWD（質押擔保品市值）
   const totalCollateralValueTWD = useMemo(() => {
     return stockItems.reduce((sum, item) => {
       if (!item.collateralShares) return sum;
       const quote = stockQuotes[item.symbol];
       if (!quote) return sum;
       const value = quote.price * item.collateralShares;
-      return sum + (quote.currency === 'USD' ? value * usdToTwd : value);
+      return sum + (quote.currency === 'USD' ? value * settingsCtx.usdToTwd : value);
     }, 0);
-  }, [stockItems, stockQuotes, usdToTwd]);
+  }, [stockItems, stockQuotes, settingsCtx.usdToTwd]);
 
-  // Compute Stock Total
-  const totalStockValueTWD = useMemo(() => {
-    let total = 0;
-    for (const item of stockItems) {
-      const quote = stockQuotes[item.symbol];
-      if (quote) {
-        const value = quote.price * item.shares;
-        total += quote.currency === 'USD' ? value * usdToTwd : value;
-      }
-    }
-    return total;
-  }, [stockItems, stockQuotes, usdToTwd]);
-
-  // Combined Assets（股票市值 + 收益型活存 自動加入投資分類）
-  const combinedAssets = useMemo(() => {
-    return assets.map(cat => {
-      if (cat.id === 'investment') {
-        const extra: { id: string; name: string; amount: number }[] = [];
-        if (totalStockValueTWD > 0) extra.push({ id: 'auto-stocks', name: '自動化股票投資', amount: Math.round(totalStockValueTWD) });
-        if (stakingEarnTotal > 0)   extra.push({ id: 'auto-earn',   name: '活存/Earn 收益資產', amount: stakingEarnTotal });
-        if (extra.length === 0) return cat;
-        return { ...cat, items: [...cat.items, ...extra] };
-      }
-      return cat;
-    });
-  }, [assets, totalStockValueTWD, stakingEarnTotal]);
-
-  // Computed Totals
-  const totalAssets = useMemo(() => {
-    return combinedAssets.reduce((catSum, cat) => catSum + cat.items.reduce((itemSum, item) => itemSum + item.amount, 0), 0);
-  }, [combinedAssets]);
-
-  const combinedLiabilities = useMemo(() => {
-    const list = [...liabilities];
-    // 個別展示每筆質押借款（borrow 型）
-    for (const item of stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow')) {
-      list.push({
-        id: `auto-staking-${item.id}`,
-        name: item.name,
-        description: `${item.protocol} · 質押借款 · ${item.apy}% 年利率`,
-        amount: item.value,
-        updatedAt: '自動同步',
-        icon: 'building' as const,
-      });
-    }
-    // 個別展示每筆信貸
-    for (const loan of loans) {
-      if (loan.principal > 0) {
-        list.push({
-          id: `auto-loan-${loan.id}`,
-          name: `${loan.name}（${loan.bank}）`,
-          description: loan.loanType === 'installment'
-            ? `分期還款 · ${loan.interestRate}% · 剩餘${loan.remainingPeriods}期`
-            : `循環借款 · ${loan.interestRate}% 年利率`,
-          amount: loan.principal,
-          updatedAt: '自動同步',
-          icon: 'creditCard' as const,
-        });
-      }
-    }
-    return list;
-  }, [liabilities, stakingItems, loans]);
-
-  const totalLiabilities = useMemo(() => {
-    return combinedLiabilities.reduce((sum, item) => sum + item.amount, 0);
-  }, [combinedLiabilities]);
-
-  // Cash Flow Calculations — 所有項目（固定 + 單次）皆計入當月收支
+  // totalMonthlyIncome / totalMonthlyExpense（跨 domain 計算）
   const totalMonthlyIncome = useMemo(() => {
-    const record = monthlyRecords[currentMonthKey];
-    const items  = record?.income ?? cashflowTemplate.income;
-    return items.reduce((sum, item) => sum + item.amount, 0) + Math.round(stakingEarnIncome);
-  }, [monthlyRecords, currentMonthKey, cashflowTemplate.income, stakingEarnIncome]);
+    const record = cashflowCtx.monthlyRecords[cashflowCtx.currentMonthKey];
+    const items = record?.income ?? cashflowCtx.cashflowTemplate.income;
+    return items.reduce((sum, item) => sum + item.amount, 0) + Math.round(loanCtx.stakingEarnIncome);
+  }, [cashflowCtx.monthlyRecords, cashflowCtx.currentMonthKey, cashflowCtx.cashflowTemplate.income, loanCtx.stakingEarnIncome]);
 
   const totalMonthlyExpense = useMemo(() => {
-    const record = monthlyRecords[currentMonthKey];
-    const items  = record?.expense ?? cashflowTemplate.expense;
-    return items.reduce((sum, item) => sum + item.amount, 0) + Math.round(stakingBorrowInterest) + totalLoanMonthlyPayments;
-  }, [monthlyRecords, currentMonthKey, cashflowTemplate.expense, stakingBorrowInterest, totalLoanMonthlyPayments]);
+    const record = cashflowCtx.monthlyRecords[cashflowCtx.currentMonthKey];
+    const items = record?.expense ?? cashflowCtx.cashflowTemplate.expense;
+    return items.reduce((sum, item) => sum + item.amount, 0)
+      + Math.round(loanCtx.stakingBorrowInterest)
+      + loanCtx.totalLoanMonthlyPayments;
+  }, [cashflowCtx.monthlyRecords, cashflowCtx.currentMonthKey, cashflowCtx.cashflowTemplate.expense, loanCtx.stakingBorrowInterest, loanCtx.totalLoanMonthlyPayments]);
 
   const monthlyNetCashFlow = totalMonthlyIncome - totalMonthlyExpense;
 
-  const netWorth = totalAssets - totalLiabilities;
-
+  // momDelta（與上月淨資產差）
   const momDelta = useMemo(() => {
     if (snapshots.length < 2) return null;
     const now = new Date();
@@ -352,7 +190,20 @@ function AppProviderInner({ children }: { children: ReactNode }) {
     return netWorth - lastMonthSnap.netWorth;
   }, [snapshots, netWorth]);
 
-  // Auto daily snapshot — fires after quotes load (or immediately if no stocks)
+  // takeSnapshot（使用 buildSnapshot 純函式）
+  const takeSnapshot = () => {
+    if (totalAssets === 0 && netWorth === 0) return;
+    const snap = buildSnapshot({
+      assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
+      totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots,
+    });
+    setSnapshots(prev => {
+      const withoutToday = prev.filter(s => s.date !== snap.date);
+      return [...withoutToday.slice(-364), snap];
+    });
+  };
+
+  // Auto daily snapshot
   useEffect(() => {
     if (stockItems.length > 0 && !lastUpdated) return;
     const today = new Date().toISOString().split('T')[0];
@@ -360,136 +211,155 @@ function AppProviderInner({ children }: { children: ReactNode }) {
       const last = prev[prev.length - 1];
       if (last?.date === today) return prev;
       if (totalAssets === 0 && netWorth === 0) return prev;
-      // Compute health score and per-category amounts for this snapshot
-      const liquidAmt = assets.find(c => c.id === 'liquid')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
-      const investmentAmt = combinedAssets.find(c => c.id === 'investment')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
-      const fixedAmt = assets.find(c => c.id === 'fixed')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
-      const receivableAmt = assets.find(c => c.id === 'receivable')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
-      const healthResult = calculateHealthScore({
-        totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
-        totalAssets, totalLiabilities, liquidAssets: liquidAmt, investmentAssets: investmentAmt, snapshots: prev,
+      const snap = buildSnapshot({
+        assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
+        totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots: prev,
       });
-      return [
-        ...prev.slice(-364),
-        {
-          id: `snap-${Date.now()}`, date: today, totalAssets, totalLiabilities, netWorth,
-          healthScore: healthResult.totalScore,
-          liquid: liquidAmt, investment: investmentAmt, fixed: fixedAmt, receivable: receivableAmt,
-        },
-      ];
+      return [...prev.slice(-364), snap];
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastUpdated, totalAssets, totalLiabilities, netWorth]);
+  }, [lastUpdated, totalAssets, totalLiabilities, netWorth]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // clearAllData
   const clearAllData = () => {
-    setAssets([]);
-    setLiabilities([]);
-    clearLoanData();
-    clearCashFlowData();
-    setSnapshots([]);
-    setGoals([]);
+    clearAssetData();
+    cashflowCtx.clearCashFlowData();
+    loanCtx.clearLoanData();
     clearStockData();
+    setGoals([]);
   };
 
-  const takeSnapshot = () => {
-    if (totalAssets === 0 && netWorth === 0) return;
-    const today = new Date().toISOString().split('T')[0];
-    const liquidAmt = assets.find(c => c.id === 'liquid')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
-    const investmentAmt = combinedAssets.find(c => c.id === 'investment')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
-    const fixedAmt = assets.find(c => c.id === 'fixed')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
-    const receivableAmt = assets.find(c => c.id === 'receivable')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
-    const healthResult = calculateHealthScore({
-      totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
-      totalAssets, totalLiabilities, liquidAssets: liquidAmt, investmentAssets: investmentAmt, snapshots,
-    });
-    const newSnap = {
-      id: `snap-${Date.now()}`, date: today, totalAssets, totalLiabilities, netWorth,
-      healthScore: healthResult.totalScore,
-      liquid: liquidAmt, investment: investmentAmt, fixed: fixedAmt, receivable: receivableAmt,
-    };
-    setSnapshots(prev => {
-      const withoutToday = prev.filter(s => s.date !== today);
-      return [...withoutToday.slice(-364), newSnap];
-    });
-  };
+  // Schema version migration（runs once on mount）
+  useEffect(() => {
+    const stored = localStorage.getItem('app-schema-version');
+    const version = stored ? parseInt(stored) : 0;
+    if (version < STORAGE_SCHEMA_VERSION) {
+      localStorage.setItem('app-schema-version', String(STORAGE_SCHEMA_VERSION));
+    }
+  }, []);
 
   return (
     <AppContext.Provider value={{
-      showValues,
-      setShowValues,
-      assets,
-      setAssets,
-      liabilities,
-      setLiabilities,
-      stakingItems,
-      setStakingItems,
-      stockItems,
-      setStockItems,
-      dividendRecords,
-      setDividendRecords,
-      stockQuotes,
-      refreshQuotes,
-      lastUpdated,
-      quoteError,
-      monthlyRecords,
-      setMonthlyRecords,
-      cashflowTemplate,
-      setCashflowTemplate,
-      annualEntries,
-      setAnnualEntries,
-      borrowingLimits,
-      setBorrowingLimits,
-      snapshots,
-      setSnapshots,
-      loans,
-      setLoans,
-      recordLoanPayment,
-      undoLoanPayment,
-      totalAssets,
-      totalLiabilities,
-      combinedLiabilities,
-      combinedAssets,
-      totalMonthlyIncome,
-      totalMonthlyExpense,
-      monthlyNetCashFlow,
-      netWorth,
-      momDelta,
-      clearAllData,
-      takeSnapshot,
-      lastExportDate,
-      setLastExportDate,
-      netWorthGoal,
-      setNetWorthGoal,
+      // Settings
+      showValues: settingsCtx.showValues,
+      setShowValues: settingsCtx.setShowValues,
+      userName: settingsCtx.userName,
+      setUserName: settingsCtx.setUserName,
+      userEmail: settingsCtx.userEmail,
+      setUserEmail: settingsCtx.setUserEmail,
+      usdToTwd: settingsCtx.usdToTwd,
+      setUsdToTwd: settingsCtx.setUsdToTwd,
+      reportSchedule: settingsCtx.reportSchedule,
+      setReportSchedule: settingsCtx.setReportSchedule,
+      lastReportSent: settingsCtx.lastReportSent,
+      setLastReportSent: settingsCtx.setLastReportSent,
+      netWorthGoal: settingsCtx.netWorthGoal,
+      setNetWorthGoal: settingsCtx.setNetWorthGoal,
+      fireSettings: settingsCtx.fireSettings,
+      setFireSettings: settingsCtx.setFireSettings,
+      lifeEvents: settingsCtx.lifeEvents,
+      setLifeEvents: settingsCtx.setLifeEvents,
+      onboardingDone: settingsCtx.onboardingDone,
+      setOnboardingDone: settingsCtx.setOnboardingDone,
+      enablePledgeTracking: settingsCtx.enablePledgeTracking,
+      setEnablePledgeTracking: settingsCtx.setEnablePledgeTracking,
+      pledgeAlertLastSent: settingsCtx.pledgeAlertLastSent,
+      setPledgeAlertLastSent: settingsCtx.setPledgeAlertLastSent,
+      lastExportDate: settingsCtx.lastExportDate,
+      setLastExportDate: settingsCtx.setLastExportDate,
+      // Assets
+      assets, setAssets,
+      liabilities, setLiabilities,
+      snapshots, setSnapshots,
+      combinedAssets, combinedLiabilities,
+      totalAssets, totalLiabilities,
+      // Loans
+      loans: loanCtx.loans,
+      setLoans: loanCtx.setLoans,
+      stakingItems: loanCtx.stakingItems,
+      setStakingItems: loanCtx.setStakingItems,
+      borrowingLimits: loanCtx.borrowingLimits,
+      setBorrowingLimits: loanCtx.setBorrowingLimits,
+      recordLoanPayment: loanCtx.recordLoanPayment,
+      undoLoanPayment: loanCtx.undoLoanPayment,
+      // CashFlow
+      monthlyRecords: cashflowCtx.monthlyRecords,
+      setMonthlyRecords: cashflowCtx.setMonthlyRecords,
+      cashflowTemplate: cashflowCtx.cashflowTemplate,
+      setCashflowTemplate: cashflowCtx.setCashflowTemplate,
+      annualEntries: cashflowCtx.annualEntries,
+      setAnnualEntries: cashflowCtx.setAnnualEntries,
+      categoryBudgets: cashflowCtx.categoryBudgets,
+      setCategoryBudgets: cashflowCtx.setCategoryBudgets,
+      customCategories: cashflowCtx.customCategories,
+      setCustomCategories: cashflowCtx.setCustomCategories,
+      // Stock
+      stockItems, setStockItems,
+      dividendRecords, setDividendRecords,
+      stockQuotes, refreshQuotes, lastUpdated, quoteError,
+      // Goals
+      goals, setGoals,
+      // Computed cross-domain
+      netWorth, momDelta,
+      totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
       totalCollateralValueTWD,
-      usdToTwd,
-      setUsdToTwd,
-      pledgeAlertLastSent,
-      setPledgeAlertLastSent,
-      userName,
-      setUserName,
-      userEmail,
-      setUserEmail,
-      reportSchedule,
-      setReportSchedule,
-      lastReportSent,
-      setLastReportSent,
-      goals,
-      setGoals,
-      customCategories,
-      setCustomCategories,
-      categoryBudgets,
-      setCategoryBudgets,
-      fireSettings,
-      setFireSettings,
-      lifeEvents,
-      setLifeEvents,
-      onboardingDone,
-      setOnboardingDone,
-      enablePledgeTracking,
-      setEnablePledgeTracking,
+      // Actions
+      clearAllData, takeSnapshot,
     }}>
       {children}
     </AppContext.Provider>
+  );
+}
+
+// ─── AppProviderInner ────────────────────────────────────────────────────────
+
+function AppProviderInner({ children }: { children: ReactNode }) {
+  // 1. 從各子 Context 取值
+  const settingsCtx = useSettingsContext();
+  const loanCtx = useLoanContext();
+  const cashflowCtx = useCashFlowContext();
+  const { stockItems, setStockItems, dividendRecords, setDividendRecords,
+          stockQuotes, lastUpdated, quoteError, refreshQuotes, clearStockData } = useStockContext();
+
+  // 2. 跨 domain 計算（需要 stockQuotes + usdToTwd + stakingItems）
+  const totalStockValueTWD = useMemo(() => {
+    return stockItems.reduce((total, item) => {
+      const quote = stockQuotes[item.symbol];
+      if (!quote) return total;
+      const value = quote.price * item.shares;
+      return total + (quote.currency === 'USD' ? value * settingsCtx.usdToTwd : value);
+    }, 0);
+  }, [stockItems, stockQuotes, settingsCtx.usdToTwd]);
+
+  const borrowItems = useMemo(
+    () => loanCtx.stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow'),
+    [loanCtx.stakingItems]
+  );
+
+  return (
+    <AssetProvider
+      stakingEarnTotal={loanCtx.stakingEarnTotal}
+      totalStockValueTWD={totalStockValueTWD}
+      borrowItems={borrowItems}
+      loans={loanCtx.loans}
+    >
+      <AppContextBridge
+        settingsCtx={settingsCtx}
+        loanCtx={loanCtx}
+        cashflowCtx={cashflowCtx}
+        stockItems={stockItems}
+        setStockItems={setStockItems}
+        dividendRecords={dividendRecords}
+        setDividendRecords={setDividendRecords}
+        stockQuotes={stockQuotes}
+        lastUpdated={lastUpdated}
+        quoteError={quoteError}
+        refreshQuotes={refreshQuotes}
+        clearStockData={clearStockData}
+        totalStockValueTWD={totalStockValueTWD}
+      >
+        {children}
+      </AppContextBridge>
+    </AssetProvider>
   );
 }
 
