@@ -198,7 +198,6 @@ function AppProviderInner({ children }: { children: ReactNode }) {
   const {
     stockItems, setStockItems,
     dividendRecords, setDividendRecords,
-    borrowingLimits, setBorrowingLimits,
     stockQuotes, lastUpdated, quoteError,
     refreshQuotes, clearStockData,
   } = useStockContext();
@@ -223,6 +222,7 @@ function AppProviderInner({ children }: { children: ReactNode }) {
   const {
     loans, setLoans,
     stakingItems, setStakingItems,
+    borrowingLimits, setBorrowingLimits,
     recordLoanPayment, undoLoanPayment,
     totalLoanMonthlyPayments,
     stakingBorrowInterest, stakingEarnTotal, stakingEarnIncome,

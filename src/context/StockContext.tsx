@@ -9,8 +9,6 @@ interface StockContextType {
   setStockItems: (items: StockItem[] | ((prev: StockItem[]) => StockItem[])) => void;
   dividendRecords: DividendRecord[];
   setDividendRecords: (records: DividendRecord[] | ((prev: DividendRecord[]) => DividendRecord[])) => void;
-  borrowingLimits: Record<string, number>;
-  setBorrowingLimits: (limits: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void;
   stockQuotes: Record<string, StockQuote>;
   lastUpdated: string;
   quoteError: boolean;
@@ -34,7 +32,6 @@ const initialStockData: StockItem[] = [
 export function StockProvider({ children }: { children: ReactNode }) {
   const [stockItems, setStockItems] = useStickyState<StockItem[]>(initialStockData, 'app-stocks-v1');
   const [dividendRecords, setDividendRecords] = useStickyState<DividendRecord[]>([], 'app-dividends-v1');
-  const [borrowingLimits, setBorrowingLimits] = useStickyState<Record<string, number>>({}, 'app-borrowing-limits-v1');
   const [stockQuotes, setStockQuotes] = useState<Record<string, StockQuote>>({});
   const [lastUpdated, setLastUpdated] = useState('');
   const [quoteError, setQuoteError] = useState(false);
@@ -77,7 +74,6 @@ export function StockProvider({ children }: { children: ReactNode }) {
   const clearStockData = () => {
     setStockItems([]);
     setDividendRecords([]);
-    setBorrowingLimits({});
     setStockQuotes({});
     setLastUpdated('');
     setQuoteError(false);
@@ -87,7 +83,6 @@ export function StockProvider({ children }: { children: ReactNode }) {
     <StockContext.Provider value={{
       stockItems, setStockItems,
       dividendRecords, setDividendRecords,
-      borrowingLimits, setBorrowingLimits,
       stockQuotes, lastUpdated, quoteError,
       refreshQuotes, clearStockData,
     }}>

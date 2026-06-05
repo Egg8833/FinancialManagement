@@ -9,6 +9,8 @@ interface LoanContextType {
   setLoans: (v: LoanItem[] | ((p: LoanItem[]) => LoanItem[])) => void;
   stakingItems: StakingItem[];
   setStakingItems: (v: StakingItem[] | ((p: StakingItem[]) => StakingItem[])) => void;
+  borrowingLimits: Record<string, number>;
+  setBorrowingLimits: (v: Record<string, number> | ((p: Record<string, number>) => Record<string, number>)) => void;
   recordLoanPayment: (id: string) => void;
   undoLoanPayment: (id: string) => void;
   totalLoanMonthlyPayments: number;
@@ -41,6 +43,7 @@ const DEFAULT_STAKING: StakingItem[] = [
 export function LoanProvider({ children }: { children: ReactNode }) {
   const [loans, setLoans] = useStickyState<LoanItem[]>(DEFAULT_LOANS, 'app-loans-v5');
   const [stakingItems, setStakingItems] = useStickyState<StakingItem[]>(DEFAULT_STAKING, 'app-staking-v5');
+  const [borrowingLimits, setBorrowingLimits] = useStickyState<Record<string, number>>({}, 'app-borrowing-limits-v1');
 
   const borrowItems = useMemo(() => stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow'), [stakingItems]);
   const earnItems   = useMemo(() => stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'earn'),  [stakingItems]);
@@ -93,12 +96,14 @@ export function LoanProvider({ children }: { children: ReactNode }) {
   const clearLoanData = () => {
     setLoans([]);
     setStakingItems([]);
+    setBorrowingLimits({});
   };
 
   return (
     <LoanContext.Provider value={{
       loans, setLoans,
       stakingItems, setStakingItems,
+      borrowingLimits, setBorrowingLimits,
       recordLoanPayment, undoLoanPayment,
       totalLoanMonthlyPayments,
       stakingBorrowInterest, stakingEarnTotal, stakingEarnIncome,
