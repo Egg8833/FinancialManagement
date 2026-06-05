@@ -2,7 +2,7 @@
 
 import { createContext, useContext, ReactNode, useState, useRef, useEffect } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
-import type { StockItem, StockQuote, DividendRecord } from './AppContext';
+import type { StockItem, StockQuote, DividendRecord } from '../types';
 
 interface StockContextType {
   stockItems: StockItem[];

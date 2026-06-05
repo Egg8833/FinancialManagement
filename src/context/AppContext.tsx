@@ -2,7 +2,13 @@
 
 import { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
-import type { AssetCategory, LiabilityItem, LifeEvent, FireSettings } from '../types';
+import type {
+  AssetCategory, LiabilityItem, LifeEvent, FireSettings,
+  StakingType, StakingItem, LoanType, LoanItem,
+  AssetSnapshot, FinancialGoal, StockSector, StockItem,
+  StockQuote, DividendRecord, CashFlowItem,
+  AnnualEntryCategory, AnnualEntry, MonthRecord, CashflowTemplate,
+} from '../types';
 import { calculateHealthScore } from '../lib/healthScore';
 import { monthKey } from '../lib/utils';
 import { useStockContext } from './StockContext';
@@ -81,37 +87,6 @@ const initialLiabilities: LiabilityItem[] = [
   },
 ];
 
-export type StakingType = 'borrow' | 'earn';
-
-export type StakingItem = {
-  id: string;
-  name: string;
-  protocol: string;
-  amount: number;
-  value: number;
-  apy: number;
-  stakingType: StakingType;
-  borrowDate?: string;
-  repayDate?: string;
-};
-
-export type LoanType = 'installment' | 'revolving';
-
-export type LoanItem = {
-  id: string;
-  name: string;
-  bank: string;
-  principal: number;
-  initialPrincipal?: number;
-  interestRate: number;
-  monthlyPayment: number;
-  paymentDay: number;
-  remainingPeriods: number;
-  loanType: LoanType;
-  originalPeriods: number;
-  nextPaymentDate?: string;
-};
-
 // 版本升級至 v4，元大質押借款移入質押區塊
 const initialStakingData: StakingItem[] = [
   { id: 's1', name: 'ETH 2.0 質押', protocol: 'Lido', amount: 15.5, value: 1550000, apy: 3.4, stakingType: 'borrow', borrowDate: '2024-01-15', repayDate: '2025-01-15' },
@@ -124,94 +99,6 @@ const initialLoans: LoanItem[] = [
   { id: 'loan1', name: '信貸A', bank: '樂天', principal: 800000, initialPrincipal: 800000, interestRate: 2.08, monthlyPayment: 10242, paymentDay: 11, remainingPeriods: 68, loanType: 'installment', originalPeriods: 84, nextPaymentDate: '2026-05-11' },
   { id: 'loan2', name: '信貸B', bank: '王道', principal: 550000, initialPrincipal: 550000, interestRate: 3.20, monthlyPayment: 7274, paymentDay: 15, remainingPeriods: 70, loanType: 'installment', originalPeriods: 70 },
 ];
-
-export type AssetSnapshot = {
-  id: string;
-  date: string;
-  totalAssets: number;
-  totalLiabilities: number;
-  netWorth: number;
-  healthScore?: number;
-  // per-category asset amounts (optional, added from v2 onwards)
-  liquid?: number;
-  investment?: number;
-  fixed?: number;
-  receivable?: number;
-};
-
-export type FinancialGoal = {
-  id: string;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline?: string; // YYYY-MM-DD
-  color: string;
-  icon: 'home' | 'car' | 'travel' | 'emergency' | 'retirement' | 'education' | 'other';
-  linkedAssetItemIds?: string[];
-};
-
-export type StockSector =
-  | '科技' | '金融' | '醫療' | '消費' | '工業'
-  | '能源' | '原物料' | '房地產' | '公用事業' | '通訊' | '其他';
-
-export type StockItem = {
-  id: string;
-  symbol: string;
-  platform?: string;
-  shares: number;
-  avgCost: number;
-  collateralShares?: number;
-  notes?: string;
-  purchaseDate?: string; // YYYY-MM-DD
-  sector?: StockSector;
-};
-
-export type StockQuote = {
-  price: number;
-  changePercent: number;
-  currency: string;
-  shortName?: string;
-};
-
-export type DividendRecord = {
-  id: string;
-  symbol: string;
-  date: string;           // YYYY-MM-DD
-  dividendPerShare: number;
-  shares: number;         // 持有股數（除息當時）
-  currency: 'TWD' | 'USD';
-  source: 'auto' | 'manual';
-};
-
-export type CashFlowItem = {
-  id: string;
-  name: string;
-  amount: number;
-  category: string;
-  isRecurring: boolean;
-  customCategory?: string;
-};
-
-export type AnnualEntryCategory = 'dividend' | 'bonus' | 'other_income' | 'one_time_expense' | 'travel' | 'medical' | 'equipment';
-
-export type AnnualEntry = {
-  id: string;
-  year: number;
-  month: number;
-  name: string;
-  amount: number;
-  category: AnnualEntryCategory;
-};
-
-export type MonthRecord = {
-  income: CashFlowItem[];
-  expense: CashFlowItem[];
-};
-
-export type CashflowTemplate = {
-  income: CashFlowItem[];
-  expense: CashFlowItem[];
-};
 
 const initialIncomeData: CashFlowItem[] = [
   { id: 'in1', name: '薪資收入', amount: 80000, category: 'Salary', isRecurring: true },
@@ -627,11 +514,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      showValues, 
-      setShowValues, 
-      assets, 
-      setAssets, 
-      liabilities, 
+      showValues,
+      setShowValues,
+      assets,
+      setAssets,
+      liabilities,
       setLiabilities,
       stakingItems,
       setStakingItems,
@@ -704,3 +591,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     </AppContext.Provider>
   );
 }
+
+// 向後相容 re-export（讓現有 consumer 不需改動 import 路徑）
+export type {
+  StakingType, StakingItem, LoanType, LoanItem,
+  AssetSnapshot, FinancialGoal, StockSector, StockItem,
+  StockQuote, DividendRecord, CashFlowItem,
+  AnnualEntryCategory, AnnualEntry, MonthRecord, CashflowTemplate,
+} from '../types';
