@@ -30,3 +30,19 @@ body {
   border-top-right-radius: 20px;
   border-bottom-right-radius: 20px;
 }
+
+/* 頁面切換進場動畫 */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 0.22s ease-out both;
+}

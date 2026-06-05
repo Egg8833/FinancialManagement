@@ -63,6 +63,7 @@ function RouteProgressBar() {
 
 function ClientLayoutContent({ children }: { children: ReactNode }) {
   const { showValues, setShowValues } = useAppContext();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -115,7 +116,7 @@ function ClientLayoutContent({ children }: { children: ReactNode }) {
         <EmailReportSender />
         <DataManager />
       </div>
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 pb-16 md:pb-5">
+      <main key={pathname} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 pb-16 md:pb-5 page-enter">
         {children}
       </main>
       <OnboardingWizard />
