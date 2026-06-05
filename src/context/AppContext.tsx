@@ -13,6 +13,7 @@ import { calculateHealthScore } from '../lib/healthScore';
 import { monthKey } from '../lib/utils';
 import { useStockContext } from './StockContext';
 import { useSettingsContext, SettingsProvider } from './SettingsContext';
+import { useLoanContext, LoanProvider } from './LoanContext';
 
 const STORAGE_SCHEMA_VERSION = 1;
 
@@ -88,18 +89,6 @@ const initialLiabilities: LiabilityItem[] = [
   },
 ];
 
-// 版本升級至 v4，元大質押借款移入質押區塊
-const initialStakingData: StakingItem[] = [
-  { id: 's1', name: 'ETH 2.0 質押', protocol: 'Lido', amount: 15.5, value: 1550000, apy: 3.4, stakingType: 'borrow', borrowDate: '2024-01-15', repayDate: '2025-01-15' },
-  { id: 's2', name: 'USDT 活存', protocol: 'Binance Earn', amount: 20000, value: 640000, apy: 6.5, stakingType: 'earn', borrowDate: '2024-02-01' },
-  { id: 's3', name: '質押借款A', protocol: '元大', amount: 3734000, value: 3734000, apy: 2.58, stakingType: 'borrow' },
-  { id: 's4', name: '質押借款B', protocol: '元大', amount: 126000, value: 126000, apy: 2.85, stakingType: 'borrow' },
-];
-
-const initialLoans: LoanItem[] = [
-  { id: 'loan1', name: '信貸A', bank: '樂天', principal: 800000, initialPrincipal: 800000, interestRate: 2.08, monthlyPayment: 10242, paymentDay: 11, remainingPeriods: 68, loanType: 'installment', originalPeriods: 84, nextPaymentDate: '2026-05-11' },
-  { id: 'loan2', name: '信貸B', bank: '王道', principal: 550000, initialPrincipal: 550000, interestRate: 3.20, monthlyPayment: 7274, paymentDay: 15, remainingPeriods: 70, loanType: 'installment', originalPeriods: 70 },
-];
 
 const initialIncomeData: CashFlowItem[] = [
   { id: 'in1', name: '薪資收入', amount: 80000, category: 'Salary', isRecurring: true },
@@ -231,9 +220,17 @@ function AppProviderInner({ children }: { children: ReactNode }) {
     lastExportDate, setLastExportDate,
   } = useSettingsContext();
 
+  const {
+    loans, setLoans,
+    stakingItems, setStakingItems,
+    recordLoanPayment, undoLoanPayment,
+    totalLoanMonthlyPayments,
+    stakingBorrowInterest, stakingEarnTotal, stakingEarnIncome,
+    clearLoanData,
+  } = useLoanContext();
+
   const [assets, setAssets] = useStickyState<AssetCategory[]>(initialAssets, 'app-assets-v1');
   const [liabilities, setLiabilities] = useStickyState<LiabilityItem[]>(initialLiabilities, 'app-liabilities-v1');
-  const [stakingItems, setStakingItems] = useStickyState<StakingItem[]>(initialStakingData, 'app-staking-v5');
   const [snapshots, setSnapshots] = useStickyState<AssetSnapshot[]>([], 'app-snapshots-v1');
   const [annualEntries, setAnnualEntries] = useStickyState<AnnualEntry[]>([], 'app-annual-v1');
   const [monthlyRecords, setMonthlyRecords] = useStickyState<Record<string, MonthRecord>>(
@@ -243,7 +240,6 @@ function AppProviderInner({ children }: { children: ReactNode }) {
     { income: initialIncomeData, expense: initialExpenseData },
     'app-cashflow-template-v1'
   );
-  const [loans, setLoans] = useStickyState<LoanItem[]>(initialLoans, 'app-loans-v5');
   const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
   const [customCategories, setCustomCategories] = useStickyState<string[]>(DEFAULT_CATEGORIES, 'app-custom-categories-v1');
   const [categoryBudgets, setCategoryBudgets] = useStickyState<Record<string, number>>(
@@ -299,62 +295,6 @@ function AppProviderInner({ children }: { children: ReactNode }) {
     return total;
   }, [stockItems, stockQuotes, usdToTwd]);
 
-  // 借款型質押（borrow）：借款本金 → 負債，利息 → 支出
-  // 收益型質押（earn）：存入金額 → 資產，收益 → 收入
-  const borrowItems = useMemo(() => stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow'), [stakingItems]);
-  const earnItems   = useMemo(() => stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'earn'),  [stakingItems]);
-
-
-  const stakingBorrowInterest = useMemo(() => borrowItems.reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0), [borrowItems]);
-  const stakingEarnTotal      = useMemo(() => earnItems.reduce((s, i) => s + i.value, 0), [earnItems]);
-  const stakingEarnIncome     = useMemo(() => earnItems.reduce((s, i) => s + (i.value * i.apy / 100 / 12), 0), [earnItems]);
-
-  const totalLoanMonthlyPayments = useMemo(() => loans.reduce((s, l) => s + l.monthlyPayment, 0), [loans]);
-
-  const recordLoanPayment = (id: string) => {
-    setLoans(prev => prev.map(loan => {
-      if (loan.id !== id || loan.loanType !== 'installment' || loan.remainingPeriods <= 0) return loan;
-      let nextDate: string | undefined = undefined;
-      if (loan.nextPaymentDate) {
-        const d = new Date(loan.nextPaymentDate);
-        d.setMonth(d.getMonth() + 1);
-        nextDate = d.toISOString().split('T')[0];
-      }
-      
-      const interest = Math.round(loan.principal * loan.interestRate / 100 / 12);
-      const principalReduction = loan.monthlyPayment - interest;
-
-      return {
-        ...loan,
-        principal: Math.max(0, Math.round(loan.principal - principalReduction)),
-        remainingPeriods: loan.remainingPeriods - 1,
-        nextPaymentDate: nextDate,
-      };
-    }));
-  };
-
-  const undoLoanPayment = (id: string) => {
-    setLoans(prev => prev.map(loan => {
-      if (loan.id !== id || loan.loanType !== 'installment') return loan;
-      let prevDate: string | undefined = undefined;
-      if (loan.nextPaymentDate) {
-        const d = new Date(loan.nextPaymentDate);
-        d.setMonth(d.getMonth() - 1);
-        prevDate = d.toISOString().split('T')[0];
-      }
-      
-      const interest = Math.round(loan.principal * loan.interestRate / 100 / 12);
-      const principalReduction = loan.monthlyPayment - interest;
-
-      return {
-        ...loan,
-        principal: Math.round(loan.principal + principalReduction),
-        remainingPeriods: loan.remainingPeriods + 1,
-        nextPaymentDate: prevDate,
-      };
-    }));
-  };
-
   // Combined Assets（股票市值 + 收益型活存 自動加入投資分類）
   const combinedAssets = useMemo(() => {
     return assets.map(cat => {
@@ -377,7 +317,7 @@ function AppProviderInner({ children }: { children: ReactNode }) {
   const combinedLiabilities = useMemo(() => {
     const list = [...liabilities];
     // 個別展示每筆質押借款（borrow 型）
-    for (const item of borrowItems) {
+    for (const item of stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow')) {
       list.push({
         id: `auto-staking-${item.id}`,
         name: item.name,
@@ -403,7 +343,7 @@ function AppProviderInner({ children }: { children: ReactNode }) {
       }
     }
     return list;
-  }, [liabilities, borrowItems, loans]);
+  }, [liabilities, stakingItems, loans]);
 
   const totalLiabilities = useMemo(() => {
     return combinedLiabilities.reduce((sum, item) => sum + item.amount, 0);
@@ -474,8 +414,7 @@ function AppProviderInner({ children }: { children: ReactNode }) {
   const clearAllData = () => {
     setAssets([]);
     setLiabilities([]);
-    setStakingItems([]);
-    setLoans([]);
+    clearLoanData();
     setMonthlyRecords({});
     setCashflowTemplate({ income: [], expense: [] });
     setAnnualEntries([]);
@@ -590,7 +529,9 @@ function AppProviderInner({ children }: { children: ReactNode }) {
 export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <SettingsProvider>
-      <AppProviderInner>{children}</AppProviderInner>
+      <LoanProvider>
+        <AppProviderInner>{children}</AppProviderInner>
+      </LoanProvider>
     </SettingsProvider>
   );
 }
