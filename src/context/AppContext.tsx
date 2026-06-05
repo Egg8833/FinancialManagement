@@ -10,10 +10,10 @@ import type {
   AnnualEntryCategory, AnnualEntry, MonthRecord, CashflowTemplate,
 } from '../types';
 import { calculateHealthScore } from '../lib/healthScore';
-import { monthKey } from '../lib/utils';
 import { useStockContext } from './StockContext';
 import { useSettingsContext, SettingsProvider } from './SettingsContext';
 import { useLoanContext, LoanProvider } from './LoanContext';
+import { useCashFlowContext, CashFlowProvider } from './CashFlowContext';
 
 const STORAGE_SCHEMA_VERSION = 1;
 
@@ -90,14 +90,6 @@ const initialLiabilities: LiabilityItem[] = [
 ];
 
 
-const initialIncomeData: CashFlowItem[] = [
-  { id: 'in1', name: '薪資收入', amount: 80000, category: 'Salary', isRecurring: true },
-];
-
-const initialExpenseData: CashFlowItem[] = [
-  { id: 'ex1', name: '房租', amount: 20000, category: 'Housing', isRecurring: true },
-  { id: 'ex2', name: '伙食費', amount: 15000, category: 'Food', isRecurring: true },
-];
 
 interface AppContextType {
   showValues: boolean;
@@ -192,8 +184,6 @@ export function useAppContext() {
   return context;
 }
 
-const DEFAULT_CATEGORIES = ['餐飲', '交通', '房租', '娛樂', '醫療', '購物', '其他'];
-
 function AppProviderInner({ children }: { children: ReactNode }) {
   const {
     stockItems, setStockItems,
@@ -229,23 +219,20 @@ function AppProviderInner({ children }: { children: ReactNode }) {
     clearLoanData,
   } = useLoanContext();
 
+  const {
+    monthlyRecords, setMonthlyRecords,
+    cashflowTemplate, setCashflowTemplate,
+    annualEntries, setAnnualEntries,
+    categoryBudgets, setCategoryBudgets,
+    customCategories, setCustomCategories,
+    currentMonthKey,
+    clearCashFlowData,
+  } = useCashFlowContext();
+
   const [assets, setAssets] = useStickyState<AssetCategory[]>(initialAssets, 'app-assets-v1');
   const [liabilities, setLiabilities] = useStickyState<LiabilityItem[]>(initialLiabilities, 'app-liabilities-v1');
   const [snapshots, setSnapshots] = useStickyState<AssetSnapshot[]>([], 'app-snapshots-v1');
-  const [annualEntries, setAnnualEntries] = useStickyState<AnnualEntry[]>([], 'app-annual-v1');
-  const [monthlyRecords, setMonthlyRecords] = useStickyState<Record<string, MonthRecord>>(
-    {}, 'app-monthly-records-v1'
-  );
-  const [cashflowTemplate, setCashflowTemplate] = useStickyState<CashflowTemplate>(
-    { income: initialIncomeData, expense: initialExpenseData },
-    'app-cashflow-template-v1'
-  );
   const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
-  const [customCategories, setCustomCategories] = useStickyState<string[]>(DEFAULT_CATEGORIES, 'app-custom-categories-v1');
-  const [categoryBudgets, setCategoryBudgets] = useStickyState<Record<string, number>>(
-    {},
-    'assetdash-category-budgets',
-  );
 
   // Schema version migration — runs once on mount
   useEffect(() => {
@@ -255,21 +242,6 @@ function AppProviderInner({ children }: { children: ReactNode }) {
       localStorage.setItem('app-schema-version', String(STORAGE_SCHEMA_VERSION));
     }
   }, []);
-
-  // One-time migration: incomeItems/expenseItems → cashflowTemplate
-  useEffect(() => {
-    if (localStorage.getItem('app-cashflow-migrated-v1')) return;
-    const rawIncome  = localStorage.getItem('app-income-v1');
-    const rawExpense = localStorage.getItem('app-expense-v1');
-    if (rawIncome || rawExpense) {
-      try {
-        const income  = rawIncome  ? JSON.parse(rawIncome)  : initialIncomeData;
-        const expense = rawExpense ? JSON.parse(rawExpense) : initialExpenseData;
-        setCashflowTemplate({ income, expense });
-      } catch { /* ignore parse errors, fall back to initialData */ }
-    }
-    localStorage.setItem('app-cashflow-migrated-v1', '1');
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compute Collateral Market Value (for pledge ratio)
   const totalCollateralValueTWD = useMemo(() => {
@@ -350,8 +322,6 @@ function AppProviderInner({ children }: { children: ReactNode }) {
   }, [combinedLiabilities]);
 
   // Cash Flow Calculations — 所有項目（固定 + 單次）皆計入當月收支
-  const currentMonthKey = monthKey(new Date());
-
   const totalMonthlyIncome = useMemo(() => {
     const record = monthlyRecords[currentMonthKey];
     const items  = record?.income ?? cashflowTemplate.income;
@@ -415,12 +385,9 @@ function AppProviderInner({ children }: { children: ReactNode }) {
     setAssets([]);
     setLiabilities([]);
     clearLoanData();
-    setMonthlyRecords({});
-    setCashflowTemplate({ income: [], expense: [] });
-    setAnnualEntries([]);
+    clearCashFlowData();
     setSnapshots([]);
     setGoals([]);
-    setCustomCategories(DEFAULT_CATEGORIES);
     clearStockData();
   };
 
@@ -530,7 +497,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <SettingsProvider>
       <LoanProvider>
-        <AppProviderInner>{children}</AppProviderInner>
+        <CashFlowProvider>
+          <AppProviderInner>{children}</AppProviderInner>
+        </CashFlowProvider>
       </LoanProvider>
     </SettingsProvider>
   );
