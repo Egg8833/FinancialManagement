@@ -11,6 +11,7 @@ import { HealthScoreCard } from '../components/HealthScoreCard';
 import { FinancialGoals } from '../components/FinancialGoals';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency as _fmt, nowTs } from '../lib/utils';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import Link from 'next/link';
 
 
@@ -18,6 +19,7 @@ export default function DashboardPage() {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDesc, setNewCategoryDesc] = useState('');
+  const [snapshotToDelete, setSnapshotToDelete] = useState<string | null>(null);
 
   const {
     showValues,
@@ -440,11 +442,7 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-4 py-2 text-right">
                         <button
-                          onClick={() => {
-                            if (confirm(`確定刪除 ${snap.date} 的快照？`)) {
-                              setSnapshots(prev => prev.filter(s => s.id !== snap.id));
-                            }
-                          }}
+                          onClick={() => setSnapshotToDelete(snap.id)}
                           className="text-red-400 hover:text-red-600 transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -458,6 +456,16 @@ export default function DashboardPage() {
           </div>
         </details>
       </div>
+      {snapshotToDelete && (
+        <ConfirmDialog
+          message={`確定刪除 ${snapshots.find(s => s.id === snapshotToDelete)?.date} 的快照？`}
+          onConfirm={() => {
+            setSnapshots(prev => prev.filter(s => s.id !== snapshotToDelete));
+            setSnapshotToDelete(null);
+          }}
+          onCancel={() => setSnapshotToDelete(null)}
+        />
+      )}
     </div>
   );
 }

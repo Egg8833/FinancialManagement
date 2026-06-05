@@ -54,28 +54,22 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
-  const getNavClass = (path: string) => {
+  const navClass = (path: string, variant: 'desktop' | 'icon' | 'mobile') => {
     const isActive = pathname === path;
-    return `flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${isActive
-        ? 'bg-indigo-50 text-indigo-700'
-        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+    if (variant === 'desktop') {
+      return `flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+        isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
       }`;
-  };
-
-  const getIconNavClass = (path: string) => {
-    const isActive = pathname === path;
-    return `flex items-center justify-center p-2 rounded-lg transition-colors ${isActive
-        ? 'bg-indigo-50 text-indigo-700'
-        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+    }
+    if (variant === 'icon') {
+      return `flex items-center justify-center p-2 rounded-lg transition-colors ${
+        isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
       }`;
-  };
-
-  const getMobileNavClass = (path: string) => {
-    const isActive = pathname === path;
-    return `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${isActive
-        ? 'bg-indigo-50 text-indigo-700'
-        : 'text-gray-700 hover:bg-gray-100'
-      }`;
+    }
+    // mobile
+    return `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+      isActive ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'
+    }`;
   };
 
   return (
@@ -99,7 +93,7 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
               {/* 平板：icon only，md ~ lg */}
               <div className="hidden md:flex lg:hidden items-center gap-0.5">
                 {NAV_LINKS.map(({ href, label, Icon }) => (
-                  <Link key={href} href={href} title={label} className={getIconNavClass(href)}>
+                  <Link key={href} href={href} title={label} className={navClass(href, 'icon')}>
                     <Icon className="w-5 h-5" />
                   </Link>
                 ))}
@@ -108,7 +102,7 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
               {/* 桌機：icon + label，lg+ */}
               <div className="hidden lg:flex items-center gap-0.5">
                 {NAV_LINKS.map(({ href, label, Icon }) => (
-                  <Link key={href} href={href} className={getNavClass(href)}>
+                  <Link key={href} href={href} className={navClass(href, 'desktop')}>
                     <Icon className="w-4 h-4" />
                     {label}
                   </Link>
@@ -215,7 +209,7 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
         {/* 導覽連結 */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
           {NAV_LINKS.map(({ href, label, Icon }) => (
-            <Link key={href} href={href} className={getMobileNavClass(href)}>
+            <Link key={href} href={href} className={navClass(href, 'mobile')}>
               <Icon className="w-5 h-5 flex-shrink-0" />
               {label}
             </Link>

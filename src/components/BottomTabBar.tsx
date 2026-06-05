@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Wallet, Flame, TrendingUp, Heart } from 'lucide-react'
+import { LayoutDashboard, Wallet, Flame, TrendingUp, Heart, Coins } from 'lucide-react'
 
 const tabs = [
   { href: '/', icon: LayoutDashboard, label: '總覽' },
   { href: '/cashflow', icon: Wallet, label: '現金流' },
+  { href: '/debt', icon: Coins, label: '負債' },
   { href: '/fire', icon: Flame, label: 'FIRE' },
   { href: '/stocks', icon: TrendingUp, label: '股票' },
   { href: '/health', icon: Heart, label: '健康' },
