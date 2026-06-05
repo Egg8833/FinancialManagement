@@ -12,6 +12,7 @@ import type {
 import { calculateHealthScore } from '../lib/healthScore';
 import { monthKey } from '../lib/utils';
 import { useStockContext } from './StockContext';
+import { useSettingsContext, SettingsProvider } from './SettingsContext';
 
 const STORAGE_SCHEMA_VERSION = 1;
 
@@ -204,7 +205,7 @@ export function useAppContext() {
 
 const DEFAULT_CATEGORIES = ['餐飲', '交通', '房租', '娛樂', '醫療', '購物', '其他'];
 
-export function AppProvider({ children }: { children: ReactNode }) {
+function AppProviderInner({ children }: { children: ReactNode }) {
   const {
     stockItems, setStockItems,
     dividendRecords, setDividendRecords,
@@ -213,7 +214,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     refreshQuotes, clearStockData,
   } = useStockContext();
 
-  const [showValues, setShowValues] = useStickyState<boolean>(true, 'app-show-values');
+  // 從 SettingsContext 取所有設定值（取代原本的 useStickyState）
+  const {
+    showValues, setShowValues,
+    userName, setUserName,
+    userEmail, setUserEmail,
+    usdToTwd, setUsdToTwd,
+    reportSchedule, setReportSchedule,
+    lastReportSent, setLastReportSent,
+    netWorthGoal, setNetWorthGoal,
+    fireSettings, setFireSettings,
+    lifeEvents, setLifeEvents,
+    onboardingDone, setOnboardingDone,
+    enablePledgeTracking, setEnablePledgeTracking,
+    pledgeAlertLastSent, setPledgeAlertLastSent,
+    lastExportDate, setLastExportDate,
+  } = useSettingsContext();
+
   const [assets, setAssets] = useStickyState<AssetCategory[]>(initialAssets, 'app-assets-v1');
   const [liabilities, setLiabilities] = useStickyState<LiabilityItem[]>(initialLiabilities, 'app-liabilities-v1');
   const [stakingItems, setStakingItems] = useStickyState<StakingItem[]>(initialStakingData, 'app-staking-v5');
@@ -227,34 +244,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     'app-cashflow-template-v1'
   );
   const [loans, setLoans] = useStickyState<LoanItem[]>(initialLoans, 'app-loans-v5');
-  const [lastExportDate, setLastExportDate] = useStickyState<string>('', 'app-last-export-v1');
-  const [netWorthGoal, setNetWorthGoal] = useStickyState<number>(0, 'app-net-worth-goal-v1');
-  const [userName, setUserName] = useStickyState<string>('', 'app-user-name-v1');
-  const [userEmail, setUserEmail] = useStickyState<string>('', 'app-user-email-v1');
-  const [usdToTwd, setUsdToTwd] = useStickyState<number>(32, 'app-usd-twd-v1');
-  const [pledgeAlertLastSent, setPledgeAlertLastSent] = useStickyState<Record<'warning' | 'danger', string>>(
-    { warning: '', danger: '' },
-    'app-pledge-alert-v1'
-  );
-  const [reportSchedule, setReportSchedule] = useStickyState<'none' | 'weekly' | 'monthly'>('none', 'app-report-schedule-v1');
-  const [lastReportSent, setLastReportSent] = useStickyState('', 'app-last-report-sent-v1');
   const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
   const [customCategories, setCustomCategories] = useStickyState<string[]>(DEFAULT_CATEGORIES, 'app-custom-categories-v1');
   const [categoryBudgets, setCategoryBudgets] = useStickyState<Record<string, number>>(
     {},
     'assetdash-category-budgets',
   );
-  const [fireSettings, setFireSettings] = useStickyState<FireSettings>({
-    currentAge: 30,
-    targetRetirementAge: 55,
-    annualReturnRate: 6,
-    inflationRate: 2,
-    swr: 4,
-    taxRate: 0,
-  }, 'app-fire-settings-v1');
-  const [lifeEvents, setLifeEvents] = useStickyState<LifeEvent[]>([], 'app-life-events-v1');
-  const [onboardingDone, setOnboardingDone] = useStickyState<boolean>(false, 'assetdash-onboarding-done');
-  const [enablePledgeTracking, setEnablePledgeTracking] = useStickyState<boolean>(false, 'app-enable-pledge-tracking-v1');
 
   // Schema version migration — runs once on mount
   useEffect(() => {
@@ -589,6 +584,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }}>
       {children}
     </AppContext.Provider>
+  );
+}
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  return (
+    <SettingsProvider>
+      <AppProviderInner>{children}</AppProviderInner>
+    </SettingsProvider>
   );
 }
 
