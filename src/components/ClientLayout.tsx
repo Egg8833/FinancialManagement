@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { Navbar } from './Navbar';
 import { DataManager } from './DataManager';
 import { EmailReportSender } from './EmailReportSender';
@@ -10,6 +11,55 @@ import { StockProvider } from '../context/StockContext';
 import { ToastProvider } from '../context/ToastContext';
 import { OnboardingWizard } from './OnboardingWizard';
 import BottomTabBar from './BottomTabBar';
+
+// ─── 頂部 Progress Bar ─────────────────────────────────────────────────────────
+
+function RouteProgressBar() {
+  const pathname = usePathname();
+  const [progress, setProgress] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevPathRef = useRef(pathname);
+
+  useEffect(() => {
+    if (pathname === prevPathRef.current) return;
+    prevPathRef.current = pathname;
+
+    // 開始 loading
+    setProgress(0);
+    setVisible(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    // 模擬進度：快速到 80%，然後停住等頁面完成
+    let p = 0;
+    const tick = () => {
+      p = p < 70 ? p + 15 : p < 85 ? p + 3 : p;
+      setProgress(p);
+      if (p < 85) timerRef.current = setTimeout(tick, 80);
+    };
+    tick();
+
+    // 頁面 children 更新後完成
+    const done = setTimeout(() => {
+      setProgress(100);
+      setTimeout(() => setVisible(false), 300);
+    }, 350);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      clearTimeout(done);
+    };
+  }, [pathname]);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className="fixed top-0 left-0 z-100 h-0.5 bg-indigo-500 transition-all duration-200 ease-out"
+      style={{ width: `${progress}%`, opacity: progress >= 100 ? 0 : 1 }}
+    />
+  );
+}
 
 function ClientLayoutContent({ children }: { children: ReactNode }) {
   const { showValues, setShowValues } = useAppContext();
@@ -58,6 +108,7 @@ function ClientLayoutContent({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-gray-50/50 font-sans text-gray-900 pb-24">
+      <RouteProgressBar />
       <Navbar showValues={showValues} onToggleValues={() => setShowValues(!showValues)} />
       <BackupBanner />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 flex justify-end gap-2">

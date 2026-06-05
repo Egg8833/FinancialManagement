@@ -136,18 +136,22 @@ function PortfolioTrendChart({ stockItems, usdToTwd }: { stockItems: StockItem[]
 
     (async () => {
       try {
-        const results = await Promise.all(
-          stockItems.map(async item => {
+        // 去重：同一 symbol 只 fetch 一次
+        const uniqueSymbols = Array.from(new Set(stockItems.map(i => i.symbol)));
+        const fetchResults = await Promise.all(
+          uniqueSymbols.map(async symbol => {
             try {
               const res = await fetch(
-                `/api/history?symbol=${encodeURIComponent(item.symbol)}&period1=${p1}&period2=${p2}`,
+                `/api/history?symbol=${encodeURIComponent(symbol)}&period1=${p1}&period2=${p2}`,
                 { signal: ctrl.signal }
               );
-              if (!res.ok) return { item, bars: [] as DailyBar[] };
-              return { item, bars: (await res.json()) as DailyBar[] };
-            } catch { return { item, bars: [] as DailyBar[] }; }
+              if (!res.ok) return { symbol, bars: [] as DailyBar[] };
+              return { symbol, bars: (await res.json()) as DailyBar[] };
+            } catch { return { symbol, bars: [] as DailyBar[] }; }
           })
         );
+        const barsMap = new Map(fetchResults.map(r => [r.symbol, r.bars]));
+        const results = stockItems.map(item => ({ item, bars: barsMap.get(item.symbol) ?? [] as DailyBar[] }));
 
         if (ctrl.signal.aborted) return;
 
@@ -309,10 +313,14 @@ function PortfolioTrendChart({ stockItems, usdToTwd }: { stockItems: StockItem[]
 
 // ─── Name Lookup Hook ──────────────────────────────────────────────────────────
 
+// 模組級快取：同一 symbol 在同一 session 只打一次 API
+const nameCache = new Map<string, string>();
+
 function useNameLookup(symbol: string): string {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(() => nameCache.get(symbol) ?? '');
   useEffect(() => {
     if (!symbol) { setName(''); return; }
+    if (nameCache.has(symbol)) { setName(nameCache.get(symbol)!); return; }
     const isTW = symbol.endsWith('.TW') || symbol.endsWith('.TWO');
     const t = setTimeout(async () => {
       try {
@@ -321,14 +329,18 @@ function useNameLookup(symbol: string): string {
           const res = await fetch(`/api/twse-name?code=${code}`);
           if (res.ok) {
             const data = await res.json();
-            setName(data.name || '');
+            const n = data.name || '';
+            nameCache.set(symbol, n);
+            setName(n);
             return;
           }
         }
         const res = await fetch(`/api/quote?symbols=${symbol}`);
         if (res.ok) {
           const data = await res.json();
-          setName(data[symbol]?.shortName || '');
+          const n = data[symbol]?.shortName || '';
+          nameCache.set(symbol, n);
+          setName(n);
         }
       } catch { setName(''); }
     }, 500);
