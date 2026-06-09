@@ -61,9 +61,36 @@ export function StockProvider({ children }: { children: ReactNode }) {
   refreshRef.current = refreshQuotes;
 
   useEffect(() => {
-    const interval = setInterval(() => refreshRef.current?.(), 60_000);
-    return () => clearInterval(interval);
-  }, []);
+    if (stockItems.length === 0) return;
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (intervalId) return;
+      intervalId = setInterval(() => refreshRef.current?.(), 60_000);
+    };
+
+    const stopPolling = () => {
+      if (intervalId) { clearInterval(intervalId); intervalId = null; }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshRef.current?.();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    if (document.visibilityState === 'visible') startPolling();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      stopPolling();
+    };
+  }, [stockItems.length]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
