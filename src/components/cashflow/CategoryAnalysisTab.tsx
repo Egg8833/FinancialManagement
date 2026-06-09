@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { useAppContext, type CashFlowItem } from '../../context/AppContext';
 import {
-  CATEGORY_COLORS, UNCATEGORIZED_COLOR,
+  UNCATEGORIZED_COLOR,
   buildDonutData, buildCategoryMonthData, getCategoryColor,
 } from '../../lib/categoryUtils';
 import { CategoryManager } from './CategoryManager';

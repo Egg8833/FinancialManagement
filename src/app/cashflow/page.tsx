@@ -2,13 +2,13 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Wallet, Plus, Trash2,
+  Wallet, Plus,
   ArrowUpCircle, ArrowDownCircle,
   Search, Settings2, X,
 } from 'lucide-react';
 import {
   useAppContext,
-  type CashFlowItem, type AnnualEntry, type AnnualEntryCategory,
+  type CashFlowItem, type AnnualEntryCategory,
 } from '../../context/AppContext';
 import { formatCurrency as _fmt, monthKey } from '../../lib/utils';
 import { AnnualTracker } from '../../components/AnnualTracker';
@@ -24,19 +24,6 @@ import { CategoryAnalysisTab } from '../../components/cashflow/CategoryAnalysisT
 import { MonthTrendChart } from '../../components/cashflow/MonthTrendChart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const INCOME_ENTRY_CATS: { key: AnnualEntryCategory; label: string }[] = [
-  { key: 'other_income', label: '其他收入' },
-  { key: 'bonus',        label: '業績獎金' },
-  { key: 'dividend',     label: '股利收入' },
-];
-
-const EXPENSE_ENTRY_CATS: { key: AnnualEntryCategory; label: string }[] = [
-  { key: 'one_time_expense', label: '其他支出' },
-  { key: 'travel',           label: '旅遊'     },
-  { key: 'medical',          label: '醫療/健康' },
-  { key: 'equipment',        label: '設備購置' },
-];
 
 const INCOME_ENTRY_KEYS = new Set<AnnualEntryCategory>(['other_income', 'bonus', 'dividend']);
 

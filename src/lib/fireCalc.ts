@@ -60,7 +60,8 @@ export function runMonteCarlo(input: MonteCarloInput): MonteCarloResult {
     const path: number[] = [startWealth];
     let w = startWealth;
     let currentMonthlyInvestment = input.monthlyInvestment;
-    let currentRetirementExpense = input.retirementMonthlyExpense;
+    // retirement expense changes via life events are tracked but not yet applied to simulation
+
 
     for (let y = 1; y <= maxYears; y++) {
       const age = input.currentAge + y;
@@ -70,8 +71,7 @@ export function runMonteCarlo(input: MonteCarloInput): MonteCarloResult {
       let extraLumpSum = 0;
       events.forEach(e => {
         if (e.type === 'income_jump') currentMonthlyInvestment += e.amount;
-        if (e.type === 'expense_jump') currentRetirementExpense += e.amount;
-        if (e.type === 'one_time_lump_sum') extraLumpSum += e.amount;
+if (e.type === 'one_time_lump_sum') extraLumpSum += e.amount;
       });
 
       const annualReturn = normalRandom(input.annualReturnRate, input.volatility);

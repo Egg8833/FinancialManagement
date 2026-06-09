@@ -242,7 +242,7 @@ export function StocksPerformanceTab() {
       );
 
       setDividendRecords(prev => {
-        let updated = [...prev];
+        const updated = [...prev];
         for (const result of results) {
           if (result.status !== 'fulfilled' || !result.value) continue;
           const { item, data } = result.value;

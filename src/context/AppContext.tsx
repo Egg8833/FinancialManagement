@@ -4,10 +4,10 @@ import { createContext, useContext, ReactNode, useMemo, useEffect } from 'react'
 import { useStickyState } from '../hooks/useStickyState';
 import type {
   AssetCategory, LiabilityItem, LifeEvent, FireSettings,
-  StakingType, StakingItem, LoanType, LoanItem,
-  AssetSnapshot, FinancialGoal, StockSector, StockItem,
-  StockQuote, DividendRecord, CashFlowItem,
-  AnnualEntryCategory, AnnualEntry, MonthRecord, CashflowTemplate,
+  StakingItem, LoanItem,
+  AssetSnapshot, FinancialGoal, StockItem,
+  StockQuote, DividendRecord,
+  AnnualEntry, MonthRecord, CashflowTemplate,
 } from '../types';
 import { useStockContext } from './StockContext';
 import { useSettingsContext, SettingsProvider } from './SettingsContext';
@@ -128,7 +128,6 @@ interface AppContextBridgeProps {
   quoteError: boolean;
   refreshQuotes: () => Promise<void>;
   clearStockData: () => void;
-  totalStockValueTWD: number;
 }
 
 function AppContextBridge({
@@ -136,7 +135,6 @@ function AppContextBridge({
   settingsCtx, loanCtx, cashflowCtx,
   stockItems, setStockItems, dividendRecords, setDividendRecords,
   stockQuotes, lastUpdated, quoteError, refreshQuotes, clearStockData,
-  totalStockValueTWD,
 }: AppContextBridgeProps) {
   const {
     assets, setAssets, liabilities, setLiabilities, snapshots, setSnapshots,
@@ -355,7 +353,6 @@ function AppProviderInner({ children }: { children: ReactNode }) {
         quoteError={quoteError}
         refreshQuotes={refreshQuotes}
         clearStockData={clearStockData}
-        totalStockValueTWD={totalStockValueTWD}
       >
         {children}
       </AppContextBridge>

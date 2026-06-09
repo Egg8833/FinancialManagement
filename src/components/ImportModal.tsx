@@ -403,7 +403,7 @@ function Step3Preview({
 // ─── Main modal ────────────────────────────────────────────────────────────────
 
 export function ImportModal({ onClose }: { onClose: () => void }) {
-  const { assets, setAssets, setStockItems, setCashflowTemplate } = useAppContext();
+  const { setAssets, setStockItems, setCashflowTemplate } = useAppContext();
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [importType, setImportType] = useState<ImportType | null>(null);

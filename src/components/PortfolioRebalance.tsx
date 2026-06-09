@@ -177,7 +177,7 @@ export function PortfolioRebalance() {
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                 配置分析（偏差 &gt; {THRESHOLD}% 才顯示建議）
               </p>
-              {rows.map(({ sector, currentValue, currentPct, targetPct, diffPct, diffValue }) => {
+              {rows.map(({ sector, currentPct, targetPct, diffPct, diffValue }) => {
                 const isOver = diffPct < -THRESHOLD;
                 const isUnder = diffPct > THRESHOLD;
                 const isOk = !isOver && !isUnder;

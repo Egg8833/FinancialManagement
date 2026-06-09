@@ -153,7 +153,7 @@ export function DividendCalendar() {
 
       {/* 12-month heatmap grid */}
       <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-        {monthlyData.map(({ month, name, total, predicted, predictedItems }) => {
+        {monthlyData.map(({ month, name, total, predicted }) => {
           const combined = total + predicted;
           const isPredicted = predicted > 0 && total === 0;
           const intensity = combined > 0 ? Math.max(0.12, combined / maxMonthly) : 0;

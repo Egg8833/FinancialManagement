@@ -1,17 +1,18 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Plus, TrendingUp, TrendingDown, Wallet, X, Check, Shield, Sparkles, ChevronDown, Trash2, Camera } from 'lucide-react';
+import { Plus, X, Check, Sparkles, Camera } from 'lucide-react';
 import { HeroKPI } from '../components/HeroKPI';
+import { AssetCategoryCard } from '../components/AssetComponents';
 import { NetWorthChart } from '../components/NetWorthChart';
 import { AssetAllocationChart } from '../components/AssetAllocationChart';
-import { AssetCategoryCard } from '../components/AssetComponents';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
 import { HealthScoreCard } from '../components/HealthScoreCard';
 import { FinancialGoals } from '../components/FinancialGoals';
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency as _fmt, nowTs } from '../lib/utils';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { CashflowSummaryBar } from '../components/dashboard/CashflowSummaryBar';
+import { SnapshotTable } from '../components/dashboard/SnapshotTable';
 import Link from 'next/link';
 
 
@@ -19,8 +20,6 @@ export default function DashboardPage() {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDesc, setNewCategoryDesc] = useState('');
-  const [snapshotToDelete, setSnapshotToDelete] = useState<string | null>(null);
-
   const {
     showValues,
     assets,
@@ -230,60 +229,13 @@ export default function DashboardPage() {
       )}
 
       <div className="mb-6 flex flex-wrap gap-4">
-        <div className="flex-1 bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">本月預計收入</p>
-              <p className="font-bold text-gray-900">{formatCurrency(totalMonthlyIncome)}</p>
-            </div>
-          </div>
-          <div className="h-8 w-px bg-gray-100"></div>
-          <div className="flex items-center gap-3">
-            <div className="bg-rose-50 p-2 rounded-lg text-rose-600">
-              <TrendingDown className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">本月預計支出</p>
-              <p className="font-bold text-gray-900">{formatCurrency(totalMonthlyExpense)}</p>
-            </div>
-          </div>
-          <div className="h-8 w-px bg-gray-100"></div>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${monthlyNetCashFlow >= 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>
-              <Wallet className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">本月淨現金流</p>
-              <p className={`font-bold ${monthlyNetCashFlow >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>{formatCurrency(monthlyNetCashFlow)}</p>
-            </div>
-          </div>
-          <div className="h-8 w-px bg-gray-100"></div>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${
-              runwayMonths === null ? 'bg-gray-50 text-gray-400'
-              : runwayMonths >= 6 ? 'bg-emerald-50 text-emerald-600'
-              : runwayMonths >= 3 ? 'bg-amber-50 text-amber-600'
-              : 'bg-rose-50 text-rose-600'
-            }`}>
-              <Shield className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">現金彈藥</p>
-              <p className={`font-bold ${
-                runwayMonths === null ? 'text-gray-400'
-                : runwayMonths >= 6 ? 'text-emerald-600'
-                : runwayMonths >= 3 ? 'text-amber-600'
-                : 'text-rose-600'
-              }`}>
-                {runwayMonths !== null ? `${runwayMonths.toFixed(1)} 個月` : '—'}
-              </p>
-              <p className="text-[10px] text-gray-400">流動資金 / 月支出</p>
-            </div>
-          </div>
-        </div>
+        <CashflowSummaryBar
+          totalMonthlyIncome={totalMonthlyIncome}
+          totalMonthlyExpense={totalMonthlyExpense}
+          monthlyNetCashFlow={monthlyNetCashFlow}
+          runwayMonths={runwayMonths}
+          formatCurrency={formatCurrency}
+        />
         <HealthScoreCard />
       </div>
 
@@ -399,73 +351,12 @@ export default function DashboardPage() {
 
       <FinancialGoals />
 
-      {/* Snapshot Manager - moved from /chart */}
-      <div className="mt-6">
-        <details className="group">
-          <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-500 hover:text-gray-700 select-none list-none">
-            <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
-            快照紀錄（{snapshots.length} 筆）
-            <button
-              onClick={e => { e.preventDefault(); takeSnapshot(); }}
-              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
-            >
-              <Camera className="w-4 h-4" />
-              拍快照
-            </button>
-          </summary>
-          <div className="mt-3 rounded-xl border border-gray-100 overflow-hidden">
-            {snapshots.length === 0 ? (
-              <p className="p-4 text-sm text-gray-400 text-center">尚無快照，點擊「拍快照」開始紀錄</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-gray-500 font-medium">日期</th>
-                    <th className="px-4 py-2 text-right text-gray-500 font-medium">總資產</th>
-                    <th className="px-4 py-2 text-right text-gray-500 font-medium">總負債</th>
-                    <th className="px-4 py-2 text-right text-gray-500 font-medium">淨資產</th>
-                    <th className="px-4 py-2 text-right"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...snapshots].reverse().map((snap) => (
-                    <tr key={snap.id} className="border-t border-gray-50 hover:bg-gray-50">
-                      <td className="px-4 py-2 text-gray-700">{snap.date}</td>
-                      <td className="px-4 py-2 text-right font-mono text-gray-800">
-                        {showValues ? `NT$${snap.totalAssets.toLocaleString()}` : '●●●●●'}
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-rose-600">
-                        {showValues ? `NT$${snap.totalLiabilities.toLocaleString()}` : '●●●●●'}
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-indigo-600">
-                        {showValues ? `NT$${snap.netWorth.toLocaleString()}` : '●●●●●'}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <button
-                          onClick={() => setSnapshotToDelete(snap.id)}
-                          className="text-red-400 hover:text-red-600 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </details>
-      </div>
-      {snapshotToDelete && (
-        <ConfirmDialog
-          message={`確定刪除 ${snapshots.find(s => s.id === snapshotToDelete)?.date} 的快照？`}
-          onConfirm={() => {
-            setSnapshots(prev => prev.filter(s => s.id !== snapshotToDelete));
-            setSnapshotToDelete(null);
-          }}
-          onCancel={() => setSnapshotToDelete(null)}
-        />
-      )}
+      <SnapshotTable
+        snapshots={snapshots}
+        showValues={showValues}
+        takeSnapshot={takeSnapshot}
+        onDelete={id => setSnapshots(prev => prev.filter(s => s.id !== id))}
+      />
     </div>
   );
 }

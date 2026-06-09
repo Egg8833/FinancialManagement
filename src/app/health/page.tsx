@@ -11,10 +11,6 @@ import { useAppContext } from '../../context/AppContext';
 import { calculateHealthScore, type HealthScoreResult, type MetricResult } from '../../lib/healthScore';
 import type { LucideIcon } from 'lucide-react';
 
-const GRADE_COLOR: Record<HealthScoreResult['grade'], string> = {
-  '優秀': '#10b981', '良好': '#3b82f6', '普通': '#eab308', '警示': '#f97316', '危險': '#ef4444',
-};
-
 const GRADE_BG: Record<HealthScoreResult['grade'], string> = {
   '優秀': 'from-emerald-400 via-teal-500 to-cyan-600',
   '良好': 'from-blue-500 via-indigo-500 to-violet-600',
@@ -116,15 +112,6 @@ function MetricCard({ metric }: { metric: MetricResult }) {
       </div>
     </div>
   );
-}
-
-function gradeColor(score: number | undefined): string {
-  if (score === undefined) return '#94a3b8';
-  if (score >= 90) return '#10b981';
-  if (score >= 75) return '#3b82f6';
-  if (score >= 60) return '#eab308';
-  if (score >= 40) return '#f97316';
-  return '#ef4444';
 }
 
 type ActionItem = {
