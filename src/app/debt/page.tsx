@@ -9,8 +9,18 @@ import {
 import { PledgeAlertBanner } from '../../components/PledgeAlertBanner';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
-import { LoanRefinanceCalc } from '../../components/LoanRefinanceCalc';
-import { LoanPayoffTimeline } from '../../components/LoanPayoffTimeline';
+import dynamic from 'next/dynamic';
+import { ChartSkeleton } from '../../components/ui/Skeleton';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
+
+const LoanRefinanceCalc = dynamic(
+  () => import('../../components/LoanRefinanceCalc').then(m => ({ default: m.LoanRefinanceCalc })),
+  { loading: () => <ChartSkeleton />, ssr: false }
+);
+const LoanPayoffTimeline = dynamic(
+  () => import('../../components/LoanPayoffTimeline').then(m => ({ default: m.LoanPayoffTimeline })),
+  { loading: () => <ChartSkeleton />, ssr: false }
+);
 import { isPaymentDue } from '../../lib/loanUtils';
 import { LoanSection } from '../../components/debt/LoanSection';
 import { BorrowSection } from '../../components/debt/BorrowSection';
@@ -226,8 +236,8 @@ export default function BorrowingPage() {
         onAdd={handleAddLoan}
       />
 
-      <LoanPayoffTimeline />
-      <LoanRefinanceCalc />
+      <ErrorBoundary><LoanPayoffTimeline /></ErrorBoundary>
+      <ErrorBoundary><LoanRefinanceCalc /></ErrorBoundary>
 
       <div className="my-8 border-t border-gray-100" />
 

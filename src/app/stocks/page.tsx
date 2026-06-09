@@ -5,15 +5,34 @@ import { TrendingUp, Activity, Plus, RotateCcw } from 'lucide-react';
 import { useAppContext, type StockItem } from '../../context/AppContext';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
-import { StocksPerformanceTab } from '../../components/StocksPerformanceTab';
-import { DividendCalendar } from '../../components/DividendCalendar';
-import { PortfolioRebalance } from '../../components/PortfolioRebalance';
+import dynamic from 'next/dynamic';
 import { useNameLookup } from '../../hooks/useNameLookup';
 import { MarketSelector } from '../../components/stocks/MarketSelector';
 import { StockRow } from '../../components/stocks/StockRow';
 import { type Market, toSymbol } from '../../lib/stockUtils';
-import { PortfolioTrendChart } from '../../components/stocks/PortfolioTrendChart';
-import { StockSectorChart } from '../../components/StockSectorChart';
+import { ChartSkeleton, TableRowSkeleton } from '../../components/ui/Skeleton';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
+
+const StocksPerformanceTab = dynamic(
+  () => import('../../components/StocksPerformanceTab').then(m => ({ default: m.StocksPerformanceTab })),
+  { loading: () => <ChartSkeleton />, ssr: false }
+);
+const DividendCalendar = dynamic(
+  () => import('../../components/DividendCalendar').then(m => ({ default: m.DividendCalendar })),
+  { loading: () => <ChartSkeleton height="h-64" />, ssr: false }
+);
+const PortfolioRebalance = dynamic(
+  () => import('../../components/PortfolioRebalance').then(m => ({ default: m.PortfolioRebalance })),
+  { loading: () => <ChartSkeleton />, ssr: false }
+);
+const PortfolioTrendChart = dynamic(
+  () => import('../../components/stocks/PortfolioTrendChart').then(m => ({ default: m.PortfolioTrendChart })),
+  { loading: () => <ChartSkeleton height="h-40" />, ssr: false }
+);
+const StockSectorChart = dynamic(
+  () => import('../../components/StockSectorChart').then(m => ({ default: m.StockSectorChart })),
+  { loading: () => <ChartSkeleton height="h-40" />, ssr: false }
+);
 
 const SYMBOL_PLACEHOLDER: Record<Market, string> = {
   '台股': '如: 0050, 2330',
@@ -317,15 +336,17 @@ export default function StocksPage() {
           </div>
         </div>
 
-        <PortfolioTrendChart stockItems={stockItems} usdToTwd={usdToTwd} />
+        <ErrorBoundary>
+          <PortfolioTrendChart stockItems={stockItems} usdToTwd={usdToTwd} />
+        </ErrorBoundary>
       </>)}
 
       {activeTab === 'performance' && (
         <div className="space-y-6">
-          <StocksPerformanceTab />
-          <StockSectorChart />
-          <DividendCalendar />
-          <PortfolioRebalance />
+          <ErrorBoundary><StocksPerformanceTab /></ErrorBoundary>
+          <ErrorBoundary><StockSectorChart /></ErrorBoundary>
+          <ErrorBoundary><DividendCalendar /></ErrorBoundary>
+          <ErrorBoundary><PortfolioRebalance /></ErrorBoundary>
         </div>
       )}
 

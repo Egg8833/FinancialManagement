@@ -2,13 +2,23 @@
 
 import { useState, useMemo } from 'react';
 import { Plus, X, Check, Sparkles, Camera } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { HeroKPI } from '../components/HeroKPI';
 import { AssetCategoryCard } from '../components/AssetComponents';
-import { NetWorthChart } from '../components/NetWorthChart';
-import { AssetAllocationChart } from '../components/AssetAllocationChart';
 import { LiabilitiesCard } from '../components/LiabilityComponents';
 import { HealthScoreCard } from '../components/HealthScoreCard';
 import { FinancialGoals } from '../components/FinancialGoals';
+import { ChartSkeleton } from '../components/ui/Skeleton';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+
+const NetWorthChart = dynamic(
+  () => import('../components/NetWorthChart').then(m => ({ default: m.NetWorthChart })),
+  { loading: () => <ChartSkeleton height="h-56" />, ssr: false }
+);
+const AssetAllocationChart = dynamic(
+  () => import('../components/AssetAllocationChart').then(m => ({ default: m.AssetAllocationChart })),
+  { loading: () => <ChartSkeleton height="h-48" />, ssr: false }
+);
 import { useAppContext } from '../context/AppContext';
 import { formatCurrency as _fmt, nowTs } from '../lib/utils';
 import { CashflowSummaryBar } from '../components/dashboard/CashflowSummaryBar';
@@ -337,17 +347,21 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <NetWorthChart
-        snapshots={snapshots}
-        showValues={showValues}
-        formatCurrency={formatCurrency}
-      />
+      <ErrorBoundary>
+        <NetWorthChart
+          snapshots={snapshots}
+          showValues={showValues}
+          formatCurrency={formatCurrency}
+        />
+      </ErrorBoundary>
 
-      <AssetAllocationChart
-        combinedAssets={combinedAssets}
-        totalAssets={totalAssets}
-        showValues={showValues}
-      />
+      <ErrorBoundary>
+        <AssetAllocationChart
+          combinedAssets={combinedAssets}
+          totalAssets={totalAssets}
+          showValues={showValues}
+        />
+      </ErrorBoundary>
 
       <FinancialGoals />
 
