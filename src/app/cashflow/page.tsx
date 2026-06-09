@@ -2,26 +2,19 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Wallet, Plus,
-  ArrowUpCircle, ArrowDownCircle,
-  Search, Settings2, X,
-} from 'lucide-react';
-import {
   useAppContext,
   type CashFlowItem, type AnnualEntryCategory,
 } from '../../context/AppContext';
 import { formatCurrency as _fmt, monthKey } from '../../lib/utils';
 import { AnnualTracker } from '../../components/AnnualTracker';
 import { useToast } from '../../context/ToastContext';
-import { MonthNavigator } from '../../components/cashflow/MonthNavigator';
-import { MonthlySummaryCard } from '../../components/cashflow/MonthlySummaryCard';
-import { CashFlowRow } from '../../components/cashflow/CashFlowRow';
-import { AddFixedItemRow } from '../../components/cashflow/AddFixedItemRow';
-import { OneTimeEntryRow } from '../../components/cashflow/OneTimeEntryRow';
-import { AddOneTimeEntryRow } from '../../components/cashflow/AddOneTimeEntryRow';
-import { AutoStakingIncomeRow, AutoStakingExpenseRow, AutoLoanExpenseRows } from '../../components/cashflow/AutoItemRows';
 import { CategoryAnalysisTab } from '../../components/cashflow/CategoryAnalysisTab';
 import { MonthTrendChart } from '../../components/cashflow/MonthTrendChart';
+import { CashflowPageHeader } from '../../components/cashflow/CashflowPageHeader';
+import { CashflowFilterBar } from '../../components/cashflow/CashflowFilterBar';
+import { CashflowKPICards } from '../../components/cashflow/CashflowKPICards';
+import { FixedItemsSection } from '../../components/cashflow/FixedItemsSection';
+import { OneTimeEntriesSection } from '../../components/cashflow/OneTimeEntriesSection';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -205,293 +198,49 @@ export default function CashFlowPage() {
 
   return (
     <>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">收支管理</h1>
-          <p className="text-sm text-gray-500 mt-1">記錄固定收支與本月一次性項目</p>
-        </div>
-        <MonthNavigator year={selectedYear} month={selectedMonth} onPrev={prevMonth} onNext={nextMonth} />
-      </div>
-
-      {/* Monthly Summary Card */}
-      <MonthlySummaryCard
-        totalIncome={monthTotalIncome}
-        totalExpense={monthTotalExpense}
-        netAmount={monthNet}
-        showValues={showValues}
+      <CashflowPageHeader
+        year={selectedYear} month={selectedMonth}
+        onPrev={prevMonth} onNext={nextMonth}
+        totalIncome={monthTotalIncome} totalExpense={monthTotalExpense}
+        netAmount={monthNet} showValues={showValues}
+        activeTab={activeTab} onTabChange={setActiveTab}
       />
-
-      {/* Tab bar + Category Manager button */}
-      <div className="flex items-center gap-2 mb-6">
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
-          {(['flow', 'category', 'annual'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab === 'flow' ? '本月收支' : tab === 'category' ? '類別分析' : '年度總覽'}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setActiveTab('category')}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-200 hover:border-gray-300 rounded-xl transition-colors bg-white"
-        >
-          <Settings2 className="w-4 h-4" />
-          <span className="hidden sm:inline">管理類別</span>
-        </button>
-      </div>
 
       {activeTab === 'flow' && (
         <>
-          {/* Filter bar */}
-          <div className="flex flex-wrap items-center gap-2 mb-6">
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-xl text-sm">
-              {(['all', 'income', 'expense'] as const).map(t => (
-                <button
-                  key={t}
-                  onClick={() => setFilterType(t)}
-                  className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                    filterType === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {t === 'all' ? '全部' : t === 'income' ? '收入' : '支出'}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5 flex-1 min-w-[160px] bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
-              <Search className="w-4 h-4 text-gray-400 shrink-0" />
-              <input
-                type="text"
-                placeholder="搜尋項目名稱..."
-                value={filterKeyword}
-                onChange={e => setFilterKeyword(e.target.value)}
-                className="flex-1 text-sm outline-none text-gray-700 placeholder-gray-400 bg-transparent"
-              />
-              {filterKeyword && (
-                <button onClick={() => setFilterKeyword('')} className="text-gray-400 hover:text-gray-600">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          </div>
+          <CashflowFilterBar
+            filterType={filterType} onFilterType={setFilterType}
+            filterKeyword={filterKeyword} onFilterKeyword={setFilterKeyword}
+          />
+          <CashflowKPICards
+            totalIncome={monthTotalIncome} totalExpense={monthTotalExpense}
+            netAmount={monthNet}
+            oneTimeIncomeTotal={monthOneTimeIncomeTotal}
+            oneTimeExpenseTotal={monthOneTimeExpenseTotal}
+            formatCurrency={formatCurrency}
+          />
 
-          {/* KPI row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 text-emerald-600 mb-2">
-                <ArrowUpCircle className="w-5 h-5" />
-                <span className="text-xs font-bold uppercase tracking-wider">本月總收入</span>
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900">{formatCurrency(monthTotalIncome)}</h2>
-              {monthOneTimeIncomeTotal > 0 && (
-                <p className="text-xs text-gray-400 mt-1.5">含本月一次性收入 {formatCurrency(monthOneTimeIncomeTotal)}</p>
-              )}
-            </div>
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 text-rose-600 mb-2">
-                <ArrowDownCircle className="w-5 h-5" />
-                <span className="text-xs font-bold uppercase tracking-wider">本月總支出</span>
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900">{formatCurrency(monthTotalExpense)}</h2>
-              {monthOneTimeExpenseTotal > 0 && (
-                <p className="text-xs text-gray-400 mt-1.5">含本月一次性支出 {formatCurrency(monthOneTimeExpenseTotal)}</p>
-              )}
-            </div>
-            <div className={`rounded-2xl p-6 shadow-lg text-white ${monthNet >= 0 ? 'bg-gradient-to-br from-indigo-500 to-indigo-700' : 'bg-gradient-to-br from-rose-500 to-rose-700'}`}>
-              <div className="flex items-center gap-2 mb-2 opacity-80">
-                <Wallet className="w-5 h-5" />
-                <span className="text-xs font-bold uppercase tracking-wider">本月預計盈餘</span>
-              </div>
-              <h2 className="text-3xl font-bold">{formatCurrency(monthNet)}</h2>
-              <p className="text-xs mt-2 opacity-70">
-                儲蓄率: {monthTotalIncome > 0 ? ((monthNet / monthTotalIncome) * 100).toFixed(1) : 0}%
-              </p>
-            </div>
-          </div>
+          <FixedItemsSection
+            filterType={filterType}
+            incomeItems={incomeItems} expenseItems={expenseItems}
+            isAddingIncome={isAddingIncome} setIsAddingIncome={setIsAddingIncome}
+            isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense}
+            debouncedKeyword={debouncedKeyword}
+            customCategories={customCategories} showValues={showValues}
+            viewBaseExpense={viewBaseExpense} formatCurrency={formatCurrency}
+            onAddIncome={handleAddFixedIncome} onAddExpense={handleAddFixedExpense}
+            onUpdate={handleUpdateFixedItem} onDelete={handleDeleteFixedItem}
+          />
 
-          {/* Section 1: Fixed monthly items */}
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-base font-bold text-gray-900">本月收支項目</h2>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">本月獨立記錄</span>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Fixed Income */}
-            {filterType !== 'expense' && (
-              <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-gray-600">固定收入</h3>
-                      <button onClick={() => setIsAddingIncome(true)} className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                        <Plus className="w-3.5 h-3.5" /> 新增
-                      </button>
-                    </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                      <div className="divide-y divide-gray-50">
-                        {isAddingIncome && (
-                          <AddFixedItemRow
-                            type="income"
-                            customCategories={customCategories}
-                            onConfirm={handleAddFixedIncome}
-                            onCancel={() => setIsAddingIncome(false)}
-                          />
-                        )}
-                        {incomeItems
-                          .filter(item => !debouncedKeyword || item.name.toLowerCase().includes(debouncedKeyword.toLowerCase()))
-                          .map(item => (
-                            <CashFlowRow
-                              key={item.id}
-                              item={item}
-                              type="income"
-                              customCategories={customCategories}
-                              onUpdate={(n, a, c) => handleUpdateFixedItem('income', item.id, n, a, c)}
-                              onDelete={() => handleDeleteFixedItem('income', item.id)}
-                              showValues={showValues}
-                            />
-                          ))}
-                        <AutoStakingIncomeRow />
-                        {incomeItems.length === 0 && !isAddingIncome && (
-                          <div className="p-8 text-center text-gray-400 text-sm">尚無固定收入項目</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Fixed Expense */}
-                {filterType !== 'income' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-gray-600">固定支出</h3>
-                      <button onClick={() => setIsAddingExpense(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
-                        <Plus className="w-3.5 h-3.5" /> 新增
-                      </button>
-                    </div>
-                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                      <div className="divide-y divide-gray-50">
-                        {isAddingExpense && (
-                          <AddFixedItemRow
-                            type="expense"
-                            customCategories={customCategories}
-                            onConfirm={handleAddFixedExpense}
-                            onCancel={() => setIsAddingExpense(false)}
-                          />
-                        )}
-                        {expenseItems
-                          .filter(item => !debouncedKeyword || item.name.toLowerCase().includes(debouncedKeyword.toLowerCase()))
-                          .map(item => (
-                            <CashFlowRow
-                              key={item.id}
-                              item={item}
-                              type="expense"
-                              customCategories={customCategories}
-                              onUpdate={(n, a, c) => handleUpdateFixedItem('expense', item.id, n, a, c)}
-                              onDelete={() => handleDeleteFixedItem('expense', item.id)}
-                              showValues={showValues}
-                            />
-                          ))}
-                        <AutoStakingExpenseRow />
-                        <AutoLoanExpenseRows />
-                        {expenseItems.length === 0 && !isAddingExpense && (
-                          <div className="p-8 text-center text-gray-400 text-sm">尚無固定支出項目</div>
-                        )}
-                      </div>
-                      <div className="border-t-2 border-gray-100 px-4 py-3 flex items-center justify-between bg-gray-50">
-                        <span className="text-sm font-bold text-gray-600">固定支出合計</span>
-                        <span className="text-base font-bold text-rose-600">{formatCurrency(viewBaseExpense)}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-          </div>
-
-          {/* Section 2: This month's one-time entries */}
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-base font-bold text-gray-900">{selectedYear} 年 {selectedMonth} 月 — 一次性記錄</h2>
-            <span className="text-xs bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full">本月限定</span>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* One-time Income */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-600">本月一次性收入</h3>
-                <button onClick={() => setIsAddingOneTimeIncome(true)} className="text-xs font-medium text-emerald-600 hover:text-emerald-800 flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> 新增
-                </button>
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                <div className="divide-y divide-gray-50">
-                  {isAddingOneTimeIncome && (
-                    <AddOneTimeEntryRow
-                      type="income"
-                      onConfirm={(name, amount, category) => handleAddOneTimeEntry(category, name, amount)}
-                      onCancel={() => setIsAddingOneTimeIncome(false)}
-                    />
-                  )}
-                  {monthOneTimeIncome.map(entry => (
-                    <OneTimeEntryRow
-                      key={entry.id}
-                      entry={entry}
-                      onDelete={() => handleDeleteOneTimeEntry(entry.id)}
-                      showValues={showValues}
-                    />
-                  ))}
-                  {monthOneTimeIncome.length === 0 && !isAddingOneTimeIncome && (
-                    <div className="p-8 text-center text-gray-400 text-sm">本月尚無一次性收入</div>
-                  )}
-                </div>
-                {monthOneTimeIncomeTotal > 0 && (
-                  <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-emerald-50/40">
-                    <span className="text-xs font-bold text-gray-500">本月小計</span>
-                    <span className="text-sm font-bold text-emerald-700">{formatCurrency(monthOneTimeIncomeTotal)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* One-time Expense */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-600">本月一次性支出</h3>
-                <button onClick={() => setIsAddingOneTimeExpense(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
-                  <Plus className="w-3.5 h-3.5" /> 新增
-                </button>
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                <div className="divide-y divide-gray-50">
-                  {isAddingOneTimeExpense && (
-                    <AddOneTimeEntryRow
-                      type="expense"
-                      onConfirm={(name, amount, category) => handleAddOneTimeEntry(category, name, amount)}
-                      onCancel={() => setIsAddingOneTimeExpense(false)}
-                    />
-                  )}
-                  {monthOneTimeExpense.map(entry => (
-                    <OneTimeEntryRow
-                      key={entry.id}
-                      entry={entry}
-                      onDelete={() => handleDeleteOneTimeEntry(entry.id)}
-                      showValues={showValues}
-                    />
-                  ))}
-                  {monthOneTimeExpense.length === 0 && !isAddingOneTimeExpense && (
-                    <div className="p-8 text-center text-gray-400 text-sm">本月尚無一次性支出</div>
-                  )}
-                </div>
-                {monthOneTimeExpenseTotal > 0 && (
-                  <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-rose-50/40">
-                    <span className="text-xs font-bold text-gray-500">本月小計</span>
-                    <span className="text-sm font-bold text-rose-700">{formatCurrency(monthOneTimeExpenseTotal)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <OneTimeEntriesSection
+            selectedYear={selectedYear} selectedMonth={selectedMonth}
+            monthOneTimeIncome={monthOneTimeIncome} monthOneTimeExpense={monthOneTimeExpense}
+            monthOneTimeIncomeTotal={monthOneTimeIncomeTotal} monthOneTimeExpenseTotal={monthOneTimeExpenseTotal}
+            isAddingOneTimeIncome={isAddingOneTimeIncome} setIsAddingOneTimeIncome={setIsAddingOneTimeIncome}
+            isAddingOneTimeExpense={isAddingOneTimeExpense} setIsAddingOneTimeExpense={setIsAddingOneTimeExpense}
+            showValues={showValues} formatCurrency={formatCurrency}
+            onAddEntry={handleAddOneTimeEntry} onDeleteEntry={handleDeleteOneTimeEntry}
+          />
 
           {/* 12-month trend chart */}
           <MonthTrendChart
