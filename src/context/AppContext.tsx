@@ -235,74 +235,84 @@ function AppContextBridge({
     }
   }, []);
 
+  // Memoize each domain slice so only the affected consumers re-render
+  const settingsSlice = useMemo(() => ({
+    showValues: settingsCtx.showValues, setShowValues: settingsCtx.setShowValues,
+    userName: settingsCtx.userName, setUserName: settingsCtx.setUserName,
+    userEmail: settingsCtx.userEmail, setUserEmail: settingsCtx.setUserEmail,
+    usdToTwd: settingsCtx.usdToTwd, setUsdToTwd: settingsCtx.setUsdToTwd,
+    reportSchedule: settingsCtx.reportSchedule, setReportSchedule: settingsCtx.setReportSchedule,
+    lastReportSent: settingsCtx.lastReportSent, setLastReportSent: settingsCtx.setLastReportSent,
+    netWorthGoal: settingsCtx.netWorthGoal, setNetWorthGoal: settingsCtx.setNetWorthGoal,
+    fireSettings: settingsCtx.fireSettings, setFireSettings: settingsCtx.setFireSettings,
+    lifeEvents: settingsCtx.lifeEvents, setLifeEvents: settingsCtx.setLifeEvents,
+    onboardingDone: settingsCtx.onboardingDone, setOnboardingDone: settingsCtx.setOnboardingDone,
+    enablePledgeTracking: settingsCtx.enablePledgeTracking, setEnablePledgeTracking: settingsCtx.setEnablePledgeTracking,
+    pledgeAlertLastSent: settingsCtx.pledgeAlertLastSent, setPledgeAlertLastSent: settingsCtx.setPledgeAlertLastSent,
+    lastExportDate: settingsCtx.lastExportDate, setLastExportDate: settingsCtx.setLastExportDate,
+  }), [
+    settingsCtx.showValues, settingsCtx.userName, settingsCtx.userEmail, settingsCtx.usdToTwd,
+    settingsCtx.reportSchedule, settingsCtx.lastReportSent, settingsCtx.netWorthGoal,
+    settingsCtx.fireSettings, settingsCtx.lifeEvents, settingsCtx.onboardingDone,
+    settingsCtx.enablePledgeTracking, settingsCtx.pledgeAlertLastSent, settingsCtx.lastExportDate,
+    settingsCtx.setShowValues, settingsCtx.setUserName, settingsCtx.setUserEmail,
+    settingsCtx.setUsdToTwd, settingsCtx.setReportSchedule, settingsCtx.setLastReportSent,
+    settingsCtx.setNetWorthGoal, settingsCtx.setFireSettings, settingsCtx.setLifeEvents,
+    settingsCtx.setOnboardingDone, settingsCtx.setEnablePledgeTracking,
+    settingsCtx.setPledgeAlertLastSent, settingsCtx.setLastExportDate,
+  ]);
+
+  const stockSlice = useMemo(() => ({
+    stockItems, setStockItems,
+    dividendRecords, setDividendRecords,
+    stockQuotes, refreshQuotes, lastUpdated, quoteError,
+  }), [stockItems, dividendRecords, stockQuotes, lastUpdated, quoteError,
+      refreshQuotes, setStockItems, setDividendRecords]);
+
+  const loanSlice = useMemo(() => ({
+    loans: loanCtx.loans, setLoans: loanCtx.setLoans,
+    stakingItems: loanCtx.stakingItems, setStakingItems: loanCtx.setStakingItems,
+    borrowingLimits: loanCtx.borrowingLimits, setBorrowingLimits: loanCtx.setBorrowingLimits,
+    recordLoanPayment: loanCtx.recordLoanPayment, undoLoanPayment: loanCtx.undoLoanPayment,
+  }), [loanCtx.loans, loanCtx.stakingItems, loanCtx.borrowingLimits,
+      loanCtx.setLoans, loanCtx.setStakingItems, loanCtx.setBorrowingLimits,
+      loanCtx.recordLoanPayment, loanCtx.undoLoanPayment]);
+
+  const cashflowSlice = useMemo(() => ({
+    monthlyRecords: cashflowCtx.monthlyRecords, setMonthlyRecords: cashflowCtx.setMonthlyRecords,
+    cashflowTemplate: cashflowCtx.cashflowTemplate, setCashflowTemplate: cashflowCtx.setCashflowTemplate,
+    annualEntries: cashflowCtx.annualEntries, setAnnualEntries: cashflowCtx.setAnnualEntries,
+    categoryBudgets: cashflowCtx.categoryBudgets, setCategoryBudgets: cashflowCtx.setCategoryBudgets,
+    customCategories: cashflowCtx.customCategories, setCustomCategories: cashflowCtx.setCustomCategories,
+  }), [cashflowCtx.monthlyRecords, cashflowCtx.cashflowTemplate, cashflowCtx.annualEntries,
+      cashflowCtx.categoryBudgets, cashflowCtx.customCategories,
+      cashflowCtx.setMonthlyRecords, cashflowCtx.setCashflowTemplate, cashflowCtx.setAnnualEntries,
+      cashflowCtx.setCategoryBudgets, cashflowCtx.setCustomCategories]);
+
+  const ctxValue = useMemo(() => ({
+    ...settingsSlice,
+    ...stockSlice,
+    ...loanSlice,
+    ...cashflowSlice,
+    assets, setAssets, liabilities, setLiabilities, snapshots, setSnapshots,
+    combinedAssets, combinedLiabilities, totalAssets, totalLiabilities,
+    netWorth, momDelta,
+    totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
+    totalCollateralValueTWD,
+    goals, setGoals,
+    clearAllData, takeSnapshot,
+  }), [
+    settingsSlice, stockSlice, loanSlice, cashflowSlice,
+    assets, liabilities, snapshots, combinedAssets, combinedLiabilities,
+    totalAssets, totalLiabilities, netWorth, momDelta,
+    totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
+    totalCollateralValueTWD, goals,
+    setAssets, setLiabilities, setSnapshots, setGoals,
+    clearAllData, takeSnapshot,
+  ]);
+
   return (
-    <AppContext.Provider value={{
-      // Settings
-      showValues: settingsCtx.showValues,
-      setShowValues: settingsCtx.setShowValues,
-      userName: settingsCtx.userName,
-      setUserName: settingsCtx.setUserName,
-      userEmail: settingsCtx.userEmail,
-      setUserEmail: settingsCtx.setUserEmail,
-      usdToTwd: settingsCtx.usdToTwd,
-      setUsdToTwd: settingsCtx.setUsdToTwd,
-      reportSchedule: settingsCtx.reportSchedule,
-      setReportSchedule: settingsCtx.setReportSchedule,
-      lastReportSent: settingsCtx.lastReportSent,
-      setLastReportSent: settingsCtx.setLastReportSent,
-      netWorthGoal: settingsCtx.netWorthGoal,
-      setNetWorthGoal: settingsCtx.setNetWorthGoal,
-      fireSettings: settingsCtx.fireSettings,
-      setFireSettings: settingsCtx.setFireSettings,
-      lifeEvents: settingsCtx.lifeEvents,
-      setLifeEvents: settingsCtx.setLifeEvents,
-      onboardingDone: settingsCtx.onboardingDone,
-      setOnboardingDone: settingsCtx.setOnboardingDone,
-      enablePledgeTracking: settingsCtx.enablePledgeTracking,
-      setEnablePledgeTracking: settingsCtx.setEnablePledgeTracking,
-      pledgeAlertLastSent: settingsCtx.pledgeAlertLastSent,
-      setPledgeAlertLastSent: settingsCtx.setPledgeAlertLastSent,
-      lastExportDate: settingsCtx.lastExportDate,
-      setLastExportDate: settingsCtx.setLastExportDate,
-      // Assets
-      assets, setAssets,
-      liabilities, setLiabilities,
-      snapshots, setSnapshots,
-      combinedAssets, combinedLiabilities,
-      totalAssets, totalLiabilities,
-      // Loans
-      loans: loanCtx.loans,
-      setLoans: loanCtx.setLoans,
-      stakingItems: loanCtx.stakingItems,
-      setStakingItems: loanCtx.setStakingItems,
-      borrowingLimits: loanCtx.borrowingLimits,
-      setBorrowingLimits: loanCtx.setBorrowingLimits,
-      recordLoanPayment: loanCtx.recordLoanPayment,
-      undoLoanPayment: loanCtx.undoLoanPayment,
-      // CashFlow
-      monthlyRecords: cashflowCtx.monthlyRecords,
-      setMonthlyRecords: cashflowCtx.setMonthlyRecords,
-      cashflowTemplate: cashflowCtx.cashflowTemplate,
-      setCashflowTemplate: cashflowCtx.setCashflowTemplate,
-      annualEntries: cashflowCtx.annualEntries,
-      setAnnualEntries: cashflowCtx.setAnnualEntries,
-      categoryBudgets: cashflowCtx.categoryBudgets,
-      setCategoryBudgets: cashflowCtx.setCategoryBudgets,
-      customCategories: cashflowCtx.customCategories,
-      setCustomCategories: cashflowCtx.setCustomCategories,
-      // Stock
-      stockItems, setStockItems,
-      dividendRecords, setDividendRecords,
-      stockQuotes, refreshQuotes, lastUpdated, quoteError,
-      // Goals
-      goals, setGoals,
-      // Computed cross-domain
-      netWorth, momDelta,
-      totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
-      totalCollateralValueTWD,
-      // Actions
-      clearAllData, takeSnapshot,
-    }}>
+    <AppContext.Provider value={ctxValue}>
       {children}
     </AppContext.Provider>
   );
