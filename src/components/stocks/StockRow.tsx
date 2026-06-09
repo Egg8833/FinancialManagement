@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Pencil, Trash2, Check, X, ChevronDown, ChevronUp, ShieldCheck, FileText } from 'lucide-react';
 import { type StockItem, type StockQuote } from '../../context/AppContext';
 import { useNameLookup } from '../../hooks/useNameLookup';
@@ -13,7 +13,7 @@ const SYMBOL_PLACEHOLDER: Record<Market, string> = {
   '其他': '如: BTC-USD',
 };
 
-export function StockRow({
+export const StockRow = memo(function StockRow({
   item,
   quote,
   usdToTwd,
@@ -334,4 +334,4 @@ export function StockRow({
       )}
     </div>
   );
-}
+});

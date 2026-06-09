@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Wallet, ArrowUpRight, ArrowDownRight, Target, Pencil, Check, X, Trophy } from 'lucide-react';
 
 interface HeroKPIProps {
@@ -15,7 +15,7 @@ interface HeroKPIProps {
   momDelta: number | null;
 }
 
-export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrency, showValues, netWorthGoal, setNetWorthGoal, monthlyNetCashFlow, momDelta }: HeroKPIProps) {
+export const HeroKPI = memo(function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrency, showValues, netWorthGoal, setNetWorthGoal, monthlyNetCashFlow, momDelta }: HeroKPIProps) {
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState('');
 
@@ -168,4 +168,4 @@ export function HeroKPI({ netWorth, totalAssets, totalLiabilities, formatCurrenc
       </div>
     </div>
   );
-}
+});

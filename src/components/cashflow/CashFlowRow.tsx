@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Pencil, Trash2, Check, X } from 'lucide-react';
 import { type CashFlowItem } from '../../context/AppContext';
 import { getCategoryColor } from '../../lib/categoryUtils';
@@ -15,7 +15,7 @@ interface Props {
   customCategories: string[];
 }
 
-export function CashFlowRow({ item, type, onUpdate, onDelete, showValues, customCategories }: Props) {
+export const CashFlowRow = memo(function CashFlowRow({ item, type, onUpdate, onDelete, showValues, customCategories }: Props) {
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [name, setName] = useState(item.name);
@@ -119,4 +119,4 @@ export function CashFlowRow({ item, type, onUpdate, onDelete, showValues, custom
       )}
     </div>
   );
-}
+});

@@ -1,9 +1,9 @@
 "use client";
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Trash2, Check, X, Pencil } from 'lucide-react';
 import { useAppContext, type StakingItem, type StakingType } from '../../context/AppContext';
 
-export function StakingRow({ item, type, onUpdate, onDelete }: {
+export const StakingRow = memo(function StakingRow({ item, type, onUpdate, onDelete }: {
   item: StakingItem; type: StakingType;
   onUpdate: (d: Partial<StakingItem>) => void; onDelete: () => void;
 }) {
@@ -79,4 +79,4 @@ export function StakingRow({ item, type, onUpdate, onDelete }: {
       </div>
     </div>
   );
-}
+});

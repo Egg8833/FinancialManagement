@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Trash2 } from 'lucide-react';
 import { type AnnualEntry, type AnnualEntryCategory } from '../../context/AppContext';
 import { ConfirmDialog } from '../ConfirmDialog';
@@ -23,7 +23,7 @@ interface Props {
   showValues: boolean;
 }
 
-export function OneTimeEntryRow({ entry, onDelete, showValues }: Props) {
+export const OneTimeEntryRow = memo(function OneTimeEntryRow({ entry, onDelete, showValues }: Props) {
   const [confirm, setConfirm] = useState(false);
   const catLabel = [
     ...INCOME_ENTRY_CATS,
@@ -60,4 +60,4 @@ export function OneTimeEntryRow({ entry, onDelete, showValues }: Props) {
       )}
     </div>
   );
-}
+});

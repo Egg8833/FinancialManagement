@@ -1,9 +1,9 @@
 "use client";
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { CreditCard, Pencil, Trash2, Check, X } from 'lucide-react';
 import { useAppContext, type LoanItem } from '../../context/AppContext';
 
-export function RevolvingLoanCard({ loan, onDelete, onUpdate }: {
+export const RevolvingLoanCard = memo(function RevolvingLoanCard({ loan, onDelete, onUpdate }: {
   loan: LoanItem; onDelete: () => void; onUpdate: (d: Partial<LoanItem>) => void;
 }) {
   const { showValues } = useAppContext();
@@ -60,4 +60,4 @@ export function RevolvingLoanCard({ loan, onDelete, onUpdate }: {
       </button>
     </div>
   );
-}
+});

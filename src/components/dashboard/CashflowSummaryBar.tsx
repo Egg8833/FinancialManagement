@@ -1,7 +1,8 @@
 "use client";
+import { memo } from 'react';
 import { TrendingUp, TrendingDown, Wallet, Shield } from 'lucide-react';
 
-export function CashflowSummaryBar({
+export const CashflowSummaryBar = memo(function CashflowSummaryBar({
   totalMonthlyIncome,
   totalMonthlyExpense,
   monthlyNetCashFlow,
@@ -70,4 +71,4 @@ export function CashflowSummaryBar({
       </div>
     </div>
   );
-}
+});

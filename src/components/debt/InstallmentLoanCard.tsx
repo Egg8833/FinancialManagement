@@ -1,10 +1,10 @@
 "use client";
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { CreditCard, Pencil, Trash2, Check, X, ChevronDown, RefreshCw } from 'lucide-react';
 import { useAppContext, type LoanItem } from '../../context/AppContext';
 import { calcEndDate, generateSchedule, isPaymentDue } from '../../lib/loanUtils';
 
-export function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
+export const InstallmentLoanCard = memo(function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
   loan: LoanItem; onRecord: () => void; onDelete: () => void; onUpdate: (d: Partial<LoanItem>) => void;
 }) {
   const { showValues } = useAppContext();
@@ -245,4 +245,4 @@ export function InstallmentLoanCard({ loan, onRecord, onDelete, onUpdate }: {
       </div>
     </div>
   );
-}
+});
