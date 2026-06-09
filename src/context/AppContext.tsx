@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
 import type {
   AssetCategory, LiabilityItem, LifeEvent, FireSettings,
@@ -189,7 +189,7 @@ function AppContextBridge({
   }, [snapshots, netWorth]);
 
   // takeSnapshot（使用 buildSnapshot 純函式）
-  const takeSnapshot = () => {
+  const takeSnapshot = useCallback(() => {
     if (totalAssets === 0 && netWorth === 0) return;
     const snap = buildSnapshot({
       assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
@@ -199,7 +199,8 @@ function AppContextBridge({
       const withoutToday = prev.filter(s => s.date !== snap.date);
       return [...withoutToday.slice(-364), snap];
     });
-  };
+  }, [assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
+      totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots, setSnapshots]);
 
   // Auto daily snapshot
   useEffect(() => {
@@ -218,13 +219,13 @@ function AppContextBridge({
   }, [lastUpdated, totalAssets, totalLiabilities, netWorth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // clearAllData
-  const clearAllData = () => {
+  const clearAllData = useCallback(() => {
     clearAssetData();
     cashflowCtx.clearCashFlowData();
     loanCtx.clearLoanData();
     clearStockData();
     setGoals([]);
-  };
+  }, [clearAssetData, cashflowCtx.clearCashFlowData, loanCtx.clearLoanData, clearStockData, setGoals]);
 
   // Schema version migration（runs once on mount）
   useEffect(() => {

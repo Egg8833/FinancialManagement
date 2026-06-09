@@ -10,7 +10,7 @@ import { useNameLookup } from '../../hooks/useNameLookup';
 import { MarketSelector } from '../../components/stocks/MarketSelector';
 import { StockRow } from '../../components/stocks/StockRow';
 import { type Market, toSymbol } from '../../lib/stockUtils';
-import { ChartSkeleton, TableRowSkeleton } from '../../components/ui/Skeleton';
+import { ChartSkeleton } from '../../components/ui/Skeleton';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
 
 const StocksPerformanceTab = dynamic(
