@@ -1,5 +1,6 @@
 "use client";
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RefreshCw, Check } from 'lucide-react';
 import { useAppContext, type LoanItem } from '../../context/AppContext';
 
@@ -21,10 +22,10 @@ export function PaymentDueDialog({ loans, onRecord, onClose }: {
     });
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-5">
+        <div className="bg-linear-to-r from-amber-500 to-orange-500 px-6 py-5">
           <div className="flex items-center gap-3 text-white">
             <RefreshCw className="w-5 h-5 shrink-0" />
             <div>
@@ -81,6 +82,7 @@ export function PaymentDueDialog({ loans, onRecord, onClose }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
