@@ -2,11 +2,13 @@
 
 import { createContext, useContext, ReactNode, useState, useRef, useEffect } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
-import type { StockItem, StockQuote, DividendRecord } from '../types';
+import type { StockItem, StockQuote, DividendRecord, SoldStockItem } from '../types';
 
 interface StockContextType {
   stockItems: StockItem[];
   setStockItems: (items: StockItem[] | ((prev: StockItem[]) => StockItem[])) => void;
+  soldStocks: SoldStockItem[];
+  setSoldStocks: (items: SoldStockItem[] | ((prev: SoldStockItem[]) => SoldStockItem[])) => void;
   dividendRecords: DividendRecord[];
   setDividendRecords: (records: DividendRecord[] | ((prev: DividendRecord[]) => DividendRecord[])) => void;
   stockQuotes: Record<string, StockQuote>;
@@ -31,6 +33,7 @@ const initialStockData: StockItem[] = [
 
 export function StockProvider({ children }: { children: ReactNode }) {
   const [stockItems, setStockItems] = useStickyState<StockItem[]>(initialStockData, 'app-stocks-v1');
+  const [soldStocks, setSoldStocks] = useStickyState<SoldStockItem[]>([], 'app-sold-stocks-v1');
   const [dividendRecords, setDividendRecords] = useStickyState<DividendRecord[]>([], 'app-dividends-v1');
   const [stockQuotes, setStockQuotes] = useState<Record<string, StockQuote>>({});
   const [lastUpdated, setLastUpdated] = useState('');
@@ -100,6 +103,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
 
   const clearStockData = () => {
     setStockItems([]);
+    setSoldStocks([]);
     setDividendRecords([]);
     setStockQuotes({});
     setLastUpdated('');
@@ -109,6 +113,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
   return (
     <StockContext.Provider value={{
       stockItems, setStockItems,
+      soldStocks, setSoldStocks,
       dividendRecords, setDividendRecords,
       stockQuotes, lastUpdated, quoteError,
       refreshQuotes, clearStockData,

@@ -116,6 +116,13 @@ export type StockItem = {
   sector?: StockSector;
 };
 
+// 已移除（賣出/清倉）的股票歷史紀錄
+export type SoldStockItem = StockItem & {
+  removedDate: string;   // 移除時間 (ISO)
+  exitPrice?: number;    // 移除當下市價（每股，原幣別），用於估算已實現損益
+  exitCurrency?: string; // 移除當下幣別
+};
+
 export type StockQuote = {
   price: number;
   changePercent: number;
@@ -131,6 +138,7 @@ export type DividendRecord = {
   shares: number;
   currency: 'TWD' | 'USD';
   source: 'auto' | 'manual';
+  type?: 'cash' | 'stock';  // 現金股利 (預設) 或 股票股利
 };
 
 export type CashFlowItem = {

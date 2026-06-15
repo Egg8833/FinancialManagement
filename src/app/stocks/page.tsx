@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { TrendingUp, Activity, Plus, RotateCcw } from 'lucide-react';
 import { useAppContext, type StockItem } from '../../context/AppContext';
+import { useStockContext } from '../../context/StockContext';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useToast } from '../../context/ToastContext';
 import dynamic from 'next/dynamic';
@@ -10,8 +11,10 @@ import { useNameLookup } from '../../hooks/useNameLookup';
 import { MarketSelector } from '../../components/stocks/MarketSelector';
 import { StockRow } from '../../components/stocks/StockRow';
 import { type Market, toSymbol } from '../../lib/stockUtils';
+import type { SoldStockItem } from '../../types';
 import { ChartSkeleton } from '../../components/ui/Skeleton';
 import { ErrorBoundary } from '../../components/ErrorBoundary';
+import { SoldStocksTable } from '../../components/stocks/SoldStocksTable';
 
 const StocksPerformanceTab = dynamic(
   () => import('../../components/StocksPerformanceTab').then(m => ({ default: m.StocksPerformanceTab })),
@@ -19,6 +22,10 @@ const StocksPerformanceTab = dynamic(
 );
 const DividendCalendar = dynamic(
   () => import('../../components/DividendCalendar').then(m => ({ default: m.DividendCalendar })),
+  { loading: () => <ChartSkeleton height="h-64" />, ssr: false }
+);
+const DividendSchedule = dynamic(
+  () => import('../../components/DividendSchedule').then(m => ({ default: m.DividendSchedule })),
   { loading: () => <ChartSkeleton height="h-64" />, ssr: false }
 );
 const PortfolioRebalance = dynamic(
@@ -51,11 +58,12 @@ const PLATFORM_COLORS = [
 
 export default function StocksPage() {
   const { stockItems, setStockItems, stockQuotes, refreshQuotes, lastUpdated, usdToTwd, enablePledgeTracking } = useAppContext();
+  const { soldStocks, setSoldStocks } = useStockContext();
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ label: string; action: () => void } | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'holdings' | 'performance'>('holdings');
+  const [activeTab, setActiveTab] = useState<'holdings' | 'performance' | 'history'>('holdings');
 
   const quotesLoading = stockItems.length > 0 && lastUpdated === '';
 
@@ -125,7 +133,39 @@ export default function StocksPage() {
   const handleDelete = (id: string, symbol: string) => {
     setDeleteTarget({
       label: symbol,
-      action: () => { setStockItems(prev => prev.filter(item => item.id !== id)); toast(`已刪除「${symbol}」`, 'info'); }
+      action: () => {
+        const item = stockItems.find(i => i.id === id);
+        if (item) {
+          const quote = stockQuotes[item.symbol];
+          const sold: SoldStockItem = {
+            ...item,
+            removedDate: new Date().toISOString(),
+            exitPrice: quote?.price,
+            exitCurrency: quote?.currency,
+          };
+          setSoldStocks(prev => [sold, ...prev]);
+        }
+        setStockItems(prev => prev.filter(i => i.id !== id));
+        toast(`已將「${symbol}」移至歷史持有`, 'info');
+      }
+    });
+  };
+
+  // 從歷史紀錄還原回持倉
+  const handleRestore = (sold: SoldStockItem) => {
+    const { removedDate, exitPrice, exitCurrency, ...rest } = sold;
+    void removedDate; void exitPrice; void exitCurrency;
+    // 沿用原 id（已從持倉移除，不會碰撞），避免 Date.now() 連續還原撞號
+    setStockItems(prev => [...prev, rest]);
+    setSoldStocks(prev => prev.filter(s => s.id !== sold.id));
+    toast(`已還原「${sold.symbol}」至持倉`, 'success');
+  };
+
+  // 永久刪除歷史紀錄
+  const handlePurge = (sold: SoldStockItem) => {
+    setDeleteTarget({
+      label: `${sold.symbol}（歷史紀錄）`,
+      action: () => { setSoldStocks(prev => prev.filter(s => s.id !== sold.id)); toast(`已永久刪除「${sold.symbol}」歷史紀錄`, 'info'); }
     });
   };
 
@@ -171,7 +211,7 @@ export default function StocksPage() {
       </div>
 
       <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit mb-6">
-        {(['holdings', 'performance'] as const).map(tab => (
+        {(['holdings', 'performance', 'history'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -179,7 +219,7 @@ export default function StocksPage() {
               activeTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            {tab === 'holdings' ? '持倉' : '績效分析'}
+            {tab === 'holdings' ? '持倉' : tab === 'performance' ? '績效分析' : `歷史持有${soldStocks.length > 0 ? ` (${soldStocks.length})` : ''}`}
           </button>
         ))}
       </div>
@@ -346,8 +386,15 @@ export default function StocksPage() {
           <ErrorBoundary><StocksPerformanceTab /></ErrorBoundary>
           <ErrorBoundary><StockSectorChart /></ErrorBoundary>
           <ErrorBoundary><DividendCalendar /></ErrorBoundary>
+          <ErrorBoundary><DividendSchedule /></ErrorBoundary>
           <ErrorBoundary><PortfolioRebalance /></ErrorBoundary>
         </div>
+      )}
+
+      {activeTab === 'history' && (
+        <ErrorBoundary>
+          <SoldStocksTable soldStocks={soldStocks} onRestore={handleRestore} onPurge={handlePurge} />
+        </ErrorBoundary>
       )}
 
       {deleteTarget && (

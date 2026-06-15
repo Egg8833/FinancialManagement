@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle } from 'lucide-react';
 
 interface ConfirmDialogProps {
@@ -9,7 +11,12 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogProps) {
-  return (
+  // 透過 portal 掛到 document.body，避免被有 transform 的祖先（page-enter 動畫）限制 fixed 定位導致偏移
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onCancel}
@@ -39,6 +46,7 @@ export function ConfirmDialog({ message, onConfirm, onCancel }: ConfirmDialogPro
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
