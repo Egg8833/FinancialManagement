@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppContext } from '../context/AppContext';
 import { ConfirmDialog } from './ConfirmDialog';
+import { AuthButton } from './AuthButton';
 
 interface NavbarProps {
   showValues: boolean;
@@ -118,6 +119,8 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                 {showValues ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 <span className="hidden lg:inline">{showValues ? '隱藏金額' : '顯示金額'}</span>
               </button>
+
+              <AuthButton />
 
               {/* 設定齒輪 — 平板以上顯示 */}
               <Link
