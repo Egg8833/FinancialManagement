@@ -12,6 +12,7 @@ import { StockProvider } from '../context/StockContext';
 import { ToastProvider } from '../context/ToastContext';
 import { RepositoryProvider } from '../context/RepositoryContext';
 import { OnboardingWizard } from './OnboardingWizard';
+import { ImportPromptModal } from './ImportPromptModal';
 import BottomTabBar from './BottomTabBar';
 
 // ─── 頂部 Progress Bar ─────────────────────────────────────────────────────────
@@ -122,6 +123,7 @@ function ClientLayoutContent({ children }: { children: ReactNode }) {
         {children}
       </main>
       <OnboardingWizard />
+      <ImportPromptModal />
       <BottomTabBar />
     </div>
   );
