@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, notInArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import type { EntityTable } from '../db/schema';
 import { ApiError } from './apiHelpers';
@@ -41,12 +41,17 @@ export function createEntityStore(table: EntityTable) {
     },
 
     async replaceAll(db: Db, userId: string, rows: { id: string; data: unknown }[]): Promise<void> {
-      await db.delete(table).where(byUser(userId));
-      if (rows.length > 0) {
-        await db.insert(table).values(rows.map((r, i) => ({
-          userId, id: r.id, data: r.data, position: i,
-        })));
+      if (rows.length === 0) {
+        await db.delete(table).where(byUser(userId));
+        return;
       }
+      await db.insert(table).values(rows.map((r, i) => ({
+        userId, id: r.id, data: r.data, position: i, version: 1, updatedAt: new Date(),
+      }))).onConflictDoUpdate({
+        target: [table.userId, table.id],
+        set: { data: sql`excluded.data`, position: sql`excluded.position`, version: 1, updatedAt: new Date() },
+      });
+      await db.delete(table).where(and(byUser(userId), notInArray(table.id, rows.map(r => r.id))));
     },
 
     async hasAny(db: Db, userId: string): Promise<boolean> {

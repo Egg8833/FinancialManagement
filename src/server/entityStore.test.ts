@@ -69,6 +69,19 @@ describe('entityStore', () => {
     expect(rows.every(r => r.version === 1)).toBe(true);
   });
 
+  it('replaceAll 對既有重疊 id 更新資料,並修剪不在新清單中的 id', async () => {
+    await store.create(db, 'userA', 'keep', { title: '舊-keep' });
+    await store.create(db, 'userA', 'drop', { title: '舊-drop' });
+    await store.replaceAll(db, 'userA', [
+      { id: 'keep', data: { title: '新-keep' } },
+      { id: 'new', data: { title: '新增' } },
+    ]);
+    const rows = await store.getAll(db, 'userA');
+    expect(rows.map(r => r.id)).toEqual(['keep', 'new']);
+    expect((rows[0].data as { title: string }).title).toBe('新-keep');
+    expect(rows.every(r => r.version === 1)).toBe(true);
+  });
+
   it('hasAny 反映是否有資料', async () => {
     expect(await store.hasAny(db, 'userA')).toBe(false);
     await store.create(db, 'userA', 'a1', {});
