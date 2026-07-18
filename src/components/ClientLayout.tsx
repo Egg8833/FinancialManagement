@@ -10,6 +10,7 @@ import { BackupBanner } from './BackupBanner';
 import { AppProvider, useAppContext } from '../context/AppContext';
 import { StockProvider } from '../context/StockContext';
 import { ToastProvider } from '../context/ToastContext';
+import { RepositoryProvider } from '../context/RepositoryContext';
 import { OnboardingWizard } from './OnboardingWizard';
 import BottomTabBar from './BottomTabBar';
 
@@ -129,13 +130,15 @@ function ClientLayoutContent({ children }: { children: ReactNode }) {
 export function ClientLayout({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
-      <StockProvider>
-        <AppProvider>
-          <ToastProvider>
-            <ClientLayoutContent>{children}</ClientLayoutContent>
-          </ToastProvider>
-        </AppProvider>
-      </StockProvider>
+      <ToastProvider>
+        <RepositoryProvider>
+          <StockProvider>
+            <AppProvider>
+              <ClientLayoutContent>{children}</ClientLayoutContent>
+            </AppProvider>
+          </StockProvider>
+        </RepositoryProvider>
+      </ToastProvider>
     </SessionProvider>
   );
 }
