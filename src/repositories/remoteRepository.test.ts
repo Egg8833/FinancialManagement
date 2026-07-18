@@ -70,6 +70,6 @@ describe('remoteRepository 版本管理', () => {
 
   it('非 2xx 回應拋一般 Error', async () => {
     const repo = createRemoteRepository<{ id: string; name: string }>('/api/user/items');
-    await expect(repo.remove('nope')).rejects.toThrow();
+    await expect(repo.remove('nope')).rejects.toThrow('API 錯誤(404)');
   });
 });

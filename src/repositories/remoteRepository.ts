@@ -8,7 +8,7 @@ async function request(url: string, init?: RequestInit): Promise<unknown> {
   if (res.status === 409) throw new ConflictError();
   if (!res.ok) {
     const body = await res.json().catch(() => null) as { error?: { message?: string } } | null;
-    throw new Error(body?.error?.message ?? `API 錯誤(${res.status})`);
+    throw new Error(body?.error?.message || `API 錯誤(${res.status})`);
   }
   return res.json();
 }
