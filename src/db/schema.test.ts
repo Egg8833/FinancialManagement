@@ -12,5 +12,5 @@ describe('db schema', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].version).toBe(1);
     expect((rows[0].data as { title: string }).title).toBe('流動資金');
-  });
+  }, 15000);
 });

@@ -26,7 +26,6 @@ export function AuthButton() {
     <div className="relative">
       <button onClick={() => setMenuOpen(o => !o)} className="flex items-center gap-2">
         {session.user?.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={session.user.image} alt="頭像" className="w-7 h-7 rounded-full" referrerPolicy="no-referrer" />
         ) : (
           <Cloud size={18} className="text-indigo-500" />
