@@ -27,6 +27,12 @@ export async function handleApi(fn: () => Promise<Response>): Promise<Response> 
         { status: 422 },
       );
     }
+    if (e instanceof SyntaxError) {
+      return Response.json(
+        { error: { code: 'validation_failed', message: '請求格式錯誤' } },
+        { status: 422 },
+      );
+    }
     console.error('[api] unhandled error', e);
     return Response.json({ error: { code: 'internal_error', message: '伺服器錯誤' } }, { status: 500 });
   }

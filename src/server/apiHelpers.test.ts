@@ -25,6 +25,13 @@ describe('handleApi', () => {
     expect(body.error.code).toBe('validation_failed');
   });
 
+  it('SyntaxError (格式錯誤的 JSON body) 轉為 422', async () => {
+    const res = await handleApi(async () => { JSON.parse('{invalid'); return Response.json({}); });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.error.code).toBe('validation_failed');
+  });
+
   it('未知錯誤轉為 500', async () => {
     const res = await handleApi(async () => { throw new Error('boom'); });
     expect(res.status).toBe(500);
