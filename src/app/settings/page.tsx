@@ -99,9 +99,9 @@ export default function SettingsPage() {
           return;
         }
         if (!confirm('匯入備份將覆蓋目前所有資料，是否繼續？')) return;
-        if (data.assets)      void replaceAssets(data.assets);
-        if (data.liabilities) void replaceLiabilities(data.liabilities);
-        if (data.snapshots)   void replaceSnapshots(data.snapshots);
+        if (data.assets)      void replaceAssets(data.assets).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
+        if (data.liabilities) void replaceLiabilities(data.liabilities).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
+        if (data.snapshots)   void replaceSnapshots(data.snapshots).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
         if (data.stakingItems) setStakingItems(data.stakingItems);
         if (data.stockItems) setStockItems(data.stockItems);
         if (data.monthlyRecords)   setMonthlyRecords(data.monthlyRecords);

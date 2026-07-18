@@ -50,9 +50,9 @@ export function DataManager() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
-        if (data.assets)      void ctx.replaceAssets(data.assets);
-        if (data.liabilities) void ctx.replaceLiabilities(data.liabilities);
-        if (data.snapshots)   void ctx.replaceSnapshots(data.snapshots);
+        if (data.assets)      void ctx.replaceAssets(data.assets).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
+        if (data.liabilities) void ctx.replaceLiabilities(data.liabilities).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
+        if (data.snapshots)   void ctx.replaceSnapshots(data.snapshots).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
         if (data.stakingItems)     ctx.setStakingItems(data.stakingItems);
         if (data.loans)            ctx.setLoans(data.loans);
         if (data.stockItems)       ctx.setStockItems(data.stockItems);

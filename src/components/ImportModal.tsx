@@ -403,7 +403,7 @@ function Step3Preview({
 // ─── Main modal ────────────────────────────────────────────────────────────────
 
 export function ImportModal({ onClose }: { onClose: () => void }) {
-  const { assets, updateCategory, setStockItems, setCashflowTemplate } = useAppContext();
+  const { assets, replaceAssets, setStockItems, setCashflowTemplate } = useAppContext();
   const { toast } = useToast();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [importType, setImportType] = useState<ImportType | null>(null);
@@ -438,12 +438,12 @@ export function ImportModal({ onClose }: { onClose: () => void }) {
       const validRows = (parseResult as ParseResult<ParsedAsset>).rows
         .filter((r): r is ValidRow<ParsedAsset> => r.valid)
         .map(r => r.data);
-      for (const cat of assets) {
+      const nextAssets = assets.map(cat => {
         const toAdd = validRows.filter(r => r.categoryId === cat.id);
-        if (toAdd.length === 0) continue;
-        const newItems = [...cat.items, ...toAdd.map(r => ({ id: genId(), ...r.item }))];
-        updateCategory(cat.id, { items: newItems });
-      }
+        if (toAdd.length === 0) return cat;
+        return { ...cat, items: [...cat.items, ...toAdd.map(r => ({ id: genId(), ...r.item }))] };
+      });
+      void replaceAssets(nextAssets).catch(() => toast('匯入儲存失敗，請稍後再試', 'error'));
       toast(`已匯入 ${validRows.length} 筆資產`);
     } else {
       const validRows = (parseResult as ParseResult<ParsedCashflow>).rows
