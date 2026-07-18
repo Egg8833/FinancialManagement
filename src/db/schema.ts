@@ -45,4 +45,4 @@ export const liabilities = pgTable('liabilities', entityColumns(),
 export const snapshots = pgTable('snapshots', entityColumns(),
   (t) => [primaryKey({ columns: [t.userId, t.id] })]);
 
-export type EntityTable = typeof assets;
+export type EntityTable = typeof assets | typeof liabilities | typeof snapshots;
