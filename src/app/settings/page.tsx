@@ -10,16 +10,17 @@ export default function SettingsPage() {
     userName, setUserName,
     userEmail, setUserEmail,
     usdToTwd, setUsdToTwd,
-    assets, setAssets,
-    liabilities, setLiabilities,
+    assets,
+    liabilities,
     stakingItems, setStakingItems,
     stockItems, setStockItems,
     monthlyRecords, setMonthlyRecords,
     cashflowTemplate, setCashflowTemplate,
     annualEntries, setAnnualEntries,
     loans, setLoans,
-    snapshots, setSnapshots,
+    snapshots,
     borrowingLimits, setBorrowingLimits,
+    replaceAssets, replaceLiabilities, replaceSnapshots,
     netWorthGoal, setNetWorthGoal,
     setLastExportDate,
     reportSchedule, setReportSchedule,
@@ -98,8 +99,9 @@ export default function SettingsPage() {
           return;
         }
         if (!confirm('匯入備份將覆蓋目前所有資料，是否繼續？')) return;
-        if (data.assets) setAssets(data.assets);
-        if (data.liabilities) setLiabilities(data.liabilities);
+        if (data.assets)      void replaceAssets(data.assets);
+        if (data.liabilities) void replaceLiabilities(data.liabilities);
+        if (data.snapshots)   void replaceSnapshots(data.snapshots);
         if (data.stakingItems) setStakingItems(data.stakingItems);
         if (data.stockItems) setStockItems(data.stockItems);
         if (data.monthlyRecords)   setMonthlyRecords(data.monthlyRecords);
@@ -109,7 +111,6 @@ export default function SettingsPage() {
         }
         if (data.annualEntries) setAnnualEntries(data.annualEntries);
         if (data.loans) setLoans(data.loans);
-        if (data.snapshots) setSnapshots(data.snapshots);
         if (data.borrowingLimits) setBorrowingLimits(data.borrowingLimits);
         if (typeof data.netWorthGoal === 'number') setNetWorthGoal(data.netWorthGoal);
         if (typeof data.usdToTwd === 'number') { setUsdToTwd(data.usdToTwd); setLocalUsdRate(data.usdToTwd.toString()); }

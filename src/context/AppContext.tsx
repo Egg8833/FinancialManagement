@@ -3,7 +3,7 @@
 import { createContext, useContext, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
 import type {
-  AssetCategory, LiabilityItem, LifeEvent, FireSettings,
+  AssetCategory, AssetItem, LiabilityItem, LifeEvent, FireSettings,
   StakingItem, LoanItem,
   AssetSnapshot, FinancialGoal, StockItem,
   StockQuote, DividendRecord,
@@ -22,9 +22,20 @@ interface AppContextType {
   showValues: boolean;
   setShowValues: (val: boolean) => void;
   assets: AssetCategory[];
-  setAssets: (assets: AssetCategory[] | ((prev: AssetCategory[]) => AssetCategory[])) => void;
   liabilities: LiabilityItem[];
-  setLiabilities: (liabilities: LiabilityItem[] | ((prev: LiabilityItem[]) => LiabilityItem[])) => void;
+  assetsLoading: boolean;
+  addCategory(input: { title: string; description: string; colorClass: string; bgClass: string }): void;
+  updateCategory(id: string, patch: Partial<Omit<AssetCategory, 'id'>>): void;
+  removeCategory(id: string): void;
+  addAssetItem(categoryId: string, name: string, amount: number): void;
+  updateAssetItem(categoryId: string, itemId: string, patch: Partial<Omit<AssetItem, 'id'>>): void;
+  removeAssetItem(categoryId: string, itemId: string): void;
+  addLiability(input: { name: string; amount: number; description?: string; icon?: 'building' | 'creditCard' }): void;
+  updateLiability(id: string, patch: Partial<Omit<LiabilityItem, 'id'>>): void;
+  removeLiability(id: string): void;
+  replaceAssets(data: AssetCategory[]): Promise<void>;
+  replaceLiabilities(data: LiabilityItem[]): Promise<void>;
+  replaceSnapshots(data: AssetSnapshot[]): Promise<void>;
   stakingItems: StakingItem[];
   setStakingItems: (items: StakingItem[] | ((prev: StakingItem[]) => StakingItem[])) => void;
   stockItems: StockItem[];
@@ -44,7 +55,8 @@ interface AppContextType {
   borrowingLimits: Record<string, number>;
   setBorrowingLimits: (limits: Record<string, number> | ((prev: Record<string, number>) => Record<string, number>)) => void;
   snapshots: AssetSnapshot[];
-  setSnapshots: (s: AssetSnapshot[] | ((prev: AssetSnapshot[]) => AssetSnapshot[])) => void;
+  saveSnapshot(snap: AssetSnapshot): void;
+  removeSnapshot(id: string): void;
   loans: LoanItem[];
   setLoans: (items: LoanItem[] | ((prev: LoanItem[]) => LoanItem[])) => void;
   recordLoanPayment: (id: string) => void;
@@ -137,8 +149,14 @@ function AppContextBridge({
   stockQuotes, lastUpdated, quoteError, refreshQuotes, clearStockData,
 }: AppContextBridgeProps) {
   const {
-    assets, setAssets, liabilities, setLiabilities, snapshots, setSnapshots,
-    combinedAssets, combinedLiabilities, totalAssets, totalLiabilities, clearAssetData,
+    assets, liabilities, snapshots, assetsLoading,
+    combinedAssets, combinedLiabilities, totalAssets, totalLiabilities,
+    addCategory, updateCategory, removeCategory,
+    addAssetItem, updateAssetItem, removeAssetItem,
+    addLiability, updateLiability, removeLiability,
+    saveSnapshot, removeSnapshot,
+    replaceAssets, replaceLiabilities, replaceSnapshots,
+    clearAssetData,
   } = useAssetContext();
 
   const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
@@ -195,28 +213,24 @@ function AppContextBridge({
       assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
       totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots,
     });
-    setSnapshots(prev => {
-      const withoutToday = prev.filter(s => s.date !== snap.date);
-      return [...withoutToday.slice(-364), snap];
-    });
+    saveSnapshot(snap);
   }, [assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
-      totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots, setSnapshots]);
+      totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots, saveSnapshot]);
 
   // Auto daily snapshot
   useEffect(() => {
+    if (assetsLoading) return;
     if (stockItems.length > 0 && !lastUpdated) return;
     const today = new Date().toISOString().split('T')[0];
-    setSnapshots(prev => {
-      const last = prev[prev.length - 1];
-      if (last?.date === today) return prev;
-      if (totalAssets === 0 && netWorth === 0) return prev;
-      const snap = buildSnapshot({
-        assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
-        totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots: prev,
-      });
-      return [...prev.slice(-364), snap];
+    const last = snapshots[snapshots.length - 1];
+    if (last?.date === today) return;
+    if (totalAssets === 0 && netWorth === 0) return;
+    const snap = buildSnapshot({
+      assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
+      totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots,
     });
-  }, [lastUpdated, totalAssets, totalLiabilities, netWorth]); // eslint-disable-line react-hooks/exhaustive-deps
+    saveSnapshot(snap);
+  }, [lastUpdated, totalAssets, totalLiabilities, netWorth, assetsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // clearAllData
   const clearAllData = useCallback(() => {
@@ -295,8 +309,13 @@ function AppContextBridge({
     ...stockSlice,
     ...loanSlice,
     ...cashflowSlice,
-    assets, setAssets, liabilities, setLiabilities, snapshots, setSnapshots,
+    assets, liabilities, snapshots, assetsLoading,
     combinedAssets, combinedLiabilities, totalAssets, totalLiabilities,
+    addCategory, updateCategory, removeCategory,
+    addAssetItem, updateAssetItem, removeAssetItem,
+    addLiability, updateLiability, removeLiability,
+    saveSnapshot, removeSnapshot,
+    replaceAssets, replaceLiabilities, replaceSnapshots,
     netWorth, momDelta,
     totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
     totalCollateralValueTWD,
@@ -304,12 +323,16 @@ function AppContextBridge({
     clearAllData, takeSnapshot,
   }), [
     settingsSlice, stockSlice, loanSlice, cashflowSlice,
-    assets, liabilities, snapshots, combinedAssets, combinedLiabilities,
+    assets, liabilities, snapshots, assetsLoading, combinedAssets, combinedLiabilities,
     totalAssets, totalLiabilities, netWorth, momDelta,
     totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
     totalCollateralValueTWD, goals,
-    setAssets, setLiabilities, setSnapshots, setGoals,
-    clearAllData, takeSnapshot,
+    addCategory, updateCategory, removeCategory,
+    addAssetItem, updateAssetItem, removeAssetItem,
+    addLiability, updateLiability, removeLiability,
+    saveSnapshot, removeSnapshot,
+    replaceAssets, replaceLiabilities, replaceSnapshots,
+    setGoals, clearAllData, takeSnapshot,
   ]);
 
   return (

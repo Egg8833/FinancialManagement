@@ -50,8 +50,9 @@ export function DataManager() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
-        if (data.assets)           ctx.setAssets(data.assets);
-        if (data.liabilities)      ctx.setLiabilities(data.liabilities);
+        if (data.assets)      void ctx.replaceAssets(data.assets);
+        if (data.liabilities) void ctx.replaceLiabilities(data.liabilities);
+        if (data.snapshots)   void ctx.replaceSnapshots(data.snapshots);
         if (data.stakingItems)     ctx.setStakingItems(data.stakingItems);
         if (data.loans)            ctx.setLoans(data.loans);
         if (data.stockItems)       ctx.setStockItems(data.stockItems);
@@ -62,7 +63,6 @@ export function DataManager() {
           ctx.setCashflowTemplate({ income: data.incomeItems, expense: data.expenseItems });
         }
         if (data.annualEntries)    ctx.setAnnualEntries(data.annualEntries);
-        if (data.snapshots)        ctx.setSnapshots(data.snapshots);
         if (data.borrowingLimits != null) ctx.setBorrowingLimits(data.borrowingLimits);
         if (data.customCategories) ctx.setCustomCategories(data.customCategories);
         toast('資料匯入成功');

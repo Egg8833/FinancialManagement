@@ -20,7 +20,7 @@ const AssetAllocationChart = dynamic(
   { loading: () => <ChartSkeleton height="h-48" />, ssr: false }
 );
 import { useAppContext } from '../context/AppContext';
-import { formatCurrency as _fmt, nowTs } from '../lib/utils';
+import { formatCurrency as _fmt } from '../lib/utils';
 import { CashflowSummaryBar } from '../components/dashboard/CashflowSummaryBar';
 import { SnapshotTable } from '../components/dashboard/SnapshotTable';
 import Link from 'next/link';
@@ -33,9 +33,7 @@ export default function DashboardPage() {
   const {
     showValues,
     assets,
-    setAssets,
     combinedAssets,
-    setLiabilities,
     combinedLiabilities,
     totalMonthlyIncome,
     totalMonthlyExpense,
@@ -47,10 +45,19 @@ export default function DashboardPage() {
     netWorthGoal,
     setNetWorthGoal,
     snapshots,
-    setSnapshots,
     takeSnapshot,
     clearAllData,
     stakingItems,
+    addCategory,
+    updateCategory,
+    removeCategory,
+    addAssetItem,
+    updateAssetItem,
+    removeAssetItem,
+    addLiability,
+    updateLiability,
+    removeLiability,
+    removeSnapshot,
   } = useAppContext();
 
   const isDemoData = useMemo(
@@ -99,82 +106,24 @@ export default function DashboardPage() {
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) return;
     const color = colorOptions[assets.length % colorOptions.length];
-    setAssets(prev => [...prev, {
-      id: `cat-${Date.now()}`,
+    addCategory({
       title: newCategoryName.trim(),
       description: newCategoryDesc.trim() || '自訂資產類別',
-      colorClass: color.colorClass,
-      bgClass: color.bgClass,
-      updatedAt: nowTs(),
-      items: [],
-    }]);
-    setNewCategoryName('');
-    setNewCategoryDesc('');
-    setIsAddingCategory(false);
+      colorClass: color.colorClass, bgClass: color.bgClass,
+    });
+    setNewCategoryName(''); setNewCategoryDesc(''); setIsAddingCategory(false);
   };
-
-  const handleUpdateAsset = (categoryId: string, itemId: string, newName: string, newAmount: number) => {
-    setAssets(prev => prev.map(cat => {
-      if (cat.id !== categoryId) return cat;
-      return {
-        ...cat,
-        items: cat.items.map(item => item.id === itemId ? { ...item, name: newName, amount: newAmount } : item),
-        updatedAt: nowTs()
-      };
-    }));
-  };
-
-  const handleDeleteAsset = (categoryId: string, itemId: string) => {
-    setAssets(prev => prev.map(cat => {
-      if (cat.id !== categoryId) return cat;
-      return {
-        ...cat,
-        items: cat.items.filter(item => item.id !== itemId),
-        updatedAt: nowTs()
-      };
-    }));
-  };
-
-  const handleUpdateCategory = (id: string, title: string, description: string, colorClass: string, bgClass: string) => {
-    setAssets(prev => prev.map(cat => cat.id === id ? { ...cat, title, description, colorClass, bgClass, updatedAt: nowTs() } : cat));
-  };
-
-  const handleDeleteCategory = (id: string) => {
-    setAssets(prev => prev.filter(cat => cat.id !== id));
-  };
-
-  const handleAddAsset = (categoryId: string, name: string, amount: number) => {
-    if (!name.trim()) return;
-    setAssets(prev => prev.map(cat => {
-      if (cat.id !== categoryId) return cat;
-      return {
-        ...cat,
-        items: [...cat.items, { id: Date.now().toString(), name, amount }],
-        updatedAt: nowTs()
-      };
-    }));
-  };
-
-  // --- CRUD Operations for Liabilities ---
-  const handleUpdateLiability = (itemId: string, newName: string, newAmount: number) => {
-    setLiabilities(prev => prev.map(item => item.id === itemId ? { ...item, name: newName, amount: newAmount, updatedAt: nowTs() } : item));
-  };
-
-  const handleDeleteLiability = (itemId: string) => {
-    setLiabilities(prev => prev.filter(item => item.id !== itemId));
-  };
-
-  const handleAddLiability = (name: string, amount: number) => {
-    if (!name.trim()) return;
-    setLiabilities(prev => [...prev, {
-      id: Date.now().toString(),
-      name,
-      description: '自訂負債',
-      amount,
-      updatedAt: nowTs(),
-      icon: 'creditCard'
-    }]);
-  };
+  const handleUpdateAsset = (categoryId: string, itemId: string, newName: string, newAmount: number) =>
+    updateAssetItem(categoryId, itemId, { name: newName, amount: newAmount });
+  const handleDeleteAsset = removeAssetItem;
+  const handleUpdateCategory = (id: string, title: string, description: string, colorClass: string, bgClass: string) =>
+    updateCategory(id, { title, description, colorClass, bgClass });
+  const handleDeleteCategory = removeCategory;
+  const handleAddAsset = addAssetItem;
+  const handleUpdateLiability = (itemId: string, newName: string, newAmount: number) =>
+    updateLiability(itemId, { name: newName, amount: newAmount });
+  const handleDeleteLiability = removeLiability;
+  const handleAddLiability = (name: string, amount: number) => addLiability({ name, amount });
 
   return (
     <div className="pb-4">
@@ -369,7 +318,7 @@ export default function DashboardPage() {
         snapshots={snapshots}
         showValues={showValues}
         takeSnapshot={takeSnapshot}
-        onDelete={id => setSnapshots(prev => prev.filter(s => s.id !== id))}
+        onDelete={removeSnapshot}
       />
     </div>
   );
