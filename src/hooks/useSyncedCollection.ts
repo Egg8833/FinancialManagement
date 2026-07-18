@@ -23,6 +23,7 @@ export async function applyOptimistic<T>(args: {
 export function useSyncedCollection<T extends { id: string }>(
   repo: EntityRepository<T>,
   onError: (e: unknown, reload: () => void) => void,
+  onLoadError?: (e: unknown) => void,
 ) {
   const [items, setItems] = useState<T[]>(() => repo.getAllSync?.() ?? []);
   const [loading, setLoading] = useState(() => !repo.getAllSync);
@@ -48,7 +49,7 @@ export function useSyncedCollection<T extends { id: string }>(
     setLoading(true);
     repo.getAll()
       .then(data => { if (alive) { setItems(data); setLoading(false); } })
-      .catch(e => { if (alive) { setLoading(false); onError(e, () => {}); } });
+      .catch(e => { if (alive) { setLoading(false); onLoadError?.(e); } });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [repo]);

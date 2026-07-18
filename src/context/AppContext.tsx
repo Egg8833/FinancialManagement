@@ -14,6 +14,7 @@ import { useSettingsContext, SettingsProvider } from './SettingsContext';
 import { useLoanContext, LoanProvider } from './LoanContext';
 import { useCashFlowContext, CashFlowProvider } from './CashFlowContext';
 import { useAssetContext, AssetProvider } from './AssetContext';
+import { useRepositories } from './RepositoryContext';
 import { buildSnapshot } from '../lib/snapshotUtils';
 
 const STORAGE_SCHEMA_VERSION = 1;
@@ -158,6 +159,7 @@ function AppContextBridge({
     replaceAssets, replaceLiabilities, replaceSnapshots,
     clearAssetData,
   } = useAssetContext();
+  const { sessionStatus } = useRepositories();
 
   const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
 
@@ -219,6 +221,7 @@ function AppContextBridge({
 
   // Auto daily snapshot
   useEffect(() => {
+    if (sessionStatus === 'loading') return;
     if (assetsLoading) return;
     if (stockItems.length > 0 && !lastUpdated) return;
     const today = new Date().toISOString().split('T')[0];
@@ -230,7 +233,7 @@ function AppContextBridge({
       totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots,
     });
     saveSnapshot(snap);
-  }, [lastUpdated, totalAssets, totalLiabilities, netWorth, assetsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lastUpdated, totalAssets, totalLiabilities, netWorth, assetsLoading, sessionStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // clearAllData
   const clearAllData = useCallback(() => {

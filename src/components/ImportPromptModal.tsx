@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { CloudUpload } from 'lucide-react';
-import { useRepositories, LOCAL_KEYS, initialAssets } from '../context/RepositoryContext';
+import { useRepositories, LOCAL_KEYS, initialAssets, initialLiabilities } from '../context/RepositoryContext';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import type { AssetCategory, LiabilityItem, AssetSnapshot } from '../types';
@@ -14,13 +14,37 @@ function readLocal<T>(key: string): T[] {
   } catch { return []; }
 }
 
+interface MeaningfulLocalData {
+  assets: AssetCategory[];
+  liabilities: LiabilityItem[];
+  snapshots: AssetSnapshot[];
+  hasAny: boolean;
+}
+
+/** 讀取本地資料,並排除「示範預設」的資產/負債;快照僅在資產或負債有實際資料時才視為有意義 */
+function readMeaningfulLocalData(): MeaningfulLocalData {
+  const rawAssets = readLocal<AssetCategory>(LOCAL_KEYS.assets);
+  const rawLiabilities = readLocal<LiabilityItem>(LOCAL_KEYS.liabilities);
+  const rawSnapshots = readLocal<AssetSnapshot>(LOCAL_KEYS.snapshots);
+
+  const isDefaultAssets = JSON.stringify(rawAssets) === JSON.stringify(initialAssets);
+  const isDefaultLiabilities = JSON.stringify(rawLiabilities) === JSON.stringify(initialLiabilities);
+
+  const meaningfulAssets = (!isDefaultAssets && rawAssets.length > 0) ? rawAssets : [];
+  const meaningfulLiabilities = (!isDefaultLiabilities && rawLiabilities.length > 0) ? rawLiabilities : [];
+  const hasAny = meaningfulAssets.length > 0 || meaningfulLiabilities.length > 0;
+
+  return {
+    assets: meaningfulAssets,
+    liabilities: meaningfulLiabilities,
+    snapshots: hasAny ? rawSnapshots : [],
+    hasAny,
+  };
+}
+
 /** 本地是否有「非示範預設」的實際資料 */
 function hasMeaningfulLocalData(): boolean {
-  const assets = readLocal<AssetCategory>(LOCAL_KEYS.assets);
-  const liabilities = readLocal<LiabilityItem>(LOCAL_KEYS.liabilities);
-  const snapshots = readLocal<AssetSnapshot>(LOCAL_KEYS.snapshots);
-  const isDefaultAssets = JSON.stringify(assets) === JSON.stringify(initialAssets);
-  return (!isDefaultAssets && assets.length > 0) || liabilities.length > 0 || snapshots.length > 0;
+  return readMeaningfulLocalData().hasAny;
 }
 
 export function ImportPromptModal() {
@@ -54,9 +78,10 @@ export function ImportPromptModal() {
   const handleImport = async () => {
     setImporting(true);
     try {
-      await replaceAssets(readLocal<AssetCategory>(LOCAL_KEYS.assets));
-      await replaceLiabilities(readLocal<LiabilityItem>(LOCAL_KEYS.liabilities));
-      await replaceSnapshots(readLocal<AssetSnapshot>(LOCAL_KEYS.snapshots));
+      const data = readMeaningfulLocalData();
+      await replaceAssets(data.assets);
+      await replaceLiabilities(data.liabilities);
+      await replaceSnapshots(data.snapshots);
       toast('本地資料已匯入帳號');
       setShow(false);
     } catch {

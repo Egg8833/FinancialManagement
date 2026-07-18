@@ -67,9 +67,13 @@ export function AssetProvider({
     }
   }, [toast]);
 
-  const assetsCol = useSyncedCollection<AssetCategory>(repos.assets, onError);
-  const liabCol = useSyncedCollection<LiabilityItem>(repos.liabilities, onError);
-  const snapCol = useSyncedCollection<AssetSnapshot>(repos.snapshots, onError);
+  const onLoadError = useCallback((_e: unknown) => {
+    toast('載入雲端資料失敗，請重新整理頁面', 'error');
+  }, [toast]);
+
+  const assetsCol = useSyncedCollection<AssetCategory>(repos.assets, onError, onLoadError);
+  const liabCol = useSyncedCollection<LiabilityItem>(repos.liabilities, onError, onLoadError);
+  const snapCol = useSyncedCollection<AssetSnapshot>(repos.snapshots, onError, onLoadError);
 
   const assets = assetsCol.items;
   const liabilities = liabCol.items;
