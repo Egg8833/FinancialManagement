@@ -23,6 +23,9 @@ export default defineConfig([
       '@typescript-eslint/no-explicit-any': 'warn',
       'no-irregular-whitespace': 'warn',
       'react-refresh/only-export-components': 'warn',
+      // Allow intentionally-unused args/vars prefixed with _ (e.g. handler
+      // signatures required by a shared type but unused in one implementation)
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       // React Compiler rules produce false positives on valid patterns
       'react-hooks/react-compiler': 'off',
       'react-hooks/refs': 'off',

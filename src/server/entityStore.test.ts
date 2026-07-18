@@ -9,7 +9,6 @@ import { createTestDb, createTestUser } from '../db/testDb';
 import type { Db } from '../db/client';
 import { assets } from '../db/schema';
 import { createEntityStore } from './entityStore';
-import { ApiError } from './apiHelpers';
 
 const store = createEntityStore(assets);
 let db: Db;
