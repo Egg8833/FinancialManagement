@@ -22,5 +22,6 @@ export function createLocalRepository<T extends { id: string }>(
     async update(entity) { write(read().map(i => (i.id === entity.id ? entity : i))); },
     async remove(id) { write(read().filter(i => i.id !== id)); },
     async replaceAll(entities) { write(entities); },
+    getAllSync() { return read(); },
   };
 }

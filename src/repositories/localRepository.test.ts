@@ -21,3 +21,16 @@ describe('localRepository 預設值', () => {
     expect(await repo.getAll()).toEqual([{ id: 'd', name: '預設' }]);
   });
 });
+
+describe('localRepository getAllSync', () => {
+  it('localStorage 有資料時同步回傳該資料', async () => {
+    const repo = createLocalRepository<{ id: string; name: string }>('sync-key', []);
+    await repo.create({ id: 'a', name: 'A' });
+    expect(repo.getAllSync?.()).toEqual([{ id: 'a', name: 'A' }]);
+  });
+
+  it('localStorage 無資料時同步回傳 defaultValue', () => {
+    const repo = createLocalRepository('sync-empty-key', [{ id: 'd', name: '預設' }]);
+    expect(repo.getAllSync?.()).toEqual([{ id: 'd', name: '預設' }]);
+  });
+});

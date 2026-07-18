@@ -151,10 +151,18 @@ export function AssetProvider({
   const replaceSnapshots = snapCol.replace;
 
   const clearAssetData = useCallback(() => {
-    void assetsCol.replace([]);
-    void liabCol.replace([]);
-    void snapCol.replace([]);
-  }, [assetsCol, liabCol, snapCol]);
+    void (async () => {
+      try {
+        await Promise.all([
+          assetsCol.replace([]),
+          liabCol.replace([]),
+          snapCol.replace([]),
+        ]);
+      } catch {
+        toast('清除失敗，請稍後再試', 'error');
+      }
+    })();
+  }, [assetsCol, liabCol, snapCol, toast]);
 
   // ── 衍生值(原樣保留自現版 AssetContext.tsx:83-131)────────────
   const combinedAssets = useMemo(() => {

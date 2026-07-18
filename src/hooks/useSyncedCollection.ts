@@ -24,16 +24,26 @@ export function useSyncedCollection<T extends { id: string }>(
   repo: EntityRepository<T>,
   onError: (e: unknown, reload: () => void) => void,
 ) {
-  const [items, setItems] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<T[]>(() => repo.getAllSync?.() ?? []);
+  const [loading, setLoading] = useState(() => !repo.getAllSync);
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
   const reload = useCallback(() => {
+    if (repo.getAllSync) {
+      setItems(repo.getAllSync());
+      return;
+    }
     repo.getAll().then(setItems).catch(() => {});
   }, [repo]);
 
   useEffect(() => {
+    if (repo.getAllSync) {
+      // local repo:資料已同步可得,無需 loading 狀態(訪客模式行為與改版前完全相同)
+      setItems(repo.getAllSync());
+      setLoading(false);
+      return;
+    }
     let alive = true;
     setLoading(true);
     repo.getAll()

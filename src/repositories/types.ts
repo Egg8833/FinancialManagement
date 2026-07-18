@@ -8,4 +8,6 @@ export interface EntityRepository<T extends { id: string }> {
   update(entity: T): Promise<void>;
   remove(id: string): Promise<void>;
   replaceAll(entities: T[]): Promise<void>;
+  /** 同步快照,僅 local 實作提供;用於避免訪客模式初載出現 loading 閃爍。 */
+  getAllSync?(): T[];
 }
