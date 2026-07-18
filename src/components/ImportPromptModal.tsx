@@ -45,6 +45,10 @@ export function ImportPromptModal() {
     })();
   }, [mode, checkedFor]);
 
+  useEffect(() => {
+    if (mode === 'guest') setCheckedFor('guest');
+  }, [mode]);
+
   if (!show) return null;
 
   const handleImport = async () => {
