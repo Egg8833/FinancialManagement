@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { SessionProvider } from 'next-auth/react';
 import { Navbar } from './Navbar';
 import { DataManager } from './DataManager';
 import { EmailReportSender } from './EmailReportSender';
@@ -127,12 +128,14 @@ function ClientLayoutContent({ children }: { children: ReactNode }) {
 
 export function ClientLayout({ children }: { children: ReactNode }) {
   return (
-    <StockProvider>
-      <AppProvider>
-        <ToastProvider>
-          <ClientLayoutContent>{children}</ClientLayoutContent>
-        </ToastProvider>
-      </AppProvider>
-    </StockProvider>
+    <SessionProvider>
+      <StockProvider>
+        <AppProvider>
+          <ToastProvider>
+            <ClientLayoutContent>{children}</ClientLayoutContent>
+          </ToastProvider>
+        </AppProvider>
+      </StockProvider>
+    </SessionProvider>
   );
 }
