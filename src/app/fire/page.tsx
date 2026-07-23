@@ -1,43 +1,16 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ReferenceLine, ResponsiveContainer, Legend,
-} from 'recharts';
 import { useAppContext } from '../../context/AppContext';
-import { calculateFire, runMonteCarlo, type FireResult, type FireScenario } from '../../lib/fireCalc';
-import { AreaChart, Area } from 'recharts';
+import { calculateFire, runMonteCarlo, type FireResult } from '../../lib/fireCalc';
 import { CompareView } from './CompareView';
 import { SliderInput, NumberInput, formatTWD } from './shared';
-
-const SCENARIO_COLORS = {
-  conservative: '#94a3b8',
-  neutral: '#6366f1',
-  optimistic: '#10b981',
-} as const;
-
-const SCENARIO_LABELS = {
-  conservative: '保守',
-  neutral: '中性',
-  optimistic: '樂觀',
-} as const;
-
-function ResultBadge({ label, year, age, color }: { label: string; year: number | null; age: number | null; color: string }) {
-  return (
-    <div className="text-center">
-      <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color }}>{label}</p>
-      {year ? (
-        <>
-          <p className="text-2xl font-black text-gray-900">{year}</p>
-          <p className="text-sm text-gray-500">{age} 歲</p>
-        </>
-      ) : (
-        <p className="text-lg font-bold text-gray-400">60年內無法達成</p>
-      )}
-    </div>
-  );
-}
+import { FireProgressCard } from './FireProgressCard';
+import { FireMilestones } from './FireMilestones';
+import { CoastFireCard } from './CoastFireCard';
+import { FireProjectionChart } from './FireProjectionChart';
+import { SwrSensitivityCard } from './SwrSensitivityCard';
+import { MonteCarloSection } from './MonteCarloSection';
 
 export default function FirePage() {
   const {
@@ -173,102 +146,26 @@ export default function FirePage() {
 
       {activeTab === 'compare' ? <CompareView /> : <>
 
-      {/* FIRE 進度條 */}
-      <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-bold text-gray-700">FIRE 達成進度</p>
-          <p className="text-sm font-bold text-indigo-600">{fireProgress.toFixed(1)}%</p>
-        </div>
-        <div className="h-3 bg-gray-100 rounded-full overflow-hidden mb-2">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500 transition-all duration-700"
-            style={{ width: `${fireProgress}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-xs text-gray-400">
-          <span>目前淨資產：{formatAmount(currentNetWorth)}</span>
-          <span>還差 {formatAmount(fireGap)}</span>
-          <span>FIRE 目標：{formatAmount(result.fireNumber)}</span>
-        </div>
-      </div>
+      <FireProgressCard
+        fireProgress={fireProgress}
+        currentNetWorth={currentNetWorth}
+        fireGap={fireGap}
+        fireNumber={result.fireNumber}
+        formatAmount={formatAmount}
+      />
 
-      {/* 財務自由里程碑 (Milestones) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {[
-          { pct: 0.1, label: '安全墊達成', color: 'indigo' },
-          { pct: 0.25, label: '咖啡自由', color: 'emerald' },
-          { pct: 0.5, label: '半退休目標', color: 'sky' },
-          { pct: 1.0, label: '完全財務自由', color: 'amber' },
-        ].map(m => {
-          const reached = currentNetWorth >= result.fireNumber * m.pct;
-          return (
-            <div key={m.pct} className={`bg-white border rounded-xl p-3 text-center transition-all ${reached ? `border-${m.color}-500 bg-${m.color}-50` : 'border-gray-100 opacity-60'}`}>
-              <p className={`text-[10px] font-bold uppercase mb-1 ${reached ? `text-${m.color}-600` : 'text-gray-400'}`}>
-                {m.label} ({m.pct * 100}%)
-              </p>
-              <p className="text-sm font-black text-gray-900">{formatAmount(result.fireNumber * m.pct)}</p>
-              {reached && <span className="text-[10px] font-bold text-emerald-600 block mt-1">✓ 已達成</span>}
-            </div>
-          );
-        })}
-      </div>
+      <FireMilestones currentNetWorth={currentNetWorth} fireNumber={result.fireNumber} formatAmount={formatAmount} />
 
-      {/* Coast FIRE 卡片 */}
-      <div className={`rounded-2xl p-5 shadow-sm mb-6 ${
-        coastAchieved
-          ? 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white'
-          : 'bg-white border border-gray-100'
-      }`}>
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <div>
-            <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${coastAchieved ? 'text-white/70' : 'text-gray-400'}`}>
-              Coast FIRE 數字
-            </p>
-            <p className={`text-2xl font-black ${coastAchieved ? 'text-white' : 'text-gray-900'}`}>
-              {formatAmount(coastFireNumber)}
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {coastAchieved && (
-              <span className="px-3 py-1.5 bg-white/20 rounded-full text-xs font-bold text-white">
-                ✓ 已達成 Coast FIRE
-              </span>
-            )}
-            <div className={`text-right ${coastAchieved ? 'text-white/70' : 'text-gray-400'}`}>
-              <p className="text-[10px] font-bold uppercase tracking-wider">vs FIRE 目標</p>
-              <p className={`text-sm font-bold ${coastAchieved ? 'text-white' : 'text-indigo-600'}`}>
-                {formatAmount(result.fireNumber)}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {!coastAchieved && (
-          <>
-            <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden mb-2">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-teal-400 to-emerald-500 transition-all duration-700"
-                style={{ width: `${coastFireProgress}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-gray-400">
-              <span>目前 {formatTWD(currentNetWorth)}</span>
-              <span className="font-bold text-teal-600">{coastFireProgress.toFixed(1)}%</span>
-              <span>Coast 目標 {formatTWD(coastFireNumber)}</span>
-            </div>
-          </>
-        )}
-
-        {coastAchieved ? (
-          <p className="text-sm text-white/80 mt-2">
-            恭喜！你已達到 Coast FIRE。即使今天停止投入，以 {annualReturnRate}% 年化報酬自然成長，也能在 {targetRetirementAge} 歲達成財務自由目標。
-          </p>
-        ) : (
-          <p className="text-xs text-gray-400 mt-2">
-            只需存到此金額，之後無需再追加投入，靠複利自然成長即可在 {targetRetirementAge} 歲達成 FIRE 目標金額。
-          </p>
-        )}
-      </div>
+      <CoastFireCard
+        currentNetWorth={currentNetWorth}
+        coastFireNumber={coastFireNumber}
+        coastFireProgress={coastFireProgress}
+        coastAchieved={coastAchieved}
+        fireNumber={result.fireNumber}
+        annualReturnRate={annualReturnRate}
+        targetRetirementAge={targetRetirementAge}
+        formatAmount={formatAmount}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 左側輸入面板 */}
@@ -384,178 +281,30 @@ export default function FirePage() {
 
         {/* 右側圖表 */}
         <div className="lg:col-span-2 space-y-6">
-          {/* 三情境達成年份 */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-            <h2 className="font-bold text-gray-900 mb-4">預計達成財務自由</h2>
-            <div className="grid grid-cols-3 gap-4 divide-x divide-gray-100">
-              <ResultBadge label="保守" year={result.conservativeFireYear} age={result.conservativeFireAge} color={SCENARIO_COLORS.conservative} />
-              <ResultBadge label="中性" year={result.neutralFireYear} age={result.neutralFireAge} color={SCENARIO_COLORS.neutral} />
-              <ResultBadge label="樂觀" year={result.optimisticFireYear} age={result.optimisticFireAge} color={SCENARIO_COLORS.optimistic} />
-            </div>
-            {yearsToNeutralFire !== null && (
-              <p className="text-center text-sm text-gray-500 mt-4 pt-4 border-t border-gray-100">
-                以中性情境，距離財務自由還有 <strong className="text-indigo-600">{yearsToNeutralFire} 年</strong>
-                {extraMonthly > 0 && extraYearsSaved !== null && extraYearsSaved > 0 && (
-                  <span className="text-emerald-600">（每月多存 {extraMonthly.toLocaleString()} 可提早 {extraYearsSaved} 年）</span>
-                )}
-              </p>
-            )}
-          </div>
+          <FireProjectionChart
+            result={result}
+            yearsToNeutralFire={yearsToNeutralFire}
+            extraMonthly={extraMonthly}
+            extraYearsSaved={extraYearsSaved}
+          />
 
-          {/* 複利曲線圖 */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-            <h2 className="font-bold text-gray-900 mb-4">資產複利成長曲線</h2>
-            <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={result.projectionData} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="year" tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => String(v)} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => formatTWD(v as number)} width={60} />
-                <Tooltip
-                  formatter={(value: unknown) => [formatTWD(value as number)]}
-                  labelFormatter={label => `${label} 年`}
-                  contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 12 }}
-                />
-                <Legend formatter={name => SCENARIO_LABELS[name as FireScenario] ?? name} />
-                <ReferenceLine
-                  y={result.fireNumber}
-                  stroke="#ef4444"
-                  strokeDasharray="6 3"
-                  label={{ value: 'FIRE 目標', position: 'insideTopRight', fontSize: 11, fill: '#ef4444' }}
-                />
-                {[0.25, 0.5].map(pct => (
-                  <ReferenceLine
-                    key={pct}
-                    y={result.fireNumber * pct}
-                    stroke="#cbd5e1"
-                    strokeDasharray="3 3"
-                    label={{ value: `${pct*100}%`, position: 'insideLeft', fontSize: 9, fill: '#94a3b8' }}
-                  />
-                ))}
-                {(['conservative', 'neutral', 'optimistic'] as const).map(scenario => (
-                  <Line
-                    key={scenario}
-                    type="monotone"
-                    dataKey={scenario}
-                    stroke={SCENARIO_COLORS[scenario]}
-                    strokeWidth={scenario === 'neutral' ? 2.5 : 1.5}
-                    dot={false}
-                    activeDot={{ r: 4 }}
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-            <p className="text-xs text-gray-400 mt-3 text-center">
-              紅色虛線為 FIRE 目標金額，曲線與目標線交叉點即為預計達成年份
-            </p>
-          </div>
-
-          {/* SWR 比較卡 */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-            <h3 className="font-bold text-gray-900 mb-3 text-sm">SWR 敏感度分析</h3>
-            <div className="grid grid-cols-3 gap-3">
-              {[3.5, 4.0, 4.5].map(rate => {
-                const r = calculateFire({
-                  currentAge, targetRetirementAge, currentNetWorth,
-                  monthlyInvestment: monthlyInvestment + extraMonthly,
-                  retirementMonthlyExpense,
-                  annualReturnRate: annualReturnRate / 100,
-                  inflationRate: inflationRate / 100,
-                  safeWithdrawalRate: rate / 100,
-                });
-                const isSelected = Math.abs(swr - rate) < 0.05;
-                return (
-                  <button
-                    key={rate}
-                    onClick={() => setSwr(rate)}
-                    className={`rounded-xl p-3 text-center transition-all border ${isSelected ? 'border-indigo-500 bg-indigo-50' : 'border-gray-100 hover:border-indigo-200'}`}
-                  >
-                    <p className={`text-xs font-bold mb-1 ${isSelected ? 'text-indigo-600' : 'text-gray-500'}`}>{rate}% SWR</p>
-                    <p className="text-sm font-black text-gray-900">{formatAmount(r.fireNumber)}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {r.neutralFireYear ? `${r.neutralFireYear} 達成` : '60年內不達'}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <SwrSensitivityCard
+            currentAge={currentAge}
+            targetRetirementAge={targetRetirementAge}
+            currentNetWorth={currentNetWorth}
+            monthlyInvestment={monthlyInvestment}
+            extraMonthly={extraMonthly}
+            retirementMonthlyExpense={retirementMonthlyExpense}
+            annualReturnRate={annualReturnRate}
+            inflationRate={inflationRate}
+            swr={swr}
+            onSelectSwr={setSwr}
+            formatAmount={formatAmount}
+          />
         </div>
       </div>
 
-      {/* ── Monte Carlo 模擬 ── */}
-      <div className="mt-8 space-y-6">
-        <div className="flex items-center gap-3">
-          <h2 className="text-lg font-bold text-gray-900">Monte Carlo 模擬分析</h2>
-          <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">500 次模擬</span>
-        </div>
-
-        {/* 達成機率摘要 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: '10 年後達成機率', value: mcResult.successRateAt10 },
-            { label: '20 年後達成機率', value: mcResult.successRateAt20 },
-            { label: '30 年後達成機率', value: mcResult.successRateAt30 },
-            { label: '中位數達成年齡', value: null, age: mcResult.medianFireAge },
-          ].map(({ label, value, age }) => {
-            const pct = value ?? 0;
-            const color = pct >= 75 ? 'text-emerald-600' : pct >= 50 ? 'text-indigo-600' : pct >= 25 ? 'text-amber-600' : 'text-rose-600';
-            return (
-              <div key={label} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm text-center">
-                <p className="text-xs text-gray-400 mb-1">{label}</p>
-                {age !== undefined ? (
-                  <p className="text-2xl font-black text-gray-900">{age !== null ? `${age} 歲` : '—'}</p>
-                ) : (
-                  <p className={`text-2xl font-black ${color}`}>{pct.toFixed(0)}%</p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* 資產路徑扇形圖 */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-gray-900 mb-1">資產路徑信心區間</h3>
-          <p className="text-xs text-gray-400 mb-4">灰色區域為 10–90 百分位，深色為 25–75 百分位，線條為中位數（第50百分位）</p>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={mcResult.byYear} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-              <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => formatTWD(v as number)} width={65} />
-              <Tooltip
-                formatter={(v: unknown, name: string) => {
-                  const labels: Record<string, string> = { p90: '90%', p75: '75%', p50: '中位數', p25: '25%', p10: '10%' };
-                  return [formatTWD(v as number), labels[name] ?? name];
-                }}
-                labelFormatter={l => `${l} 年`}
-                contentStyle={{ borderRadius: 10, fontSize: 11, border: '1px solid #e2e8f0' }}
-              />
-              <ReferenceLine y={mcResult.fireNumber} stroke="#ef4444" strokeDasharray="6 3" label={{ value: 'FIRE', position: 'insideTopRight', fontSize: 10, fill: '#ef4444' }} />
-              <Area type="monotone" dataKey="p90" stroke="none" fill="#e0e7ff" fillOpacity={0.5} />
-              <Area type="monotone" dataKey="p75" stroke="none" fill="#c7d2fe" fillOpacity={0.6} />
-              <Area type="monotone" dataKey="p25" stroke="none" fill="#c7d2fe" fillOpacity={0} />
-              <Area type="monotone" dataKey="p10" stroke="none" fill="#e0e7ff" fillOpacity={0} />
-              <Line type="monotone" dataKey="p50" stroke="#6366f1" strokeWidth={2.5} dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* 達成機率折線 */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-gray-900 mb-1">達成 FIRE 機率曲線</h3>
-          <p className="text-xs text-gray-400 mb-4">在各年份前達成 FIRE 的模擬次數比例（500 次模擬）</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={mcResult.byYear} margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => `${v}%`} width={40} />
-              <Tooltip formatter={(v: unknown) => [`${(v as number).toFixed(1)}%`, '達成機率']} labelFormatter={l => `${l} 年`} contentStyle={{ borderRadius: 10, fontSize: 11 }} />
-              <ReferenceLine y={50} stroke="#6366f1" strokeDasharray="4 2" label={{ value: '50%', position: 'insideTopRight', fontSize: 9, fill: '#6366f1' }} />
-              <ReferenceLine y={80} stroke="#10b981" strokeDasharray="4 2" label={{ value: '80%', position: 'insideTopRight', fontSize: 9, fill: '#10b981' }} />
-              <Area type="monotone" dataKey="successRate" stroke="#6366f1" strokeWidth={2} fill="#e0e7ff" fillOpacity={0.6} dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <MonteCarloSection mcResult={mcResult} />
       </>}
     </>
   );
