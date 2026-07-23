@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { LayoutDashboard, Eye, EyeOff, Coins, Activity, Wallet, Menu, X, Trash2, Settings, Heart, Flame } from 'lucide-react';
+import { useSession, signIn, signOut } from 'next-auth/react';
+import { LayoutDashboard, Eye, EyeOff, Coins, Activity, Wallet, Menu, X, Trash2, Settings, Heart, Flame, Cloud, LogIn, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppContext } from '../context/AppContext';
 import { ConfirmDialog } from './ConfirmDialog';
-import { AuthButton } from './AuthButton';
 
 interface NavbarProps {
   showValues: boolean;
@@ -29,6 +29,8 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const assetMenuRef = useRef<HTMLDivElement>(null);
   const { clearAllData, userName } = useAppContext();
+  const { data: session, status: sessionStatus } = useSession();
+  const isGoogleLinked = sessionStatus === 'authenticated' && !!session;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -120,8 +122,6 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                 <span className="hidden lg:inline">{showValues ? '隱藏金額' : '顯示金額'}</span>
               </button>
 
-              <AuthButton />
-
               {/* 設定齒輪 — 平板以上顯示 */}
               <Link
                 href="/settings"
@@ -135,16 +135,36 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
               <div className="hidden md:block relative pl-3 border-l border-gray-200" ref={assetMenuRef}>
                 <button
                   onClick={() => setAssetMenuOpen(o => !o)}
+                  aria-haspopup="menu"
+                  aria-expanded={assetMenuOpen}
+                  aria-label="使用者選單"
                   className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-100 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
-                    {userName ? userName.charAt(0).toUpperCase() : 'U'}
-                  </div>
+                  {isGoogleLinked && session.user?.image ? (
+                    <img
+                      src={session.user.image}
+                      alt="頭像"
+                      referrerPolicy="no-referrer"
+                      className="w-8 h-8 rounded-full shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
+                      {userName ? userName.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  )}
                   {/* 名字只在桌機顯示 */}
                   <span className="hidden xl:inline text-sm font-medium whitespace-nowrap">{userName || '我的資產庫'}</span>
                 </button>
                 {assetMenuOpen && (
-                  <div className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+                  <div role="menu" className="absolute right-0 mt-1 w-52 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+                    {isGoogleLinked && (
+                      <div className="px-4 py-2.5 border-b border-gray-100">
+                        <div className="flex items-center gap-1 text-xs text-emerald-600">
+                          <Cloud className="w-3 h-3" />雲端同步中
+                        </div>
+                        <div className="text-sm text-gray-600 truncate mt-0.5">{session.user?.email}</div>
+                      </div>
+                    )}
                     <Link
                       href="/settings"
                       onClick={() => setAssetMenuOpen(false)}
@@ -161,6 +181,24 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                       <Trash2 className="w-4 h-4" />
                       一鍵清除資料
                     </button>
+                    <div className="border-t border-gray-100 my-1"></div>
+                    {isGoogleLinked ? (
+                      <button
+                        onClick={() => { setAssetMenuOpen(false); signOut(); }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        登出
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => { setAssetMenuOpen(false); signIn('google'); }}
+                        className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        登入 Google 帳號
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -221,6 +259,14 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
 
         {/* 底部 */}
         <div className="px-5 py-4 border-t border-gray-100 space-y-1">
+          {isGoogleLinked && (
+            <div className="px-4 py-2 mb-1">
+              <div className="flex items-center gap-1 text-xs text-emerald-600">
+                <Cloud className="w-3 h-3" />雲端同步中
+              </div>
+              <div className="text-sm text-gray-600 truncate mt-0.5">{session.user?.email}</div>
+            </div>
+          )}
           <Link
             href="/settings"
             onClick={() => setMobileOpen(false)}
@@ -243,6 +289,23 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
             <Trash2 className="w-5 h-5" />
             一鍵清除資料
           </button>
+          {isGoogleLinked ? (
+            <button
+              onClick={() => { setMobileOpen(false); signOut(); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              登出
+            </button>
+          ) : (
+            <button
+              onClick={() => { setMobileOpen(false); signIn('google'); }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+            >
+              <LogIn className="w-5 h-5" />
+              登入 Google 帳號
+            </button>
+          )}
         </div>
       </div>
 

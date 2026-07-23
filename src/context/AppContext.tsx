@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useMemo, useCallback, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useStickyState } from '../hooks/useStickyState';
 import type {
   AssetCategory, AssetItem, LiabilityItem, LifeEvent, FireSettings,
@@ -218,6 +219,16 @@ function AppContextBridge({
     saveSnapshot(snap);
   }, [assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
       totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots, saveSnapshot]);
+
+  // 登入 Google 後，姓名/Email 全站一律以 Google 帳號為準（不依賴使用者是否造訪過設定頁）
+  const { data: session } = useSession();
+  useEffect(() => {
+    if (sessionStatus !== 'authenticated' || !session) return;
+    const googleName = session.user?.name ?? '';
+    const googleEmail = session.user?.email ?? '';
+    if (googleName && googleName !== settingsCtx.userName) settingsCtx.setUserName(googleName);
+    if (googleEmail && googleEmail !== settingsCtx.userEmail) settingsCtx.setUserEmail(googleEmail);
+  }, [sessionStatus, session, settingsCtx.userName, settingsCtx.userEmail, settingsCtx.setUserName, settingsCtx.setUserEmail]);
 
   // Auto daily snapshot
   useEffect(() => {

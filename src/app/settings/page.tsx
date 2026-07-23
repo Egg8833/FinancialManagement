@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { User, Mail, Save, CheckCircle, DollarSign, Download, Upload, Database, Bell, ShieldCheck } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+import { User, Mail, Save, CheckCircle, DollarSign, Download, Upload, Database, Bell, ShieldCheck, Cloud } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { useToast } from '../../context/ToastContext';
 
@@ -28,6 +29,8 @@ export default function SettingsPage() {
     enablePledgeTracking, setEnablePledgeTracking,
   } = useAppContext();
   const { toast } = useToast();
+  const { data: session, status: sessionStatus } = useSession();
+  const isGoogleLinked = sessionStatus === 'authenticated' && !!session;
 
   const [localName, setLocalName] = useState(userName);
   const [localEmail, setLocalEmail] = useState(userEmail);
@@ -41,9 +44,19 @@ export default function SettingsPage() {
     return () => clearTimeout(timer);
   }, [saved]);
 
+  // 姓名/Email 的 Google 同步邏輯在 AppContext 全域處理（不依賴是否造訪過此頁）；
+  // 這裡只需讓本地顯示值跟著 context 走
+  useEffect(() => {
+    if (!isGoogleLinked) return;
+    setLocalName(userName);
+    setLocalEmail(userEmail);
+  }, [isGoogleLinked, userName, userEmail]);
+
   const handleSave = () => {
-    setUserName(localName.trim());
-    setUserEmail(localEmail.trim());
+    if (!isGoogleLinked) {
+      setUserName(localName.trim());
+      setUserEmail(localEmail.trim());
+    }
     const rate = parseFloat(localUsdRate);
     if (!isNaN(rate) && rate > 0) setUsdToTwd(rate);
     setSaved(true);
@@ -51,8 +64,7 @@ export default function SettingsPage() {
   };
 
   const hasChanges =
-    localName !== userName ||
-    localEmail !== userEmail ||
+    (!isGoogleLinked && (localName !== userName || localEmail !== userEmail)) ||
     parseFloat(localUsdRate) !== usdToTwd;
 
   const handleExport = () => {
@@ -129,7 +141,9 @@ export default function SettingsPage() {
     <>
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">個人資訊設定</h1>
-        <p className="text-sm text-gray-500 mt-1">管理您的個人資料，資料僅儲存在本地設備中</p>
+        <p className="text-sm text-gray-500 mt-1">
+          {isGoogleLinked ? '姓名與信箱已與您的 Google 帳號同步' : '管理您的個人資料，資料僅儲存在本地設備中'}
+        </p>
       </div>
 
       <div className="max-w-2xl space-y-8">
@@ -139,13 +153,27 @@ export default function SettingsPage() {
           {/* Card Header */}
           <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-5">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-xl font-bold border-2 border-white/30">
-                {localName ? localName.charAt(0).toUpperCase() : 'U'}
-              </div>
+              {isGoogleLinked && session.user?.image ? (
+                <img
+                  src={session.user.image}
+                  alt="Google 頭像"
+                  referrerPolicy="no-referrer"
+                  className="w-14 h-14 rounded-full border-2 border-white/30"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-xl font-bold border-2 border-white/30">
+                  {localName ? localName.charAt(0).toUpperCase() : 'U'}
+                </div>
+              )}
               <div className="text-white">
                 <h2 className="font-bold text-lg">{localName || '使用者'}</h2>
                 <p className="text-sm text-white/70">{localEmail || '尚未設定信箱'}</p>
               </div>
+              {isGoogleLinked && (
+                <span className="ml-auto flex items-center gap-1 text-xs text-white/90 bg-white/15 px-2.5 py-1 rounded-full">
+                  <Cloud className="w-3 h-3" />Google 帳號
+                </span>
+              )}
             </div>
           </div>
 
@@ -162,9 +190,12 @@ export default function SettingsPage() {
                 value={localName}
                 onChange={e => setLocalName(e.target.value)}
                 placeholder="請輸入您的名稱"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                disabled={isGoogleLinked}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white disabled:opacity-70 disabled:cursor-not-allowed"
               />
-              <p className="text-xs text-gray-400 mt-1.5">此名稱將顯示在導覽列與報表中</p>
+              <p className="text-xs text-gray-400 mt-1.5">
+                {isGoogleLinked ? '來自 Google 帳號，登出後可自行編輯' : '此名稱將顯示在導覽列與報表中'}
+              </p>
             </div>
 
             {/* Email Field */}
@@ -178,9 +209,12 @@ export default function SettingsPage() {
                 value={localEmail}
                 onChange={e => setLocalEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white"
+                disabled={isGoogleLinked}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all bg-gray-50 focus:bg-white disabled:opacity-70 disabled:cursor-not-allowed"
               />
-              <p className="text-xs text-gray-400 mt-1.5">寄送資產報表時將自動使用此信箱作為收件人</p>
+              <p className="text-xs text-gray-400 mt-1.5">
+                {isGoogleLinked ? '來自 Google 帳號，寄送報表時將作為收件人' : '寄送資產報表時將自動使用此信箱作為收件人'}
+              </p>
             </div>
 
             {/* USD/TWD Rate Field */}
