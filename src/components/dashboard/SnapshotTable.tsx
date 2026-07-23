@@ -9,11 +9,13 @@ export function SnapshotTable({
   showValues,
   takeSnapshot,
   onDelete,
+  loading = false,
 }: {
   snapshots: AssetSnapshot[];
   showValues: boolean;
   takeSnapshot: () => void;
   onDelete: (id: string) => void;
+  loading?: boolean;
 }) {
   const [toDelete, setToDelete] = useState<string | null>(null);
 
@@ -22,17 +24,20 @@ export function SnapshotTable({
       <details className="group">
         <summary className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-500 hover:text-gray-700 select-none list-none">
           <ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
-          快照紀錄（{snapshots.length} 筆）
+          快照紀錄（{loading ? '載入中…' : `${snapshots.length} 筆`}）
           <button
             onClick={e => { e.preventDefault(); takeSnapshot(); }}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors"
+            disabled={loading}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Camera className="w-4 h-4" />
             拍快照
           </button>
         </summary>
         <div className="mt-3 rounded-xl border border-gray-100 overflow-hidden">
-          {snapshots.length === 0 ? (
+          {loading ? (
+            <p className="p-4 text-sm text-gray-400 text-center">雲端資料載入中…</p>
+          ) : snapshots.length === 0 ? (
             <p className="p-4 text-sm text-gray-400 text-center">尚無快照，點擊「拍快照」開始紀錄</p>
           ) : (
             <table className="w-full text-sm">

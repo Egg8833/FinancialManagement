@@ -322,6 +322,7 @@ export default function DashboardPage() {
         showValues={showValues}
         takeSnapshot={takeSnapshot}
         onDelete={removeSnapshot}
+        loading={assetsLoading}
       />
     </div>
   );
