@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useMemo, useCallback, useEffect } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useStickyState } from '../hooks/useStickyState';
 import type {
@@ -220,14 +220,34 @@ function AppContextBridge({
   }, [assets, combinedAssets, totalAssets, totalLiabilities, netWorth,
       totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots, saveSnapshot]);
 
-  // 登入 Google 後，姓名/Email 全站一律以 Google 帳號為準（不依賴使用者是否造訪過設定頁）
+  // 登入 Google 後，姓名/Email 全站一律以 Google 帳號為準（不依賴使用者是否造訪過設定頁）；
+  // 登出後 Google 帶入的資料不留存——還原成登入前本機 localStorage 原有的值（沒有就清空）
   const { data: session } = useSession();
+  const prevSessionStatusRef = useRef(sessionStatus);
+  const preLoginNameRef = useRef<string | null>(null);
+  const preLoginEmailRef = useRef<string | null>(null);
   useEffect(() => {
-    if (sessionStatus !== 'authenticated' || !session) return;
-    const googleName = session.user?.name ?? '';
-    const googleEmail = session.user?.email ?? '';
-    if (googleName && googleName !== settingsCtx.userName) settingsCtx.setUserName(googleName);
-    if (googleEmail && googleEmail !== settingsCtx.userEmail) settingsCtx.setUserEmail(googleEmail);
+    const prevSessionStatus = prevSessionStatusRef.current;
+    prevSessionStatusRef.current = sessionStatus;
+
+    if (sessionStatus === 'authenticated' && session) {
+      // 只在「這次登入」第一次同步前記錄本機原有值，之後的重跑（因 userName 已被同步而觸發）不再覆蓋
+      if (preLoginNameRef.current === null) preLoginNameRef.current = settingsCtx.userName;
+      if (preLoginEmailRef.current === null) preLoginEmailRef.current = settingsCtx.userEmail;
+
+      const googleName = session.user?.name ?? '';
+      const googleEmail = session.user?.email ?? '';
+      if (googleName && googleName !== settingsCtx.userName) settingsCtx.setUserName(googleName);
+      if (googleEmail && googleEmail !== settingsCtx.userEmail) settingsCtx.setUserEmail(googleEmail);
+      return;
+    }
+
+    if (prevSessionStatus === 'authenticated' && sessionStatus === 'unauthenticated') {
+      settingsCtx.setUserName(preLoginNameRef.current ?? '');
+      settingsCtx.setUserEmail(preLoginEmailRef.current ?? '');
+      preLoginNameRef.current = null;
+      preLoginEmailRef.current = null;
+    }
   }, [sessionStatus, session, settingsCtx.userName, settingsCtx.userEmail, settingsCtx.setUserName, settingsCtx.setUserEmail]);
 
   // Auto daily snapshot
