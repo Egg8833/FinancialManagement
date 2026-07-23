@@ -253,7 +253,14 @@ function AppContextBridge({
     loanCtx.clearLoanData();
     clearStockData();
     setGoals([]);
-  }, [clearAssetData, cashflowCtx.clearCashFlowData, loanCtx.clearLoanData, clearStockData, setGoals]);
+    // 個人資訊設定（姓名／信箱／匯率）一併回到初始預設值；
+    // 若當下仍是 Google 登入狀態，這三個欄位會被全域同步 effect 立刻補回帳號資料，
+    // 屬預期行為（登入狀態下身分本就以 Google 帳號為準，需先登出才能真正清空）。
+    settingsCtx.setUserName('');
+    settingsCtx.setUserEmail('');
+    settingsCtx.setUsdToTwd(32);
+  }, [clearAssetData, cashflowCtx.clearCashFlowData, loanCtx.clearLoanData, clearStockData, setGoals,
+      settingsCtx.setUserName, settingsCtx.setUserEmail, settingsCtx.setUsdToTwd]);
 
   // Schema version migration（runs once on mount）
   useEffect(() => {
