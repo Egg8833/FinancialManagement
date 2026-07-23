@@ -4,7 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { User, Mail, Save, CheckCircle, DollarSign, Download, Upload, Database, Bell, ShieldCheck, Cloud } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
+import { useStockContext } from '../../context/StockContext';
 import { useToast } from '../../context/ToastContext';
+import { buildBackup, applyBackup } from '../../lib/backup';
 
 export default function SettingsPage() {
   const {
@@ -21,6 +23,7 @@ export default function SettingsPage() {
     loans, setLoans,
     snapshots,
     borrowingLimits, setBorrowingLimits,
+    customCategories, setCustomCategories,
     replaceAssets, replaceLiabilities, replaceSnapshots,
     netWorthGoal, setNetWorthGoal,
     setLastExportDate,
@@ -28,6 +31,7 @@ export default function SettingsPage() {
     lastReportSent,
     enablePledgeTracking, setEnablePledgeTracking,
   } = useAppContext();
+  const { soldStocks, setSoldStocks } = useStockContext();
   const { toast } = useToast();
   const { data: session, status: sessionStatus } = useSession();
   const isGoogleLinked = sessionStatus === 'authenticated' && !!session;
@@ -68,26 +72,24 @@ export default function SettingsPage() {
     parseFloat(localUsdRate) !== usdToTwd;
 
   const handleExport = () => {
-    const backup = {
-      version: 1,
-      exportedAt: new Date().toISOString(),
+    const backup = buildBackup({
       assets,
       liabilities,
+      snapshots,
       stakingItems,
+      loans,
       stockItems,
+      soldStocks,
       monthlyRecords,
       cashflowTemplate,
-      incomeItems: cashflowTemplate.income,
-      expenseItems: cashflowTemplate.expense,
       annualEntries,
-      loans,
-      snapshots,
       borrowingLimits,
+      customCategories,
       netWorthGoal,
       usdToTwd,
       userName,
       userEmail,
-    };
+    });
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -111,27 +113,17 @@ export default function SettingsPage() {
           return;
         }
         if (!confirm('匯入備份將覆蓋目前所有資料，是否繼續？')) return;
-        const cloudWrites: Promise<void>[] = [];
-        if (data.assets)      cloudWrites.push(replaceAssets(data.assets));
-        if (data.liabilities) cloudWrites.push(replaceLiabilities(data.liabilities));
-        if (data.snapshots)   cloudWrites.push(replaceSnapshots(data.snapshots));
-        if (data.stakingItems) setStakingItems(data.stakingItems);
-        if (data.stockItems) setStockItems(data.stockItems);
-        if (data.monthlyRecords)   setMonthlyRecords(data.monthlyRecords);
-        if (data.cashflowTemplate) setCashflowTemplate(data.cashflowTemplate);
-        if (!data.cashflowTemplate && data.incomeItems && data.expenseItems) {
-          setCashflowTemplate({ income: data.incomeItems, expense: data.expenseItems });
-        }
-        if (data.annualEntries) setAnnualEntries(data.annualEntries);
-        if (data.loans) setLoans(data.loans);
-        if (data.borrowingLimits) setBorrowingLimits(data.borrowingLimits);
-        if (typeof data.netWorthGoal === 'number') setNetWorthGoal(data.netWorthGoal);
-        if (typeof data.usdToTwd === 'number') { setUsdToTwd(data.usdToTwd); setLocalUsdRate(data.usdToTwd.toString()); }
-        if (!isGoogleLinked && data.userName) { setUserName(data.userName); setLocalName(data.userName); }
-        if (!isGoogleLinked && data.userEmail) { setUserEmail(data.userEmail); setLocalEmail(data.userEmail); }
 
-        const results = await Promise.allSettled(cloudWrites);
-        const hasCloudFailure = results.some(r => r.status === 'rejected');
+        const { hasCloudFailure } = await applyBackup(data, {
+          replaceAssets, replaceLiabilities, replaceSnapshots,
+          setStakingItems, setLoans, setStockItems, setSoldStocks,
+          setMonthlyRecords, setCashflowTemplate, setAnnualEntries,
+          setBorrowingLimits, setCustomCategories, setNetWorthGoal,
+          setUsdToTwd: (v) => { setUsdToTwd(v); setLocalUsdRate(v.toString()); },
+          setUserName: (v) => { setUserName(v); setLocalName(v); },
+          setUserEmail: (v) => { setUserEmail(v); setLocalEmail(v); },
+        }, { allowIdentityOverride: !isGoogleLinked });
+
         if (hasCloudFailure) {
           toast('備份已匯入，但雲端同步的部分失敗，請稍後再試', 'error');
         } else {

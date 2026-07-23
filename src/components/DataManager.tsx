@@ -1,36 +1,43 @@
 "use client";
 
 import { useRef, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { Download, Upload, AlertTriangle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
+import { useStockContext } from '../context/StockContext';
 import { useToast } from '../context/ToastContext';
 import { ImportModal } from './ImportModal';
+import { buildBackup, applyBackup } from '../lib/backup';
 
 export function DataManager() {
   const ctx = useAppContext();
+  const { soldStocks, setSoldStocks } = useStockContext();
+  const { status: sessionStatus } = useSession();
+  const isGoogleLinked = sessionStatus === 'authenticated';
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
   const handleExport = () => {
-    const data = {
-      version: 1,
-      exportedAt: new Date().toISOString(),
+    const data = buildBackup({
       assets: ctx.assets,
       liabilities: ctx.liabilities,
+      snapshots: ctx.snapshots,
       stakingItems: ctx.stakingItems,
       loans: ctx.loans,
       stockItems: ctx.stockItems,
+      soldStocks,
       monthlyRecords: ctx.monthlyRecords,
       cashflowTemplate: ctx.cashflowTemplate,
-      incomeItems: ctx.cashflowTemplate.income,
-      expenseItems: ctx.cashflowTemplate.expense,
       annualEntries: ctx.annualEntries,
-      snapshots: ctx.snapshots,
       borrowingLimits: ctx.borrowingLimits,
       customCategories: ctx.customCategories,
-    };
+      netWorthGoal: ctx.netWorthGoal,
+      usdToTwd: ctx.usdToTwd,
+      userName: ctx.userName,
+      userEmail: ctx.userEmail,
+    });
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -50,25 +57,25 @@ export function DataManager() {
     reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
-        const cloudWrites: Promise<void>[] = [];
-        if (data.assets)      cloudWrites.push(ctx.replaceAssets(data.assets));
-        if (data.liabilities) cloudWrites.push(ctx.replaceLiabilities(data.liabilities));
-        if (data.snapshots)   cloudWrites.push(ctx.replaceSnapshots(data.snapshots));
-        if (data.stakingItems)     ctx.setStakingItems(data.stakingItems);
-        if (data.loans)            ctx.setLoans(data.loans);
-        if (data.stockItems)       ctx.setStockItems(data.stockItems);
-        if (data.monthlyRecords)    ctx.setMonthlyRecords(data.monthlyRecords);
-        if (data.cashflowTemplate)  ctx.setCashflowTemplate(data.cashflowTemplate);
-        // Backward compat: old backups stored global templates as incomeItems/expenseItems
-        if (!data.cashflowTemplate && data.incomeItems && data.expenseItems) {
-          ctx.setCashflowTemplate({ income: data.incomeItems, expense: data.expenseItems });
-        }
-        if (data.annualEntries)    ctx.setAnnualEntries(data.annualEntries);
-        if (data.borrowingLimits != null) ctx.setBorrowingLimits(data.borrowingLimits);
-        if (data.customCategories) ctx.setCustomCategories(data.customCategories);
+        const { hasCloudFailure } = await applyBackup(data, {
+          replaceAssets: ctx.replaceAssets,
+          replaceLiabilities: ctx.replaceLiabilities,
+          replaceSnapshots: ctx.replaceSnapshots,
+          setStakingItems: ctx.setStakingItems,
+          setLoans: ctx.setLoans,
+          setStockItems: ctx.setStockItems,
+          setSoldStocks,
+          setMonthlyRecords: ctx.setMonthlyRecords,
+          setCashflowTemplate: ctx.setCashflowTemplate,
+          setAnnualEntries: ctx.setAnnualEntries,
+          setBorrowingLimits: ctx.setBorrowingLimits,
+          setCustomCategories: ctx.setCustomCategories,
+          setNetWorthGoal: ctx.setNetWorthGoal,
+          setUsdToTwd: ctx.setUsdToTwd,
+          setUserName: ctx.setUserName,
+          setUserEmail: ctx.setUserEmail,
+        }, { allowIdentityOverride: !isGoogleLinked });
 
-        const results = await Promise.allSettled(cloudWrites);
-        const hasCloudFailure = results.some(r => r.status === 'rejected');
         if (hasCloudFailure) {
           toast('資料已匯入，但雲端同步的部分失敗，請稍後再試', 'error');
         } else {
