@@ -2,6 +2,8 @@
 
 import { createContext, useContext, ReactNode, useState, useRef, useEffect } from 'react';
 import { useSyncedState } from '../hooks/useSyncedState';
+import { useRepositories } from './RepositoryContext';
+import { useAppStateContext } from './AppStateContext';
 import type { StockItem, StockQuote, DividendRecord, SoldStockItem } from '../types';
 
 interface StockContextType {
@@ -42,6 +44,11 @@ export function StockProvider({ children }: { children: ReactNode }) {
   const refreshRef = useRef<() => Promise<void>>(undefined);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 雲端資料載入完成前，stockItems 可能仍是示範持股；避免為示範代號打報價 API
+  const { mode } = useRepositories();
+  const appState = useAppStateContext();
+  const cloudStateLoading = mode === 'cloud' && !appState.ready;
+
   const refreshQuotes = async () => {
     const symbols = Array.from(new Set(stockItems.map(i => i.symbol)));
     if (!symbols.length) return;
@@ -64,7 +71,7 @@ export function StockProvider({ children }: { children: ReactNode }) {
   refreshRef.current = refreshQuotes;
 
   useEffect(() => {
-    if (stockItems.length === 0) return;
+    if (stockItems.length === 0 || cloudStateLoading) return;
 
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -93,13 +100,14 @@ export function StockProvider({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       stopPolling();
     };
-  }, [stockItems.length]);
+  }, [stockItems.length, cloudStateLoading]);
 
   useEffect(() => {
+    if (cloudStateLoading) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => refreshRef.current?.(), 150);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [stockItems]);
+  }, [stockItems, cloudStateLoading]);
 
   const clearStockData = () => {
     setStockItems([]);

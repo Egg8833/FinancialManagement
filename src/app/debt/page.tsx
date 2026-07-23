@@ -38,6 +38,7 @@ export default function BorrowingPage() {
     userEmail,
     showValues,
     enablePledgeTracking,
+    assetsLoading,
   } = useAppContext();
   const { toast } = useToast();
 
@@ -55,9 +56,13 @@ export default function BorrowingPage() {
   );
 
   useEffect(() => {
+    // 雲端資料載入完成前，loans 可能仍是示範資料；等載入完成再檢查一次到期提醒，
+    // 避免對已刪除或尚未真正到期的示範貸款彈出還款提醒（且此彈窗只會 mount 時判斷一次，
+    // 若在示範資料上誤觸發不會自動收回）
+    if (assetsLoading) return;
     if (dueLoans.length > 0) setShowPaymentDialog(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [assetsLoading]);
 
   const expiringItems = useMemo(() => {
     const today = new Date();
@@ -171,7 +176,7 @@ export default function BorrowingPage() {
       {enablePledgeTracking && alertLevel && (
         <PledgeAlertBanner level={alertLevel} platformName={minPlatform} ratio={minRatio} />
       )}
-      {expiringItems.map(item => {
+      {!assetsLoading && expiringItems.map(item => {
         const isDanger = item.daysLeft <= 7;
         return (
           <div

@@ -16,6 +16,7 @@ import { useLoanContext, LoanProvider } from './LoanContext';
 import { useCashFlowContext, CashFlowProvider } from './CashFlowContext';
 import { useAssetContext, AssetProvider } from './AssetContext';
 import { useRepositories } from './RepositoryContext';
+import { useAppStateContext } from './AppStateContext';
 import { buildSnapshot } from '../lib/snapshotUtils';
 
 const STORAGE_SCHEMA_VERSION = 1;
@@ -151,7 +152,7 @@ function AppContextBridge({
   stockQuotes, lastUpdated, quoteError, refreshQuotes, clearStockData,
 }: AppContextBridgeProps) {
   const {
-    assets, liabilities, snapshots, assetsLoading,
+    assets, liabilities, snapshots, assetsLoading: assetsDomainLoading,
     combinedAssets, combinedLiabilities, totalAssets, totalLiabilities,
     addCategory, updateCategory, removeCategory,
     addAssetItem, updateAssetItem, removeAssetItem,
@@ -161,6 +162,13 @@ function AppContextBridge({
     clearAssetData,
   } = useAssetContext();
   const { sessionStatus } = useRepositories();
+  const appState = useAppStateContext();
+  // 統一雲端載入旗標：資產網域（assetsDomainLoading）與其餘 19 個網域共用的
+  // app_state 批次拉取（appState.ready）是兩條獨立的網路請求，任一尚未完成
+  // 都視為「雲端資料載入中」，讓既有的 assetsLoading 消費點（dashboard 警示、
+  // HealthScoreCard、/health、NetWorthChart、SnapshotTable、EmailReportSender、
+  // FIRE 起始淨資產回補等）一併涵蓋新網域，不必逐一為 19 個網域各自穿線 loading。
+  const assetsLoading = assetsDomainLoading || !appState.ready;
 
   const [goals, setGoals] = useSyncedState<FinancialGoal[]>('goals', [], 'app-goals-v1');
 
