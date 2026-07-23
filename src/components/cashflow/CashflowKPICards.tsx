@@ -18,7 +18,7 @@ export function CashflowKPICards({
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <div className="flex items-center gap-2 text-emerald-600 mb-2">
+        <div className="flex items-center gap-2 text-rose-600 mb-2">
           <ArrowUpCircle className="w-5 h-5" />
           <span className="text-xs font-bold uppercase tracking-wider">本月總收入</span>
         </div>
@@ -28,7 +28,7 @@ export function CashflowKPICards({
         )}
       </div>
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <div className="flex items-center gap-2 text-rose-600 mb-2">
+        <div className="flex items-center gap-2 text-emerald-600 mb-2">
           <ArrowDownCircle className="w-5 h-5" />
           <span className="text-xs font-bold uppercase tracking-wider">本月總支出</span>
         </div>

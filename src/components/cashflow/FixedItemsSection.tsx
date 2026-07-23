@@ -74,7 +74,7 @@ export function FixedItemsSection({
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-600">固定支出</h3>
-              <button onClick={() => setIsAddingExpense(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
+              <button onClick={() => setIsAddingExpense(true)} className="text-xs font-medium text-emerald-600 hover:text-emerald-800 flex items-center gap-1">
                 <Plus className="w-3.5 h-3.5" /> 新增
               </button>
             </div>
@@ -97,7 +97,7 @@ export function FixedItemsSection({
               </div>
               <div className="border-t-2 border-gray-100 px-4 py-3 flex items-center justify-between bg-gray-50">
                 <span className="text-sm font-bold text-gray-600">固定支出合計</span>
-                <span className="text-base font-bold text-rose-600">{formatCurrency(viewBaseExpense)}</span>
+                <span className="text-base font-bold text-emerald-600">{formatCurrency(viewBaseExpense)}</span>
               </div>
             </div>
           </div>

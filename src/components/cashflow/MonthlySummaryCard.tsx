@@ -15,13 +15,13 @@ export function MonthlySummaryCard({ totalIncome, totalExpense, netAmount, showV
         <div className="flex gap-6">
           <div>
             <p className="text-xs text-gray-500 mb-0.5">收入</p>
-            <p className="text-lg font-bold text-green-700">
+            <p className="text-lg font-bold text-red-600">
               {showValues ? `+NT$${totalIncome.toLocaleString()}` : '●●●●'}
             </p>
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-0.5">支出</p>
-            <p className="text-lg font-bold text-red-600">
+            <p className="text-lg font-bold text-green-700">
               {showValues ? `-NT$${totalExpense.toLocaleString()}` : '●●●●'}
             </p>
           </div>

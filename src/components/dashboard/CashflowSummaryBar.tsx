@@ -18,7 +18,7 @@ export const CashflowSummaryBar = memo(function CashflowSummaryBar({
   return (
     <div className="flex-1 bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-3">
-        <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600">
+        <div className="bg-rose-50 p-2 rounded-lg text-rose-600">
           <TrendingUp className="w-5 h-5" />
         </div>
         <div>
@@ -28,7 +28,7 @@ export const CashflowSummaryBar = memo(function CashflowSummaryBar({
       </div>
       <div className="h-8 w-px bg-gray-100" />
       <div className="flex items-center gap-3">
-        <div className="bg-rose-50 p-2 rounded-lg text-rose-600">
+        <div className="bg-emerald-50 p-2 rounded-lg text-emerald-600">
           <TrendingDown className="w-5 h-5" />
         </div>
         <div>

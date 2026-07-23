@@ -40,7 +40,7 @@ export function OneTimeEntriesSection({
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-600">本月一次性收入</h3>
-            <button onClick={() => setIsAddingOneTimeIncome(true)} className="text-xs font-medium text-emerald-600 hover:text-emerald-800 flex items-center gap-1">
+            <button onClick={() => setIsAddingOneTimeIncome(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
               <Plus className="w-3.5 h-3.5" /> 新增
             </button>
           </div>
@@ -57,9 +57,9 @@ export function OneTimeEntriesSection({
               )}
             </div>
             {monthOneTimeIncomeTotal > 0 && (
-              <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-emerald-50/40">
+              <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-rose-50/40">
                 <span className="text-xs font-bold text-gray-500">本月小計</span>
-                <span className="text-sm font-bold text-emerald-700">{formatCurrency(monthOneTimeIncomeTotal)}</span>
+                <span className="text-sm font-bold text-rose-700">{formatCurrency(monthOneTimeIncomeTotal)}</span>
               </div>
             )}
           </div>
@@ -68,7 +68,7 @@ export function OneTimeEntriesSection({
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-600">本月一次性支出</h3>
-            <button onClick={() => setIsAddingOneTimeExpense(true)} className="text-xs font-medium text-rose-600 hover:text-rose-800 flex items-center gap-1">
+            <button onClick={() => setIsAddingOneTimeExpense(true)} className="text-xs font-medium text-emerald-600 hover:text-emerald-800 flex items-center gap-1">
               <Plus className="w-3.5 h-3.5" /> 新增
             </button>
           </div>
@@ -85,9 +85,9 @@ export function OneTimeEntriesSection({
               )}
             </div>
             {monthOneTimeExpenseTotal > 0 && (
-              <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-rose-50/40">
+              <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between bg-emerald-50/40">
                 <span className="text-xs font-bold text-gray-500">本月小計</span>
-                <span className="text-sm font-bold text-rose-700">{formatCurrency(monthOneTimeExpenseTotal)}</span>
+                <span className="text-sm font-bold text-emerald-700">{formatCurrency(monthOneTimeExpenseTotal)}</span>
               </div>
             )}
           </div>

@@ -29,9 +29,9 @@ export function AddOneTimeEntryRow({ type, onConfirm, onCancel }: Props) {
   const [category, setCategory] = useState<AnnualEntryCategory>(cats[0].key);
 
   const submit = () => onConfirm(name.trim(), Number(amount) || 0, category);
-  const bgClass = type === 'income' ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100';
-  const borderColor = type === 'income' ? 'border-emerald-200' : 'border-rose-200';
-  const focusColor = type === 'income' ? 'focus:border-emerald-400' : 'focus:border-rose-400';
+  const bgClass = type === 'income' ? 'bg-rose-50 border-rose-100' : 'bg-emerald-50 border-emerald-100';
+  const borderColor = type === 'income' ? 'border-rose-200' : 'border-emerald-200';
+  const focusColor = type === 'income' ? 'focus:border-rose-400' : 'focus:border-emerald-400';
 
   return (
     <div className={`px-4 py-3 ${bgClass} border-b`}>
