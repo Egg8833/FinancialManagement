@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
-import { LayoutDashboard, Eye, EyeOff, Coins, Activity, Wallet, Menu, X, Trash2, Settings, Heart, Flame, Cloud, LogIn, LogOut } from 'lucide-react';
+import { LayoutDashboard, Eye, EyeOff, Coins, Activity, Wallet, Menu, X, Trash2, Settings, Heart, Flame, Cloud, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppContext } from '../context/AppContext';
 import { ConfirmDialog } from './ConfirmDialog';
+import { GoogleIcon } from './icons/GoogleIcon';
 
 interface NavbarProps {
   showValues: boolean;
@@ -122,16 +123,7 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                 <span className="hidden lg:inline">{showValues ? '隱藏金額' : '顯示金額'}</span>
               </button>
 
-              {/* 設定齒輪 — 平板以上顯示 */}
-              <Link
-                href="/settings"
-                className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors hidden md:flex items-center justify-center"
-                title="設定"
-              >
-                <Settings className="w-5 h-5" />
-              </Link>
-
-              {/* 用戶選單 — 平板以上顯示 */}
+              {/* 用戶選單 — 平板以上顯示（含個人資訊設定入口，與齒輪功能重複故不重複放置） */}
               <div className="hidden md:block relative pl-3 border-l border-gray-200" ref={assetMenuRef}>
                 <button
                   onClick={() => setAssetMenuOpen(o => !o)}
@@ -195,7 +187,7 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
                         onClick={() => { setAssetMenuOpen(false); signIn('google'); }}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors"
                       >
-                        <LogIn className="w-4 h-4" />
+                        <GoogleIcon className="w-4 h-4" />
                         登入 Google 帳號
                       </button>
                     )}
@@ -302,7 +294,7 @@ export function Navbar({ showValues, onToggleValues }: NavbarProps) {
               onClick={() => { setMobileOpen(false); signIn('google'); }}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
             >
-              <LogIn className="w-5 h-5" />
+              <GoogleIcon className="w-5 h-5" />
               登入 Google 帳號
             </button>
           )}
