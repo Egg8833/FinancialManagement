@@ -25,6 +25,7 @@ interface AssetContextType {
   addAssetItem(categoryId: string, name: string, amount: number): void;
   updateAssetItem(categoryId: string, itemId: string, patch: Partial<Omit<AssetItem, 'id'>>): void;
   removeAssetItem(categoryId: string, itemId: string): void;
+  reorderAssetItems(categoryId: string, orderedIds: string[]): void;
   addLiability(input: { name: string; amount: number; description?: string; icon?: 'building' | 'creditCard' }): void;
   updateLiability(id: string, patch: Partial<Omit<LiabilityItem, 'id'>>): void;
   removeLiability(id: string): void;
@@ -115,6 +116,16 @@ export function AssetProvider({
 
   const removeAssetItem = useCallback((categoryId: string, itemId: string) => {
     mutateCategoryItems(categoryId, items => items.filter(i => i.id !== itemId));
+  }, [mutateCategoryItems]);
+
+  const reorderAssetItems = useCallback((categoryId: string, orderedIds: string[]) => {
+    mutateCategoryItems(categoryId, items => {
+      const byId = new Map(items.map(i => [i.id, i]));
+      const reordered = orderedIds.map(id => byId.get(id)).filter((i): i is AssetItem => !!i);
+      // 保留任何不在 orderedIds 內的項目（理論上不會發生，防呆用）
+      const missing = items.filter(i => !orderedIds.includes(i.id));
+      return [...reordered, ...missing];
+    });
   }, [mutateCategoryItems]);
 
   // ── 負債操作 ─────────────────────────────────────────────────
@@ -224,7 +235,7 @@ export function AssetProvider({
       assets, liabilities, snapshots, assetsLoading,
       combinedAssets, combinedLiabilities, totalAssets, totalLiabilities,
       addCategory, updateCategory, removeCategory,
-      addAssetItem, updateAssetItem, removeAssetItem,
+      addAssetItem, updateAssetItem, removeAssetItem, reorderAssetItems,
       addLiability, updateLiability, removeLiability,
       saveSnapshot, removeSnapshot,
       replaceAssets, replaceLiabilities, replaceSnapshots,

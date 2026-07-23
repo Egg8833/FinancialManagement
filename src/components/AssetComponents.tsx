@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from 'react';
-import { Pencil, Trash2, Check, X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Pencil, Trash2, Check, X, Plus, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, type DragEndEvent, type DraggableAttributes, type DraggableSyntheticListeners,
+} from '@dnd-kit/core';
+import {
+  SortableContext, verticalListSortingStrategy, useSortable,
+  arrayMove, sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { AssetItem, AssetCategory } from '../types';
 import { ConfirmDialog } from './ConfirmDialog';
 import { useToast } from '../context/ToastContext';
@@ -11,9 +20,10 @@ interface EditableAssetRowProps {
   showValues: boolean;
   onUpdate: (name: string, amount: number) => void;
   onDelete: () => void;
+  dragHandle?: { attributes: DraggableAttributes; listeners: DraggableSyntheticListeners };
 }
 
-export function EditableAssetRow({ item, showValues, onUpdate, onDelete }: EditableAssetRowProps) {
+export function EditableAssetRow({ item, showValues, onUpdate, onDelete, dragHandle }: EditableAssetRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editName, setEditName] = useState(item.name);
@@ -64,6 +74,16 @@ export function EditableAssetRow({ item, showValues, onUpdate, onDelete }: Edita
 
   return (
     <div className="group flex justify-between items-center text-sm py-2 px-2 hover:bg-gray-50 rounded-lg -mx-2 transition-colors">
+      {dragHandle && (
+        <button
+          {...dragHandle.attributes}
+          {...dragHandle.listeners}
+          className="mr-1 p-1 -ml-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none shrink-0"
+          aria-label={`拖曳排序「${item.name}」`}
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+      )}
       <div className="flex items-center gap-2 flex-1">
         <span className="text-gray-600">{item.name}</span>
         {item.id.startsWith('auto-') && (
@@ -82,6 +102,23 @@ export function EditableAssetRow({ item, showValues, onUpdate, onDelete }: Edita
           onCancel={() => setConfirmDelete(false)}
         />
       )}
+    </div>
+  );
+}
+
+type SortableAssetRowProps = Omit<EditableAssetRowProps, 'dragHandle'>;
+
+function SortableAssetRow({ item, ...rest }: SortableAssetRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="relative bg-white">
+      <EditableAssetRow item={item} {...rest} dragHandle={{ attributes, listeners }} />
     </div>
   );
 }
@@ -163,11 +200,12 @@ interface AssetCategoryCardProps {
   onUpdateAsset: (categoryId: string, itemId: string, name: string, amount: number) => void;
   onDeleteAsset: (categoryId: string, itemId: string) => void;
   onAddAsset: (categoryId: string, name: string, amount: number) => void;
+  onReorderAssetItems?: (categoryId: string, orderedIds: string[]) => void;
   onUpdateCategory?: (id: string, title: string, description: string, colorClass: string, bgClass: string) => void;
   onDeleteCategory?: (id: string) => void;
 }
 
-export function AssetCategoryCard({ category, showValues, formatCurrency, onUpdateAsset, onDeleteAsset, onAddAsset, onUpdateCategory, onDeleteCategory }: AssetCategoryCardProps) {
+export function AssetCategoryCard({ category, showValues, formatCurrency, onUpdateAsset, onDeleteAsset, onAddAsset, onReorderAssetItems, onUpdateCategory, onDeleteCategory }: AssetCategoryCardProps) {
   const [isEditingCard, setIsEditingCard] = useState(false);
   const [confirmDeleteCard, setConfirmDeleteCard] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -177,6 +215,27 @@ export function AssetCategoryCard({ category, showValues, formatCurrency, onUpda
   const { toast } = useToast();
 
   const categoryTotal = category.items.reduce((sum, item) => sum + item.amount, 0);
+
+  // 自動同步項目（如股票市值、Earn 收益）只在總覽計算時併入，不是真正存在於此分類的
+  // 項目，不能被排序或編輯，故排除在拖曳排序清單之外，維持固定顯示在最後。
+  const realItems = category.items.filter(item => !item.id.startsWith('auto-'));
+  const autoItems = category.items.filter(item => item.id.startsWith('auto-'));
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = realItems.findIndex(i => i.id === active.id);
+    const newIndex = realItems.findIndex(i => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(realItems, oldIndex, newIndex);
+    onReorderAssetItems?.(category.id, reordered.map(i => i.id));
+  };
 
   const handleSaveCard = () => {
     if (!editTitle.trim()) return;
@@ -283,13 +342,39 @@ export function AssetCategoryCard({ category, showValues, formatCurrency, onUpda
 
       {!collapsed && (
         <div className="space-y-1 pt-4 border-t border-gray-50 flex-grow">
-          {category.items.map(item => (
+          {onReorderAssetItems ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={realItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                {realItems.map(item => (
+                  <SortableAssetRow
+                    key={item.id}
+                    item={item}
+                    showValues={showValues}
+                    onUpdate={(name, amount) => onUpdateAsset(category.id, item.id, name, amount)}
+                    onDelete={() => onDeleteAsset(category.id, item.id)}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
+          ) : (
+            realItems.map(item => (
+              <EditableAssetRow
+                key={item.id}
+                item={item}
+                showValues={showValues}
+                onUpdate={(name, amount) => onUpdateAsset(category.id, item.id, name, amount)}
+                onDelete={() => onDeleteAsset(category.id, item.id)}
+              />
+            ))
+          )}
+
+          {autoItems.map(item => (
             <EditableAssetRow
               key={item.id}
               item={item}
               showValues={showValues}
-              onUpdate={(name, amount) => onUpdateAsset(category.id, item.id, name, amount)}
-              onDelete={() => onDeleteAsset(category.id, item.id)}
+              onUpdate={() => {}}
+              onDelete={() => {}}
             />
           ))}
 

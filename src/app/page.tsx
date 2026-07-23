@@ -55,6 +55,7 @@ export default function DashboardPage() {
     addAssetItem,
     updateAssetItem,
     removeAssetItem,
+    reorderAssetItems,
     addLiability,
     updateLiability,
     removeLiability,
@@ -275,6 +276,7 @@ export default function DashboardPage() {
                 onUpdateAsset={handleUpdateAsset}
                 onDeleteAsset={handleDeleteAsset}
                 onAddAsset={handleAddAsset}
+                onReorderAssetItems={reorderAssetItems}
                 onUpdateCategory={handleUpdateCategory}
                 onDeleteCategory={handleDeleteCategory}
               />

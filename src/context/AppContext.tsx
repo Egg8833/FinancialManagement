@@ -33,6 +33,7 @@ interface AppContextType {
   addAssetItem(categoryId: string, name: string, amount: number): void;
   updateAssetItem(categoryId: string, itemId: string, patch: Partial<Omit<AssetItem, 'id'>>): void;
   removeAssetItem(categoryId: string, itemId: string): void;
+  reorderAssetItems(categoryId: string, orderedIds: string[]): void;
   addLiability(input: { name: string; amount: number; description?: string; icon?: 'building' | 'creditCard' }): void;
   updateLiability(id: string, patch: Partial<Omit<LiabilityItem, 'id'>>): void;
   removeLiability(id: string): void;
@@ -155,7 +156,7 @@ function AppContextBridge({
     assets, liabilities, snapshots, assetsLoading: assetsDomainLoading,
     combinedAssets, combinedLiabilities, totalAssets, totalLiabilities,
     addCategory, updateCategory, removeCategory,
-    addAssetItem, updateAssetItem, removeAssetItem,
+    addAssetItem, updateAssetItem, removeAssetItem, reorderAssetItems,
     addLiability, updateLiability, removeLiability,
     saveSnapshot, removeSnapshot,
     replaceAssets, replaceLiabilities, replaceSnapshots,
@@ -361,7 +362,7 @@ function AppContextBridge({
     assets, liabilities, snapshots, assetsLoading,
     combinedAssets, combinedLiabilities, totalAssets, totalLiabilities,
     addCategory, updateCategory, removeCategory,
-    addAssetItem, updateAssetItem, removeAssetItem,
+    addAssetItem, updateAssetItem, removeAssetItem, reorderAssetItems,
     addLiability, updateLiability, removeLiability,
     saveSnapshot, removeSnapshot,
     replaceAssets, replaceLiabilities, replaceSnapshots,
@@ -377,7 +378,7 @@ function AppContextBridge({
     totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
     totalCollateralValueTWD, goals,
     addCategory, updateCategory, removeCategory,
-    addAssetItem, updateAssetItem, removeAssetItem,
+    addAssetItem, updateAssetItem, removeAssetItem, reorderAssetItems,
     addLiability, updateLiability, removeLiability,
     saveSnapshot, removeSnapshot,
     replaceAssets, replaceLiabilities, replaceSnapshots,
