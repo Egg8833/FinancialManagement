@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { ShieldCheck, ShieldAlert, Download, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
@@ -13,6 +14,8 @@ function daysSince(isoDate: string): number {
 export function BackupBanner() {
   const ctx = useAppContext();
   const { toast } = useToast();
+  const { status: sessionStatus } = useSession();
+  const isGoogleLinked = sessionStatus === 'authenticated';
   const [dismissed, setDismissed] = useState(false);
 
   const days = daysSince(ctx.lastExportDate);
@@ -56,7 +59,9 @@ export function BackupBanner() {
         <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <ShieldAlert className="w-4 h-4 text-amber-500 shrink-0" />
           <p className="flex-1 text-sm text-amber-800 font-medium">
-            {neverExported ? '您尚未備份過資料' : `距上次備份已 ${days} 天`}，建議立即備份以避免資料遺失。
+            {isGoogleLinked
+              ? `${neverExported ? '您尚未匯出過本機備份' : `距上次匯出備份已 ${days} 天`}，資料已同步雲端，仍建議額外保留一份 JSON 備份。`
+              : `${neverExported ? '您尚未備份過資料' : `距上次備份已 ${days} 天`}，建議立即備份以避免資料遺失。`}
           </p>
           <button
             onClick={handleExportNow}

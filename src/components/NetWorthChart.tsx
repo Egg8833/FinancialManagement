@@ -5,6 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import type { AssetSnapshot } from '../context/AppContext';
+import { ChartSkeleton } from './ui/Skeleton';
 
 type Range = '1M' | '3M' | '6M' | '1Y';
 
@@ -14,9 +15,10 @@ interface NetWorthChartProps {
   snapshots: AssetSnapshot[];
   showValues: boolean;
   formatCurrency: (n: number) => string;
+  loading?: boolean;
 }
 
-export function NetWorthChart({ snapshots, showValues, formatCurrency }: NetWorthChartProps) {
+export function NetWorthChart({ snapshots, showValues, formatCurrency, loading = false }: NetWorthChartProps) {
   const [range, setRange] = useState<Range>('3M');
 
   const data = useMemo(() => {
@@ -27,6 +29,11 @@ export function NetWorthChart({ snapshots, showValues, formatCurrency }: NetWort
   }, [snapshots, range]);
 
   const ranges: Range[] = ['1M', '3M', '6M', '1Y'];
+
+  // 雲端資料載入中：先顯示 skeleton，避免誤判成「資料累積中」的空狀態
+  if (loading) {
+    return <ChartSkeleton height="h-56" />;
+  }
 
   if (snapshots.length < 2) {
     return (

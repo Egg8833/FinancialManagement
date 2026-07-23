@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Legend,
@@ -90,9 +90,9 @@ function ResultBadge({ label, year, age, color }: { label: string; year: number 
 }
 
 export default function FirePage() {
-  const { 
-    netWorth, monthlyNetCashFlow, totalMonthlyExpense, 
-    showValues, fireSettings, setFireSettings,
+  const {
+    netWorth, monthlyNetCashFlow, totalMonthlyExpense,
+    showValues, fireSettings, setFireSettings, assetsLoading,
   } = useAppContext();
 
   const [activeTab, setActiveTab] = useState<'single' | 'compare'>('single');
@@ -107,6 +107,20 @@ export default function FirePage() {
   const [swr, setSwr] = useState(fireSettings.swr);
   const [taxRate, setTaxRate] = useState(fireSettings.taxRate || 0);
   const [extraMonthly, setExtraMonthly] = useState(0);
+
+  // 若使用者在雲端資料尚未載入完成時就進入本頁，起始淨資產/現金流會先以 0 掛載；
+  // 待雲端資料載入完成（assetsLoading true→false）時自動補回真實數值一次，
+  // 避免整頁計算「卡」在錯誤的 0 起點（currentNetWorth 等欄位本身不會被持久化）。
+  const wasLoadingRef = useRef(assetsLoading);
+  useEffect(() => {
+    const wasLoading = wasLoadingRef.current;
+    wasLoadingRef.current = assetsLoading;
+    if (wasLoading && !assetsLoading) {
+      setCurrentNetWorth(Math.max(0, netWorth));
+      setMonthlyInvestment(Math.max(0, monthlyNetCashFlow));
+      setRetirementMonthlyExpense(totalMonthlyExpense);
+    }
+  }, [assetsLoading, netWorth, monthlyNetCashFlow, totalMonthlyExpense]);
 
   // Persistence effect
   useEffect(() => {

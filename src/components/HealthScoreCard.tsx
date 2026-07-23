@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useAppContext } from '../context/AppContext';
 import { calculateHealthScore, type HealthScoreResult } from '../lib/healthScore';
+import { Skeleton } from './ui/Skeleton';
 
 const GRADE_COLOR: Record<HealthScoreResult['grade'], string> = {
   '優秀': '#10b981',
@@ -45,7 +46,21 @@ export function HealthScoreCard() {
   const {
     totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
     totalAssets, totalLiabilities, assets, combinedAssets, snapshots,
+    assetsLoading,
   } = useAppContext();
+
+  // 雲端資料載入中：避免用空資料算出誤導性的評分等級與顏色
+  if (assetsLoading) {
+    return (
+      <div className="flex-1 min-w-50 bg-white border border-gray-100 rounded-2xl p-4 flex items-center gap-3 shadow-sm">
+        <Skeleton className="w-22.5 h-13 rounded-full" />
+        <div className="flex-1 space-y-2">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-5 w-12 rounded-full" />
+        </div>
+      </div>
+    );
+  }
 
   const liquidAssets = assets.find(c => c.id === 'liquid')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
   const investmentAssets = combinedAssets.find(c => c.id === 'investment')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;

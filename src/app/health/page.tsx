@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import { useAppContext } from '../../context/AppContext';
 import { calculateHealthScore, type HealthScoreResult, type MetricResult } from '../../lib/healthScore';
+import { Skeleton } from '../../components/ui/Skeleton';
 import type { LucideIcon } from 'lucide-react';
 
 const GRADE_BG: Record<HealthScoreResult['grade'], string> = {
@@ -133,6 +134,7 @@ export default function HealthPage() {
   const {
     totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow,
     totalAssets, totalLiabilities, assets, combinedAssets, snapshots, showValues,
+    assetsLoading,
   } = useAppContext();
 
   const liquidAssets = assets.find(c => c.id === 'liquid')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
@@ -237,6 +239,20 @@ export default function HealthPage() {
     }));
 
   const hasScoreTrend = scoreTrend.length >= 2;
+
+  // 雲端資料載入中：所有 hooks 已呼叫完畢，這裡才決定渲染 skeleton 而非誤導性的評分結果
+  if (assetsLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-56 rounded-3xl" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-36 rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
