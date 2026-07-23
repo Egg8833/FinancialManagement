@@ -37,3 +37,10 @@ export const assetSnapshotSchema = z.object({
   fixed: z.number().optional(),
   receivable: z.number().optional(),
 });
+
+// 通用鍵值狀態：id 為設定鍵名，value 為任意形狀（陣列/物件/數字/字串/布林），
+// 由前端各網域自行決定實際結構，伺服器端不做結構化驗證，只驗證外層包裝。
+export const appStateEntrySchema = z.object({
+  id: z.string(),
+  value: z.unknown(),
+});

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, ReactNode } from 'react';
 import { useStickyState } from '../hooks/useStickyState';
+import { useSyncedState } from '../hooks/useSyncedState';
 import type { FireSettings, LifeEvent } from '../types';
 
 interface SettingsContextType {
@@ -47,21 +48,26 @@ const DEFAULT_FIRE: FireSettings = {
 };
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  // 裝置專屬，刻意不雲端同步：showValues（隱私顯示開關，各裝置各自獨立較合理）、
+  // userName/userEmail（登入時改由 Google 帳號同步，見 AppContext）、
+  // lastReportSent/lastExportDate（本機操作紀錄）、onboardingDone（已由 hasAnyData 判斷取代，見 OnboardingWizard）
   const [showValues, setShowValues] = useStickyState<boolean>(true, 'app-show-values');
   const [userName, setUserName] = useStickyState<string>('', 'app-user-name-v1');
   const [userEmail, setUserEmail] = useStickyState<string>('', 'app-user-email-v1');
-  const [usdToTwd, setUsdToTwd] = useStickyState<number>(32, 'app-usd-twd-v1');
-  const [reportSchedule, setReportSchedule] = useStickyState<'none' | 'weekly' | 'monthly'>('none', 'app-report-schedule-v1');
   const [lastReportSent, setLastReportSent] = useStickyState('', 'app-last-report-sent-v1');
-  const [netWorthGoal, setNetWorthGoal] = useStickyState<number>(0, 'app-net-worth-goal-v1');
-  const [fireSettings, setFireSettings] = useStickyState<FireSettings>(DEFAULT_FIRE, 'app-fire-settings-v1');
-  const [lifeEvents, setLifeEvents] = useStickyState<LifeEvent[]>([], 'app-life-events-v1');
   const [onboardingDone, setOnboardingDone] = useStickyState<boolean>(false, 'assetdash-onboarding-done');
-  const [enablePledgeTracking, setEnablePledgeTracking] = useStickyState<boolean>(false, 'app-enable-pledge-tracking-v1');
-  const [pledgeAlertLastSent, setPledgeAlertLastSent] = useStickyState<Record<'warning' | 'danger', string>>(
-    { warning: '', danger: '' }, 'app-pledge-alert-v1'
-  );
   const [lastExportDate, setLastExportDate] = useStickyState<string>('', 'app-last-export-v1');
+
+  // 以下登入時雲端同步
+  const [usdToTwd, setUsdToTwd] = useSyncedState<number>('usdToTwd', 32, 'app-usd-twd-v1');
+  const [reportSchedule, setReportSchedule] = useSyncedState<'none' | 'weekly' | 'monthly'>('reportSchedule', 'none', 'app-report-schedule-v1');
+  const [netWorthGoal, setNetWorthGoal] = useSyncedState<number>('netWorthGoal', 0, 'app-net-worth-goal-v1');
+  const [fireSettings, setFireSettings] = useSyncedState<FireSettings>('fireSettings', DEFAULT_FIRE, 'app-fire-settings-v1');
+  const [lifeEvents, setLifeEvents] = useSyncedState<LifeEvent[]>('lifeEvents', [], 'app-life-events-v1');
+  const [enablePledgeTracking, setEnablePledgeTracking] = useSyncedState<boolean>('enablePledgeTracking', false, 'app-enable-pledge-tracking-v1');
+  const [pledgeAlertLastSent, setPledgeAlertLastSent] = useSyncedState<Record<'warning' | 'danger', string>>(
+    'pledgeAlertLastSent', { warning: '', danger: '' }, 'app-pledge-alert-v1'
+  );
 
   return (
     <SettingsContext.Provider value={{

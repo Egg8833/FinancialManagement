@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useState, useRef, useEffect } from 'react';
-import { useStickyState } from '../hooks/useStickyState';
+import { useSyncedState } from '../hooks/useSyncedState';
 import type { StockItem, StockQuote, DividendRecord, SoldStockItem } from '../types';
 
 interface StockContextType {
@@ -32,9 +32,9 @@ const initialStockData: StockItem[] = [
 ];
 
 export function StockProvider({ children }: { children: ReactNode }) {
-  const [stockItems, setStockItems] = useStickyState<StockItem[]>(initialStockData, 'app-stocks-v1');
-  const [soldStocks, setSoldStocks] = useStickyState<SoldStockItem[]>([], 'app-sold-stocks-v1');
-  const [dividendRecords, setDividendRecords] = useStickyState<DividendRecord[]>([], 'app-dividends-v1');
+  const [stockItems, setStockItems] = useSyncedState<StockItem[]>('stockItems', initialStockData, 'app-stocks-v1');
+  const [soldStocks, setSoldStocks] = useSyncedState<SoldStockItem[]>('soldStocks', [], 'app-sold-stocks-v1');
+  const [dividendRecords, setDividendRecords] = useSyncedState<DividendRecord[]>('dividendRecords', [], 'app-dividends-v1');
   const [stockQuotes, setStockQuotes] = useState<Record<string, StockQuote>>({});
   const [lastUpdated, setLastUpdated] = useState('');
   const [quoteError, setQuoteError] = useState(false);

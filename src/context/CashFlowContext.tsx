@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
-import { useStickyState } from '../hooks/useStickyState';
+import { useSyncedState } from '../hooks/useSyncedState';
 import { monthKey } from '../lib/utils';
 import type { MonthRecord, CashflowTemplate, AnnualEntry, CashFlowItem } from '../types';
 
@@ -38,19 +38,19 @@ export function useCashFlowContext() {
 }
 
 export function CashFlowProvider({ children }: { children: ReactNode }) {
-  const [monthlyRecords, setMonthlyRecords] = useStickyState<Record<string, MonthRecord>>(
-    {}, 'app-monthly-records-v1'
+  const [monthlyRecords, setMonthlyRecords] = useSyncedState<Record<string, MonthRecord>>(
+    'monthlyRecords', {}, 'app-monthly-records-v1'
   );
-  const [cashflowTemplate, setCashflowTemplate] = useStickyState<CashflowTemplate>(
-    { income: DEFAULT_INCOME, expense: DEFAULT_EXPENSE },
+  const [cashflowTemplate, setCashflowTemplate] = useSyncedState<CashflowTemplate>(
+    'cashflowTemplate', { income: DEFAULT_INCOME, expense: DEFAULT_EXPENSE },
     'app-cashflow-template-v1'
   );
-  const [annualEntries, setAnnualEntries] = useStickyState<AnnualEntry[]>([], 'app-annual-v1');
-  const [categoryBudgets, setCategoryBudgets] = useStickyState<Record<string, number>>(
-    {}, 'assetdash-category-budgets'
+  const [annualEntries, setAnnualEntries] = useSyncedState<AnnualEntry[]>('annualEntries', [], 'app-annual-v1');
+  const [categoryBudgets, setCategoryBudgets] = useSyncedState<Record<string, number>>(
+    'categoryBudgets', {}, 'assetdash-category-budgets'
   );
-  const [customCategories, setCustomCategories] = useStickyState<string[]>(
-    DEFAULT_CATEGORIES, 'app-custom-categories-v1'
+  const [customCategories, setCustomCategories] = useSyncedState<string[]>(
+    'customCategories', DEFAULT_CATEGORIES, 'app-custom-categories-v1'
   );
 
   // 固定為當月 key，加上 useMemo 避免每次 render 重算

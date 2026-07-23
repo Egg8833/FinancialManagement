@@ -4,8 +4,37 @@ import { useEffect, useState } from 'react';
 import { CloudUpload } from 'lucide-react';
 import { useRepositories, LOCAL_KEYS, initialAssets, initialLiabilities } from '../context/RepositoryContext';
 import { useAppContext } from '../context/AppContext';
+import { useAppStateContext } from '../context/AppStateContext';
 import { useToast } from '../context/ToastContext';
 import type { AssetCategory, LiabilityItem, AssetSnapshot } from '../types';
+
+/**
+ * 其餘雲端同步網域（貸款、股票、現金流、目標、FIRE 設定…）對應的 app_state 鍵名與
+ * 現有 localStorage key。這裡刻意不做「是否為示範資料」的過濾——不像 assets/liabilities
+ * 有明確的預設值可比對，這 19 項形狀各異；直接原樣帶上雲端，最壞情況只是多帶了幾筆
+ * 未修改過的示範資料（可自行刪除），比起誤判漏掉真實資料安全得多。
+ */
+const EXTRA_STATE_KEYS: { key: string; localStorageKey: string }[] = [
+  { key: 'loans', localStorageKey: 'app-loans-v5' },
+  { key: 'stakingItems', localStorageKey: 'app-staking-v5' },
+  { key: 'borrowingLimits', localStorageKey: 'app-borrowing-limits-v1' },
+  { key: 'stockItems', localStorageKey: 'app-stocks-v1' },
+  { key: 'soldStocks', localStorageKey: 'app-sold-stocks-v1' },
+  { key: 'dividendRecords', localStorageKey: 'app-dividends-v1' },
+  { key: 'monthlyRecords', localStorageKey: 'app-monthly-records-v1' },
+  { key: 'cashflowTemplate', localStorageKey: 'app-cashflow-template-v1' },
+  { key: 'annualEntries', localStorageKey: 'app-annual-v1' },
+  { key: 'categoryBudgets', localStorageKey: 'assetdash-category-budgets' },
+  { key: 'customCategories', localStorageKey: 'app-custom-categories-v1' },
+  { key: 'goals', localStorageKey: 'app-goals-v1' },
+  { key: 'netWorthGoal', localStorageKey: 'app-net-worth-goal-v1' },
+  { key: 'usdToTwd', localStorageKey: 'app-usd-twd-v1' },
+  { key: 'reportSchedule', localStorageKey: 'app-report-schedule-v1' },
+  { key: 'fireSettings', localStorageKey: 'app-fire-settings-v1' },
+  { key: 'lifeEvents', localStorageKey: 'app-life-events-v1' },
+  { key: 'enablePledgeTracking', localStorageKey: 'app-enable-pledge-tracking-v1' },
+  { key: 'pledgeAlertLastSent', localStorageKey: 'app-pledge-alert-v1' },
+];
 
 function readLocal<T>(key: string): T[] {
   try {
@@ -50,6 +79,7 @@ function hasMeaningfulLocalData(): boolean {
 export function ImportPromptModal() {
   const { mode } = useRepositories();
   const { replaceAssets, replaceLiabilities, replaceSnapshots } = useAppContext();
+  const appState = useAppStateContext();
   const { toast } = useToast();
   const [show, setShow] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -82,7 +112,18 @@ export function ImportPromptModal() {
       await replaceAssets(data.assets);
       await replaceLiabilities(data.liabilities);
       await replaceSnapshots(data.snapshots);
-      toast('本地資料已匯入帳號');
+
+      let extraFailures = 0;
+      for (const { key, localStorageKey } of EXTRA_STATE_KEYS) {
+        const raw = localStorage.getItem(localStorageKey);
+        if (raw === null) continue;
+        try {
+          const ok = await appState.setValue(key, JSON.parse(raw));
+          if (!ok) extraFailures++;
+        } catch { /* 忽略無法解析的殘留資料 */ }
+      }
+
+      toast(extraFailures === 0 ? '本地資料已匯入帳號' : '本地資料已匯入，但部分項目同步失敗，請稍後於各頁面重新儲存', extraFailures === 0 ? 'success' : 'error');
       setShow(false);
     } catch {
       toast('匯入失敗，請稍後再試', 'error');

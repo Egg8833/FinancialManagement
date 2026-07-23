@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, ReactNode, useMemo } from 'react';
-import { useStickyState } from '../hooks/useStickyState';
+import { useSyncedState } from '../hooks/useSyncedState';
 import type { LoanItem, StakingItem } from '../types';
 
 interface LoanContextType {
@@ -41,9 +41,9 @@ const DEFAULT_STAKING: StakingItem[] = [
 ];
 
 export function LoanProvider({ children }: { children: ReactNode }) {
-  const [loans, setLoans] = useStickyState<LoanItem[]>(DEFAULT_LOANS, 'app-loans-v5');
-  const [stakingItems, setStakingItems] = useStickyState<StakingItem[]>(DEFAULT_STAKING, 'app-staking-v5');
-  const [borrowingLimits, setBorrowingLimits] = useStickyState<Record<string, number>>({}, 'app-borrowing-limits-v1');
+  const [loans, setLoans] = useSyncedState<LoanItem[]>('loans', DEFAULT_LOANS, 'app-loans-v5');
+  const [stakingItems, setStakingItems] = useSyncedState<StakingItem[]>('stakingItems', DEFAULT_STAKING, 'app-staking-v5');
+  const [borrowingLimits, setBorrowingLimits] = useSyncedState<Record<string, number>>('borrowingLimits', {}, 'app-borrowing-limits-v1');
 
   const borrowItems = useMemo(() => stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow'), [stakingItems]);
   const earnItems   = useMemo(() => stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'earn'),  [stakingItems]);

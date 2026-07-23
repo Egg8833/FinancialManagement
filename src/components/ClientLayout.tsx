@@ -11,6 +11,7 @@ import { AppProvider, useAppContext } from '../context/AppContext';
 import { StockProvider } from '../context/StockContext';
 import { ToastProvider } from '../context/ToastContext';
 import { RepositoryProvider } from '../context/RepositoryContext';
+import { AppStateProvider } from '../context/AppStateContext';
 import { OnboardingWizard } from './OnboardingWizard';
 import { ImportPromptModal } from './ImportPromptModal';
 import BottomTabBar from './BottomTabBar';
@@ -134,11 +135,13 @@ export function ClientLayout({ children }: { children: ReactNode }) {
     <SessionProvider>
       <ToastProvider>
         <RepositoryProvider>
-          <StockProvider>
-            <AppProvider>
-              <ClientLayoutContent>{children}</ClientLayoutContent>
-            </AppProvider>
-          </StockProvider>
+          <AppStateProvider>
+            <StockProvider>
+              <AppProvider>
+                <ClientLayoutContent>{children}</ClientLayoutContent>
+              </AppProvider>
+            </StockProvider>
+          </AppStateProvider>
         </RepositoryProvider>
       </ToastProvider>
     </SessionProvider>

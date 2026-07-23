@@ -2,7 +2,7 @@
 
 import { createContext, useContext, ReactNode, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import { useStickyState } from '../hooks/useStickyState';
+import { useSyncedState } from '../hooks/useSyncedState';
 import type {
   AssetCategory, AssetItem, LiabilityItem, LifeEvent, FireSettings,
   StakingItem, LoanItem,
@@ -162,7 +162,7 @@ function AppContextBridge({
   } = useAssetContext();
   const { sessionStatus } = useRepositories();
 
-  const [goals, setGoals] = useStickyState<FinancialGoal[]>([], 'app-goals-v1');
+  const [goals, setGoals] = useSyncedState<FinancialGoal[]>('goals', [], 'app-goals-v1');
 
   const netWorth = totalAssets - totalLiabilities;
 

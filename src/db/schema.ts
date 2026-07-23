@@ -45,4 +45,10 @@ export const liabilities = pgTable('liabilities', entityColumns(),
 export const snapshots = pgTable('snapshots', entityColumns(),
   (t) => [primaryKey({ columns: [t.userId, t.id] })]);
 
-export type EntityTable = typeof assets | typeof liabilities | typeof snapshots;
+// 通用鍵值狀態表：id 為設定鍵名（如 'loans'、'fireSettings'），data 為任意形狀的 jsonb 值。
+// 涵蓋所有「整包替換」語意的本地網域（貸款、股票、現金流、目標、FIRE 設定等），
+// 不再需要為每個網域各自建表，重用同一套 entityStore/entityHandlers。
+export const appState = pgTable('app_state', entityColumns(),
+  (t) => [primaryKey({ columns: [t.userId, t.id] })]);
+
+export type EntityTable = typeof assets | typeof liabilities | typeof snapshots | typeof appState;
