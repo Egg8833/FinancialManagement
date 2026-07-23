@@ -390,13 +390,26 @@ export default function SettingsPage() {
 
         {/* Info Card */}
         <div className="bg-indigo-50 rounded-2xl p-5 border border-indigo-100">
-          <h3 className="text-sm font-bold text-indigo-800 mb-2">🔒 隱私說明</h3>
-          <ul className="text-sm text-indigo-700 space-y-1.5">
-            <li>• 所有個人資料僅儲存於您的瀏覽器（localStorage）中</li>
-            <li>• 資料不會上傳至任何雲端伺服器</li>
-            <li>• 清除瀏覽器資料將同時移除這些設定</li>
-            <li>• 寄送報表時，郵件透過您設定的 SMTP 直接發送</li>
-          </ul>
+          <h3 className="text-sm font-bold text-indigo-800 mb-2 flex items-center gap-1.5">
+            {isGoogleLinked ? <><Cloud className="w-4 h-4" />雲端同步說明</> : <>🔒 隱私說明</>}
+          </h3>
+          {isGoogleLinked ? (
+            <ul className="text-sm text-indigo-700 space-y-1.5">
+              <li>• 資產、負債、歷史快照會即時同步至您的 Google 帳號雲端資料庫，可跨裝置存取</li>
+              <li>• 其餘資料（現金流、貸款、股票、質押等）目前僅儲存於本機瀏覽器，尚未支援雲端同步</li>
+              <li>• 清除瀏覽器資料不會影響已同步雲端的資產／負債／快照，但會清除本機其餘資料</li>
+              <li>• 登出後可隨時使用同一 Google 帳號重新登入，取回雲端資料</li>
+              <li>• 寄送報表時，郵件透過您設定的 SMTP 直接發送</li>
+            </ul>
+          ) : (
+            <ul className="text-sm text-indigo-700 space-y-1.5">
+              <li>• 所有個人資料僅儲存於您的瀏覽器（localStorage）中</li>
+              <li>• 資料不會上傳至任何雲端伺服器</li>
+              <li>• 清除瀏覽器資料將同時移除這些設定</li>
+              <li>• 若要跨裝置使用或避免資料遺失，可使用右上角「登入 Google 帳號」啟用雲端同步</li>
+              <li>• 寄送報表時，郵件透過您設定的 SMTP 直接發送</li>
+            </ul>
+          )}
         </div>
 
       </div>
