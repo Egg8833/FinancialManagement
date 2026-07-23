@@ -47,12 +47,13 @@ export function DataManager() {
     if (!file) return;
     setImporting(true);
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
-        if (data.assets)      void ctx.replaceAssets(data.assets).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
-        if (data.liabilities) void ctx.replaceLiabilities(data.liabilities).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
-        if (data.snapshots)   void ctx.replaceSnapshots(data.snapshots).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
+        const cloudWrites: Promise<void>[] = [];
+        if (data.assets)      cloudWrites.push(ctx.replaceAssets(data.assets));
+        if (data.liabilities) cloudWrites.push(ctx.replaceLiabilities(data.liabilities));
+        if (data.snapshots)   cloudWrites.push(ctx.replaceSnapshots(data.snapshots));
         if (data.stakingItems)     ctx.setStakingItems(data.stakingItems);
         if (data.loans)            ctx.setLoans(data.loans);
         if (data.stockItems)       ctx.setStockItems(data.stockItems);
@@ -65,7 +66,14 @@ export function DataManager() {
         if (data.annualEntries)    ctx.setAnnualEntries(data.annualEntries);
         if (data.borrowingLimits != null) ctx.setBorrowingLimits(data.borrowingLimits);
         if (data.customCategories) ctx.setCustomCategories(data.customCategories);
-        toast('資料匯入成功');
+
+        const results = await Promise.allSettled(cloudWrites);
+        const hasCloudFailure = results.some(r => r.status === 'rejected');
+        if (hasCloudFailure) {
+          toast('資料已匯入，但雲端同步的部分失敗，請稍後再試', 'error');
+        } else {
+          toast('資料匯入成功');
+        }
       } catch {
         toast('匯入失敗：檔案格式不正確', 'error');
       } finally {

@@ -103,7 +103,7 @@ export default function SettingsPage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target?.result as string);
         if (!data.version || !data.assets) {
@@ -111,9 +111,10 @@ export default function SettingsPage() {
           return;
         }
         if (!confirm('匯入備份將覆蓋目前所有資料，是否繼續？')) return;
-        if (data.assets)      void replaceAssets(data.assets).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
-        if (data.liabilities) void replaceLiabilities(data.liabilities).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
-        if (data.snapshots)   void replaceSnapshots(data.snapshots).catch(() => toast('雲端儲存失敗，請稍後再試', 'error'));
+        const cloudWrites: Promise<void>[] = [];
+        if (data.assets)      cloudWrites.push(replaceAssets(data.assets));
+        if (data.liabilities) cloudWrites.push(replaceLiabilities(data.liabilities));
+        if (data.snapshots)   cloudWrites.push(replaceSnapshots(data.snapshots));
         if (data.stakingItems) setStakingItems(data.stakingItems);
         if (data.stockItems) setStockItems(data.stockItems);
         if (data.monthlyRecords)   setMonthlyRecords(data.monthlyRecords);
@@ -126,9 +127,16 @@ export default function SettingsPage() {
         if (data.borrowingLimits) setBorrowingLimits(data.borrowingLimits);
         if (typeof data.netWorthGoal === 'number') setNetWorthGoal(data.netWorthGoal);
         if (typeof data.usdToTwd === 'number') { setUsdToTwd(data.usdToTwd); setLocalUsdRate(data.usdToTwd.toString()); }
-        if (data.userName) { setUserName(data.userName); setLocalName(data.userName); }
-        if (data.userEmail) { setUserEmail(data.userEmail); setLocalEmail(data.userEmail); }
-        toast('備份已成功匯入');
+        if (!isGoogleLinked && data.userName) { setUserName(data.userName); setLocalName(data.userName); }
+        if (!isGoogleLinked && data.userEmail) { setUserEmail(data.userEmail); setLocalEmail(data.userEmail); }
+
+        const results = await Promise.allSettled(cloudWrites);
+        const hasCloudFailure = results.some(r => r.status === 'rejected');
+        if (hasCloudFailure) {
+          toast('備份已匯入，但雲端同步的部分失敗，請稍後再試', 'error');
+        } else {
+          toast('備份已成功匯入');
+        }
       } catch {
         toast('解析備份失敗，請確認檔案格式');
       }

@@ -26,11 +26,16 @@ const STEPS = [
 ];
 
 export function OnboardingWizard() {
-  const { onboardingDone, setOnboardingDone, assets } = useAppContext();
+  const { onboardingDone, setOnboardingDone, assets, liabilities, assetsLoading } = useAppContext();
   const [step, setStep] = useState(0);
 
-  const isDemoData = assets.some(cat => cat.items.some(item => item.id === 'l1'));
-  if (onboardingDone || isDemoData) return null;
+  // 雲端資料還在載入時先不判斷，避免資料尚未到位時誤判為「沒有資料」而閃現引導精靈
+  if (assetsLoading) return null;
+
+  // 只要已經有任何資產/負債資料（不論是示範資料、本機自建，或雲端帳號帶來的真實資料），
+  // 就不需要再顯示新手引導——示範資料另有專屬橫幅說明，真實資料代表使用者早已上手。
+  const hasAnyData = assets.some(cat => cat.items.length > 0) || liabilities.length > 0;
+  if (onboardingDone || hasAnyData) return null;
 
   const current = STEPS[step];
   const { Icon } = current;
