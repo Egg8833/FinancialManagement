@@ -16,19 +16,19 @@ export function MonthlySummaryCard({ totalIncome, totalExpense, netAmount, showV
           <div>
             <p className="text-xs text-gray-500 mb-0.5">收入</p>
             <p className="text-lg font-bold text-red-600">
-              {showValues ? `+NT$${totalIncome.toLocaleString()}` : '●●●●'}
+              {showValues ? `NT$${totalIncome.toLocaleString()}` : '●●●●'}
             </p>
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-0.5">支出</p>
             <p className="text-lg font-bold text-green-700">
-              {showValues ? `-NT$${totalExpense.toLocaleString()}` : '●●●●'}
+              {showValues ? `NT$${totalExpense.toLocaleString()}` : '●●●●'}
             </p>
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-0.5">結餘</p>
             <p className={`text-lg font-bold ${netAmount >= 0 ? 'text-blue-700' : 'text-red-600'}`}>
-              {showValues ? `${netAmount >= 0 ? '+' : ''}NT$${netAmount.toLocaleString()}` : '●●●●'}
+              {showValues ? `NT$${netAmount.toLocaleString()}` : '●●●●'}
             </p>
           </div>
         </div>
