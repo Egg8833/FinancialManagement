@@ -68,6 +68,7 @@ GET /api/cron/daily-check
 `src/app/api/cron/daily-check/route.ts`:
 
 - 驗證:讀 `Authorization` header,比對 `Bearer ${process.env.CRON_SECRET}`,不符回 401。Vercel 觸發自家 cron 時會自動帶上這個 header(需在 Vercel 專案環境變數設定 `CRON_SECRET`)。
+- 檔案頂端加 `export const maxDuration = 60;`——Hobby 方案 function 預設逾時 10 秒,但可用此設定明確拉到 60 秒上限(Hobby 方案允許的最大值),幾乎零成本換到 6 倍餘裕,直接在本次實作做,不留到之後。
 - 逐使用者處理包在 `try/catch`,單一使用者失敗(例如某股票代號查價失敗、SMTP 暫時錯誤)只記錄 log、不中斷整批。
 - 回傳處理摘要 JSON(成功/失敗數量),方便日後查 Vercel cron 執行紀錄除錯。
 
@@ -88,7 +89,8 @@ GET /api/cron/daily-check
 
 - 單一使用者處理失敗不影響其他使用者(try/catch 包每個使用者迴圈)。
 - SMTP / 股價 API 失敗時記錄 `console.error`(含 userId,不含信箱等 PII),讓 Vercel 的 function log 可查。
-- Hobby 方案 10 秒逾時:目前使用者數量小,單一使用者處理(DB 查詢 + 股價 API + SMTP)預期在 1-2 秒內,若未來使用者數增加導致逼近逾時,需改成分批處理或改用 Vercel Pro / 外部排程觸發(記錄為已知限制,非本次範圍)。
+- Hobby 方案搭配 `maxDuration = 60` 後有 60 秒可用:目前使用者數量小,單一使用者處理(DB 查詢 + 股價 API + SMTP)預期在 1-2 秒內,仍有充足餘裕。若未來使用者數大幅增加導致逼近 60 秒,需改成分批處理或改用 Vercel Pro / 外部排程觸發(記錄為已知限制,非本次範圍)。
+- **appState 樂觀鎖版本衝突為預期行為,非 bug**:前端 `useSyncedState`/`AppStateContext` 用記憶體快取的 `version` 做樂觀鎖,cron 直接寫 DB 會讓某使用者當下的前端快取版本過期。此使用者之後在網頁上寫入同一個 key(例如手動按「立即寄送」寫回 `lastReportSent`)會收到 409,但 `AppStateContext.setValue` 既有邏輯會自動 `reload()` 並提示「資料已在其他裝置修改,已重新載入」——cron 在這個機制下等同於「另一台裝置」,行為與既有多裝置同步衝突完全一致。測試時看到這個 toast 屬正常現象,不代表故障。
 
 ## 8. 測試
 
