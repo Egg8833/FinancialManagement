@@ -5,6 +5,7 @@ import { Mail, Send, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import type { ReportPayload } from '../lib/mail';
+import { computePledgeRatios, buildReportPledgeRatios } from '../lib/pledgeCalc';
 
 export function EmailReportSender() {
   const ctx = useAppContext();
@@ -117,36 +118,7 @@ export function EmailReportSender() {
         };
       }),
       // 質押維持率（按平台分組）
-      pledgeRatioData: (() => {
-        const borrowStaking = ctx.stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow');
-        const borrowByPlatform: Record<string, typeof borrowStaking> = {};
-        for (const item of borrowStaking) {
-          const p = (item.protocol || '未分類').trim();
-          if (!borrowByPlatform[p]) borrowByPlatform[p] = [];
-          borrowByPlatform[p].push(item);
-        }
-        const collateralByPlatform: Record<string, number> = {};
-        for (const item of ctx.stockItems) {
-          if (!item.collateralShares) continue;
-          const quote = ctx.stockQuotes[item.symbol];
-          if (!quote) continue;
-          const value = quote.price * item.collateralShares;
-          const twdValue = quote.currency === 'USD' ? value * usdToTwd : value;
-          const p = (item.platform || '未分類').trim();
-          collateralByPlatform[p] = (collateralByPlatform[p] || 0) + twdValue;
-        }
-        return Object.keys(borrowByPlatform).map(platform => {
-          const items = borrowByPlatform[platform];
-          const totalBorrowValue = items.reduce((s, i) => s + i.value, 0);
-          const totalCollateralValueTWD = collateralByPlatform[platform] || 0;
-          const ratio = totalBorrowValue > 0 ? (totalCollateralValueTWD / totalBorrowValue) * 100 : 0;
-          const isRed = ratio < 130;
-          const isYellow = ratio >= 130 && ratio < 166;
-          const buffer = Math.round(totalCollateralValueTWD - totalBorrowValue * 1.30);
-          const shortage = Math.round(totalBorrowValue * 1.30 - totalCollateralValueTWD);
-          return { platform, ratio, totalBorrowValue, totalCollateralValueTWD: Math.round(totalCollateralValueTWD), buffer, shortage, isRed, isYellow };
-        });
-      })(),
+      pledgeRatioData: buildReportPledgeRatios(computePledgeRatios(ctx.stakingItems, ctx.stockItems, ctx.stockQuotes, usdToTwd)),
       generatedAt: new Date().toISOString(),
     };
   };

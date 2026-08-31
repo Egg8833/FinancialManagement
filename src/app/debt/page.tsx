@@ -26,6 +26,7 @@ import { LoanSection } from '../../components/debt/LoanSection';
 import { BorrowSection } from '../../components/debt/BorrowSection';
 import { StakingSection } from '../../components/debt/StakingSection';
 import { PaymentDueDialog } from '../../components/debt/PaymentDueDialog';
+import { computePledgeRatios, getPledgeAlertLevel } from '../../lib/pledgeCalc';
 
 export default function BorrowingPage() {
   const {
@@ -111,28 +112,18 @@ export default function BorrowingPage() {
     return map;
   }, [stockItems, stockQuotes, usdToTwd]);
 
-  const { minRatio, minPlatform, allPlatformRatios } = useMemo(() => {
-    let min = Infinity;
-    let minP = '';
-    const allRatios: Array<{ platform: string; ratio: number; borrowValue: number; collateralValue: number }> = [];
-    for (const platform of pledgePlatforms) {
-      const borrow = (borrowByPlatform[platform] || []).reduce((s, i) => s + i.value, 0);
-      const collateral = collateralByPlatform[platform] || 0;
-      const ratio = borrow > 0 ? (collateral / borrow) * 100 : Infinity;
-      allRatios.push({ platform, ratio: ratio === Infinity ? 0 : ratio, borrowValue: borrow, collateralValue: collateral });
-      if (borrow > 0 && ratio < min) { min = ratio; minP = platform; }
-    }
-    return {
-      minRatio: min === Infinity ? 0 : min,
-      minPlatform: minP,
-      allPlatformRatios: allRatios,
-    };
-  }, [pledgePlatforms, borrowByPlatform, collateralByPlatform]);
+  const pledgeRatios = useMemo(
+    () => computePledgeRatios(stakingItems, stockItems, stockQuotes, usdToTwd),
+    [stakingItems, stockItems, stockQuotes, usdToTwd]
+  );
 
-  const alertLevel: 'warning' | 'danger' | null =
-    minRatio > 0 && minPlatform
-      ? minRatio < 167 ? 'danger' : minRatio < 200 ? 'warning' : null
-      : null;
+  const pledgeAlert = useMemo(() => getPledgeAlertLevel(pledgeRatios), [pledgeRatios]);
+  const alertLevel: 'warning' | 'danger' | null = pledgeAlert?.level ?? null;
+  const minRatio = pledgeAlert?.ratio ?? 0;
+  const minPlatform = pledgeAlert?.platform ?? '';
+  const allPlatformRatios = pledgeRatios.map(r => ({
+    platform: r.platform, ratio: r.ratio, borrowValue: r.borrowValue, collateralValue: r.collateralValue,
+  }));
 
   useEffect(() => {
     if (!alertLevel || !userEmail || !minPlatform) return;
