@@ -5,6 +5,7 @@ import { Mail, Send, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import type { ReportPayload } from '../lib/mail';
+import { computePledgeRatios, buildReportPledgeRatios } from '../lib/pledgeCalc';
 
 export function EmailReportSender() {
   const ctx = useAppContext();
@@ -21,34 +22,6 @@ export function EmailReportSender() {
       setResult(null);
     }
   }, [isOpen, ctx.userEmail]);
-
-  useEffect(() => {
-    if (ctx.reportSchedule === 'none' || !ctx.userEmail) return;
-    if (ctx.assetsLoading) return; // 雲端資料載入中，避免寄出全零報表並誤標「今日已寄送」
-
-    const today = new Date();
-    const todayStr = today.toLocaleDateString('en-CA');
-
-    if (ctx.lastReportSent === todayStr) return;
-
-    const shouldSend =
-      (ctx.reportSchedule === 'weekly' && today.getDay() === 1) ||
-      (ctx.reportSchedule === 'monthly' && today.getDate() === 1);
-
-    if (!shouldSend) return;
-
-    fetch('/api/cron/send-asset-report', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipientEmail: ctx.userEmail,
-        reportData: buildReportData(),
-      }),
-    })
-      .then(res => { if (res.ok) ctx.setLastReportSent(todayStr); })
-      .catch(() => toast('自動報表寄送失敗', 'error'));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctx.reportSchedule, ctx.lastReportSent, ctx.userEmail, ctx.assetsLoading]);
 
   const buildReportData = (): ReportPayload => {
     const usdToTwd = ctx.usdToTwd;
@@ -117,36 +90,7 @@ export function EmailReportSender() {
         };
       }),
       // 質押維持率（按平台分組）
-      pledgeRatioData: (() => {
-        const borrowStaking = ctx.stakingItems.filter(i => (i.stakingType ?? 'borrow') === 'borrow');
-        const borrowByPlatform: Record<string, typeof borrowStaking> = {};
-        for (const item of borrowStaking) {
-          const p = (item.protocol || '未分類').trim();
-          if (!borrowByPlatform[p]) borrowByPlatform[p] = [];
-          borrowByPlatform[p].push(item);
-        }
-        const collateralByPlatform: Record<string, number> = {};
-        for (const item of ctx.stockItems) {
-          if (!item.collateralShares) continue;
-          const quote = ctx.stockQuotes[item.symbol];
-          if (!quote) continue;
-          const value = quote.price * item.collateralShares;
-          const twdValue = quote.currency === 'USD' ? value * usdToTwd : value;
-          const p = (item.platform || '未分類').trim();
-          collateralByPlatform[p] = (collateralByPlatform[p] || 0) + twdValue;
-        }
-        return Object.keys(borrowByPlatform).map(platform => {
-          const items = borrowByPlatform[platform];
-          const totalBorrowValue = items.reduce((s, i) => s + i.value, 0);
-          const totalCollateralValueTWD = collateralByPlatform[platform] || 0;
-          const ratio = totalBorrowValue > 0 ? (totalCollateralValueTWD / totalBorrowValue) * 100 : 0;
-          const isRed = ratio < 130;
-          const isYellow = ratio >= 130 && ratio < 166;
-          const buffer = Math.round(totalCollateralValueTWD - totalBorrowValue * 1.30);
-          const shortage = Math.round(totalBorrowValue * 1.30 - totalCollateralValueTWD);
-          return { platform, ratio, totalBorrowValue, totalCollateralValueTWD: Math.round(totalCollateralValueTWD), buffer, shortage, isRed, isYellow };
-        });
-      })(),
+      pledgeRatioData: buildReportPledgeRatios(computePledgeRatios(ctx.stakingItems, ctx.stockItems, ctx.stockQuotes, usdToTwd)),
       generatedAt: new Date().toISOString(),
     };
   };

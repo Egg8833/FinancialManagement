@@ -50,11 +50,13 @@ const DEFAULT_FIRE: FireSettings = {
 export function SettingsProvider({ children }: { children: ReactNode }) {
   // 裝置專屬，刻意不雲端同步：showValues（隱私顯示開關，各裝置各自獨立較合理）、
   // userName/userEmail（登入時改由 Google 帳號同步，見 AppContext）、
-  // lastReportSent/lastExportDate（本機操作紀錄）、onboardingDone（已由 hasAnyData 判斷取代，見 OnboardingWizard）
+  // lastExportDate（本機操作紀錄）、onboardingDone（已由 hasAnyData 判斷取代，見 OnboardingWizard）
+  // lastReportSent 改為雲端同步（見下方 useSyncedState）：伺服器 cron 與任何裝置手動寄送報表都要共用同一個
+  // 「今天寄過了沒」狀態，才能避免跨裝置/跨 cron 重複寄信。
   const [showValues, setShowValues] = useStickyState<boolean>(true, 'app-show-values');
   const [userName, setUserName] = useStickyState<string>('', 'app-user-name-v1');
   const [userEmail, setUserEmail] = useStickyState<string>('', 'app-user-email-v1');
-  const [lastReportSent, setLastReportSent] = useStickyState('', 'app-last-report-sent-v1');
+  const [lastReportSent, setLastReportSent] = useSyncedState<string>('lastReportSent', '', 'app-last-report-sent-v1');
   const [onboardingDone, setOnboardingDone] = useStickyState<boolean>(false, 'assetdash-onboarding-done');
   const [lastExportDate, setLastExportDate] = useStickyState<string>('', 'app-last-export-v1');
 

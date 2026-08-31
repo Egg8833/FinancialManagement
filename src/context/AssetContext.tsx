@@ -7,6 +7,7 @@ import { useSyncedCollection } from '../hooks/useSyncedCollection';
 import { mergeSnapshot } from '../lib/snapshotMerge';
 import { ConflictError } from '../repositories/types';
 import { useToast } from './ToastContext';
+import { buildCombinedAssets, buildCombinedLiabilities, computeTotalAssets, computeTotalLiabilities } from '../lib/assetCalc';
 
 const nowTs = () => '剛剛';
 
@@ -179,56 +180,19 @@ export function AssetProvider({
     })();
   }, [assetsCol, liabCol, snapCol, toast]);
 
-  // ── 衍生值(原樣保留自現版 AssetContext.tsx:83-131)────────────
-  const combinedAssets = useMemo(() => {
-    return assets.map(cat => {
-      if (cat.id !== 'investment') return cat;
-      const extra: { id: string; name: string; amount: number }[] = [];
-      if (totalStockValueTWD > 0) extra.push({ id: 'auto-stocks', name: '自動化股票投資', amount: Math.round(totalStockValueTWD) });
-      if (stakingEarnTotal > 0)   extra.push({ id: 'auto-earn',   name: '活存/Earn 收益資產', amount: stakingEarnTotal });
-      if (extra.length === 0) return cat;
-      return { ...cat, items: [...cat.items, ...extra] };
-    });
-  }, [assets, totalStockValueTWD, stakingEarnTotal]);
-
-  const combinedLiabilities = useMemo<LiabilityItem[]>(() => {
-    const list = [...liabilities];
-    for (const item of borrowItems) {
-      list.push({
-        id: `auto-staking-${item.id}`,
-        name: item.name,
-        description: `${item.protocol} · 質押借款 · ${item.apy}% 年利率`,
-        amount: item.value,
-        updatedAt: '自動同步',
-        icon: 'building' as const,
-      });
-    }
-    for (const loan of loans) {
-      if (loan.principal > 0) {
-        list.push({
-          id: `auto-loan-${loan.id}`,
-          name: `${loan.name}（${loan.bank}）`,
-          description: loan.loanType === 'installment'
-            ? `分期還款 · ${loan.interestRate}% · 剩餘${loan.remainingPeriods}期`
-            : `循環借款 · ${loan.interestRate}% 年利率`,
-          amount: loan.principal,
-          updatedAt: '自動同步',
-          icon: 'creditCard' as const,
-        });
-      }
-    }
-    return list;
-  }, [liabilities, borrowItems, loans]);
-
-  const totalAssets = useMemo(
-    () => combinedAssets.reduce((s, cat) => s + cat.items.reduce((is, i) => is + i.amount, 0), 0),
-    [combinedAssets]
+  // ── 衍生值(呼叫 src/lib/assetCalc.ts 的共用純函式,前端與伺服器 cron 共用同一份邏輯)──
+  const combinedAssets = useMemo(
+    () => buildCombinedAssets(assets, totalStockValueTWD, stakingEarnTotal),
+    [assets, totalStockValueTWD, stakingEarnTotal]
   );
 
-  const totalLiabilities = useMemo(
-    () => combinedLiabilities.reduce((s, i) => s + i.amount, 0),
-    [combinedLiabilities]
+  const combinedLiabilities = useMemo(
+    () => buildCombinedLiabilities(liabilities, borrowItems, loans),
+    [liabilities, borrowItems, loans]
   );
+
+  const totalAssets = useMemo(() => computeTotalAssets(combinedAssets), [combinedAssets]);
+  const totalLiabilities = useMemo(() => computeTotalLiabilities(combinedLiabilities), [combinedLiabilities]);
 
   return (
     <AssetContext.Provider value={{

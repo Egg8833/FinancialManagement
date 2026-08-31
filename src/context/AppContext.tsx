@@ -18,6 +18,7 @@ import { useAssetContext, AssetProvider } from './AssetContext';
 import { useRepositories } from './RepositoryContext';
 import { useAppStateContext } from './AppStateContext';
 import { buildSnapshot } from '../lib/snapshotUtils';
+import { computeMonthlyIncome, computeMonthlyExpense } from '../lib/cashflowCalc';
 
 const STORAGE_SCHEMA_VERSION = 1;
 
@@ -186,20 +187,16 @@ function AppContextBridge({
     }, 0);
   }, [stockItems, stockQuotes, settingsCtx.usdToTwd]);
 
-  // totalMonthlyIncome / totalMonthlyExpense（跨 domain 計算）
-  const totalMonthlyIncome = useMemo(() => {
-    const record = cashflowCtx.monthlyRecords[cashflowCtx.currentMonthKey];
-    const items = record?.income ?? cashflowCtx.cashflowTemplate.income;
-    return items.reduce((sum, item) => sum + item.amount, 0) + Math.round(loanCtx.stakingEarnIncome);
-  }, [cashflowCtx.monthlyRecords, cashflowCtx.currentMonthKey, cashflowCtx.cashflowTemplate.income, loanCtx.stakingEarnIncome]);
+  // totalMonthlyIncome / totalMonthlyExpense（跨 domain 計算,呼叫 src/lib/cashflowCalc.ts 的共用純函式）
+  const totalMonthlyIncome = useMemo(
+    () => computeMonthlyIncome(cashflowCtx.monthlyRecords[cashflowCtx.currentMonthKey], cashflowCtx.cashflowTemplate, loanCtx.stakingEarnIncome),
+    [cashflowCtx.monthlyRecords, cashflowCtx.currentMonthKey, cashflowCtx.cashflowTemplate, loanCtx.stakingEarnIncome]
+  );
 
-  const totalMonthlyExpense = useMemo(() => {
-    const record = cashflowCtx.monthlyRecords[cashflowCtx.currentMonthKey];
-    const items = record?.expense ?? cashflowCtx.cashflowTemplate.expense;
-    return items.reduce((sum, item) => sum + item.amount, 0)
-      + Math.round(loanCtx.stakingBorrowInterest)
-      + loanCtx.totalLoanMonthlyPayments;
-  }, [cashflowCtx.monthlyRecords, cashflowCtx.currentMonthKey, cashflowCtx.cashflowTemplate.expense, loanCtx.stakingBorrowInterest, loanCtx.totalLoanMonthlyPayments]);
+  const totalMonthlyExpense = useMemo(
+    () => computeMonthlyExpense(cashflowCtx.monthlyRecords[cashflowCtx.currentMonthKey], cashflowCtx.cashflowTemplate, loanCtx.stakingBorrowInterest, loanCtx.totalLoanMonthlyPayments),
+    [cashflowCtx.monthlyRecords, cashflowCtx.currentMonthKey, cashflowCtx.cashflowTemplate, loanCtx.stakingBorrowInterest, loanCtx.totalLoanMonthlyPayments]
+  );
 
   const monthlyNetCashFlow = totalMonthlyIncome - totalMonthlyExpense;
 
