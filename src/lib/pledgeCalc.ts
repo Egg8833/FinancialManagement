@@ -57,7 +57,7 @@ export function getPledgeAlertLevel(ratios: PledgeRatio[]): PledgeAlert | null {
       minPlatform = r.platform;
     }
   }
-  if (min === Infinity || !minPlatform) return null;
+  if (min === Infinity || !minPlatform || min <= 0) return null;
   if (min < 167) return { level: 'danger', platform: minPlatform, ratio: min };
   if (min < 200) return { level: 'warning', platform: minPlatform, ratio: min };
   return null;

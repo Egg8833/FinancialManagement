@@ -47,6 +47,10 @@ describe('getPledgeAlertLevel', () => {
     expect(getPledgeAlertLevel([{ platform: 'A', ratio: 0, borrowValue: 0, collateralValue: 0 }])).toBeNull();
   });
 
+  it('借款 > 0 但擔保品市值 0(無報價)時 ratio 為 0,不應誤觸發 danger', () => {
+    expect(getPledgeAlertLevel([{ platform: 'A', ratio: 0, borrowValue: 100, collateralValue: 0 }])).toBeNull();
+  });
+
   it('多平台時取維持率最低者', () => {
     const result = getPledgeAlertLevel([
       { platform: 'A', ratio: 180, borrowValue: 100, collateralValue: 180 },
