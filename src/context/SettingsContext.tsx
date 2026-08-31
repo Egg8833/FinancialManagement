@@ -27,7 +27,6 @@ interface SettingsContextType {
   onboardingDone: boolean;
   setOnboardingDone: (v: boolean) => void;
   enablePledgeTracking: boolean;
-  setEnablePledgeTracking: (v: boolean) => void;
   pledgeAlertLastSent: Record<'warning' | 'danger', string>;
   setPledgeAlertLastSent: (v: Record<'warning' | 'danger', string> | ((p: Record<'warning' | 'danger', string>) => Record<'warning' | 'danger', string>)) => void;
   lastExportDate: string;
@@ -66,7 +65,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [netWorthGoal, setNetWorthGoal] = useSyncedState<number>('netWorthGoal', 0, 'app-net-worth-goal-v1');
   const [fireSettings, setFireSettings] = useSyncedState<FireSettings>('fireSettings', DEFAULT_FIRE, 'app-fire-settings-v1');
   const [lifeEvents, setLifeEvents] = useSyncedState<LifeEvent[]>('lifeEvents', [], 'app-life-events-v1');
-  const [enablePledgeTracking, setEnablePledgeTracking] = useSyncedState<boolean>('enablePledgeTracking', false, 'app-enable-pledge-tracking-v1');
+  // 質押擔保品追蹤已固定開啟，不再提供使用者關閉的開關
+  const enablePledgeTracking = true;
   const [pledgeAlertLastSent, setPledgeAlertLastSent] = useSyncedState<Record<'warning' | 'danger', string>>(
     'pledgeAlertLastSent', { warning: '', danger: '' }, 'app-pledge-alert-v1'
   );
@@ -83,7 +83,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       fireSettings, setFireSettings,
       lifeEvents, setLifeEvents,
       onboardingDone, setOnboardingDone,
-      enablePledgeTracking, setEnablePledgeTracking,
+      enablePledgeTracking,
       pledgeAlertLastSent, setPledgeAlertLastSent,
       lastExportDate, setLastExportDate,
     }}>

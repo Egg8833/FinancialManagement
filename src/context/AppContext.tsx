@@ -115,7 +115,6 @@ interface AppContextType {
   onboardingDone: boolean;
   setOnboardingDone: (v: boolean) => void;
   enablePledgeTracking: boolean;
-  setEnablePledgeTracking: (v: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -309,7 +308,7 @@ function AppContextBridge({
     fireSettings: settingsCtx.fireSettings, setFireSettings: settingsCtx.setFireSettings,
     lifeEvents: settingsCtx.lifeEvents, setLifeEvents: settingsCtx.setLifeEvents,
     onboardingDone: settingsCtx.onboardingDone, setOnboardingDone: settingsCtx.setOnboardingDone,
-    enablePledgeTracking: settingsCtx.enablePledgeTracking, setEnablePledgeTracking: settingsCtx.setEnablePledgeTracking,
+    enablePledgeTracking: settingsCtx.enablePledgeTracking,
     pledgeAlertLastSent: settingsCtx.pledgeAlertLastSent, setPledgeAlertLastSent: settingsCtx.setPledgeAlertLastSent,
     lastExportDate: settingsCtx.lastExportDate, setLastExportDate: settingsCtx.setLastExportDate,
   }), [
@@ -320,7 +319,7 @@ function AppContextBridge({
     settingsCtx.setShowValues, settingsCtx.setUserName, settingsCtx.setUserEmail,
     settingsCtx.setUsdToTwd, settingsCtx.setReportSchedule, settingsCtx.setLastReportSent,
     settingsCtx.setNetWorthGoal, settingsCtx.setFireSettings, settingsCtx.setLifeEvents,
-    settingsCtx.setOnboardingDone, settingsCtx.setEnablePledgeTracking,
+    settingsCtx.setOnboardingDone,
     settingsCtx.setPledgeAlertLastSent, settingsCtx.setLastExportDate,
   ]);
 

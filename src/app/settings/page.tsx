@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
-import { User, Mail, Save, CheckCircle, DollarSign, Download, Upload, Database, Bell, ShieldCheck, Cloud } from 'lucide-react';
+import { User, Mail, Save, CheckCircle, DollarSign, Download, Upload, Database, Bell, Cloud } from 'lucide-react';
 import { useAppContext } from '../../context/AppContext';
 import { useStockContext } from '../../context/StockContext';
 import { useToast } from '../../context/ToastContext';
@@ -29,7 +29,6 @@ export default function SettingsPage() {
     setLastExportDate,
     reportSchedule, setReportSchedule,
     lastReportSent,
-    enablePledgeTracking, setEnablePledgeTracking,
   } = useAppContext();
   const { soldStocks, setSoldStocks } = useStockContext();
   const { toast } = useToast();
@@ -343,40 +342,6 @@ export default function SettingsPage() {
                 <span>請先在上方設定個人信箱，否則自動報表無法寄出。</span>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Feature Toggles Card */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-indigo-600" />
-              <h3 className="text-base font-bold text-gray-900">功能開關</h3>
-            </div>
-            <p className="text-sm text-gray-500 mt-1">開啟或關閉特定進階功能</p>
-          </div>
-          <div className="p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-800">質押擔保品追蹤</p>
-                <p className="text-xs text-gray-400 mt-0.5">在股票頁顯示擔保品欄位與設定，適合有股票質押需求的用戶</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enablePledgeTracking}
-                onClick={() => setEnablePledgeTracking(!enablePledgeTracking)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                  enablePledgeTracking ? 'bg-indigo-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    enablePledgeTracking ? 'translate-x-5' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
           </div>
         </div>
 

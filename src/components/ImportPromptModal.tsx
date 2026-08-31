@@ -32,7 +32,6 @@ const EXTRA_STATE_KEYS: { key: string; localStorageKey: string }[] = [
   { key: 'reportSchedule', localStorageKey: 'app-report-schedule-v1' },
   { key: 'fireSettings', localStorageKey: 'app-fire-settings-v1' },
   { key: 'lifeEvents', localStorageKey: 'app-life-events-v1' },
-  { key: 'enablePledgeTracking', localStorageKey: 'app-enable-pledge-tracking-v1' },
   { key: 'pledgeAlertLastSent', localStorageKey: 'app-pledge-alert-v1' },
 ];
 
