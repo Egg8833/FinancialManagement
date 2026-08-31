@@ -35,8 +35,6 @@ export default function BorrowingPage() {
     borrowingLimits, setBorrowingLimits,
     stockItems, stockQuotes,
     usdToTwd,
-    pledgeAlertLastSent, setPledgeAlertLastSent,
-    userEmail,
     showValues,
     enablePledgeTracking,
     assetsLoading,
@@ -121,32 +119,6 @@ export default function BorrowingPage() {
   const alertLevel: 'warning' | 'danger' | null = pledgeAlert?.level ?? null;
   const minRatio = pledgeAlert?.ratio ?? 0;
   const minPlatform = pledgeAlert?.platform ?? '';
-  const allPlatformRatios = pledgeRatios.map(r => ({
-    platform: r.platform, ratio: r.ratio, borrowValue: r.borrowValue, collateralValue: r.collateralValue,
-  }));
-
-  useEffect(() => {
-    if (!alertLevel || !userEmail || !minPlatform) return;
-    const today = new Date().toISOString().split('T')[0];
-    if (pledgeAlertLastSent[alertLevel] === today) return;
-
-    fetch('/api/pledge-alert', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        recipientEmail: userEmail,
-        alertLevel,
-        platformName: minPlatform,
-        ratio: minRatio,
-        pledgeData: allPlatformRatios,
-      }),
-    })
-      .then(res => {
-        if (res.ok) setPledgeAlertLastSent(prev => ({ ...prev, [alertLevel]: today }));
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alertLevel, minRatio, minPlatform]);
 
   const handleDeleteLoan = (id: string, name: string) =>
     setDeleteTarget({ label: name, action: () => { setLoans(prev => prev.filter(l => l.id !== id)); toast(`已刪除「${name}」`, 'info'); } });
