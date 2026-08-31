@@ -41,14 +41,17 @@ describe('getQuotes', () => {
   });
 
   it('查詢失敗但有舊快取時,回傳舊資料並標記 stale', async () => {
+    vi.useFakeTimers();
     mockQuote.mockResolvedValueOnce({
       MSFT: { regularMarketPrice: 300, regularMarketChangePercent: 0, currency: 'USD' },
     });
     await getQuotes(['MSFT']);
+    vi.advanceTimersByTime(61_000);
     mockQuote.mockRejectedValueOnce(new Error('network down'));
     const { data, stale } = await getQuotes(['MSFT']);
     expect(stale).toBe(true);
     expect(data.MSFT.price).toBe(300);
+    vi.useRealTimers();
   });
 
   it('查詢失敗且無快取時,把錯誤往外丟', async () => {
