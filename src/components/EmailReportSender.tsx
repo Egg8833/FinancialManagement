@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { Mail, Send, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { localDateStr } from '../lib/dateUtils';
 
 /**
  * 手動寄送資產報表:僅限登入使用者,收件人固定為登入帳號的 Email,
@@ -44,7 +45,7 @@ export function EmailReportSender() {
       if (res.ok && data.success) {
         setResult({ success: true, message: data.message || '報表寄送成功！' });
         toast('📧 資產報表已寄出');
-        ctx.setLastReportSent(new Date().toLocaleDateString('en-CA'));
+        ctx.setLastReportSent(localDateStr());
       } else {
         setResult({ success: false, message: data.error || '寄送失敗' });
         toast(data.error || '寄送失敗', 'error');

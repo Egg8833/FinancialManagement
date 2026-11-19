@@ -3,14 +3,24 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { calculateFire, runMonteCarlo, type FireResult } from '../../lib/fireCalc';
-import { CompareView } from './CompareView';
 import { SliderInput, NumberInput, formatTWD } from './shared';
 import { FireProgressCard } from './FireProgressCard';
 import { FireMilestones } from './FireMilestones';
 import { CoastFireCard } from './CoastFireCard';
-import { FireProjectionChart } from './FireProjectionChart';
 import { SwrSensitivityCard } from './SwrSensitivityCard';
-import { MonteCarloSection } from './MonteCarloSection';
+import dynamic from 'next/dynamic';
+import { ChartSkeleton } from '../../components/ui/Skeleton';
+
+// 圖表(recharts)延後載入,縮小首次載入的 JS
+const CompareView = dynamic(() => import('./CompareView').then(m => ({ default: m.CompareView })), {
+  loading: () => <ChartSkeleton height="h-96" />, ssr: false,
+});
+const FireProjectionChart = dynamic(() => import('./FireProjectionChart').then(m => ({ default: m.FireProjectionChart })), {
+  loading: () => <ChartSkeleton height="h-80" />, ssr: false,
+});
+const MonteCarloSection = dynamic(() => import('./MonteCarloSection').then(m => ({ default: m.MonteCarloSection })), {
+  loading: () => <ChartSkeleton height="h-64" />, ssr: false,
+});
 
 export default function FirePage() {
   const { assetsLoading } = useAppContext();

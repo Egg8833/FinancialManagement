@@ -8,13 +8,23 @@ import {
 import { formatCurrency as _fmt, monthKey } from '../../lib/utils';
 import { AnnualTracker } from '../../components/AnnualTracker';
 import { useToast } from '../../context/ToastContext';
-import { CategoryAnalysisTab } from '../../components/cashflow/CategoryAnalysisTab';
-import { MonthTrendChart } from '../../components/cashflow/MonthTrendChart';
+import dynamic from 'next/dynamic';
+import { ChartSkeleton } from '../../components/ui/Skeleton';
 import { CashflowPageHeader } from '../../components/cashflow/CashflowPageHeader';
 import { CashflowFilterBar } from '../../components/cashflow/CashflowFilterBar';
 import { CashflowKPICards } from '../../components/cashflow/CashflowKPICards';
 import { FixedItemsSection } from '../../components/cashflow/FixedItemsSection';
 import { OneTimeEntriesSection } from '../../components/cashflow/OneTimeEntriesSection';
+
+// 圖表(recharts)延後載入,縮小首次載入的 JS
+const CategoryAnalysisTab = dynamic(
+  () => import('../../components/cashflow/CategoryAnalysisTab').then(m => ({ default: m.CategoryAnalysisTab })),
+  { loading: () => <ChartSkeleton height="h-64" />, ssr: false }
+);
+const MonthTrendChart = dynamic(
+  () => import('../../components/cashflow/MonthTrendChart').then(m => ({ default: m.MonthTrendChart })),
+  { loading: () => <ChartSkeleton height="h-56" />, ssr: false }
+);
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

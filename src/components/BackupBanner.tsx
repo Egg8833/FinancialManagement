@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { ShieldCheck, ShieldAlert, Download, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { localDateStr } from '../lib/dateUtils';
 
 function daysSince(isoDate: string): number {
   if (!isoDate) return Infinity;
@@ -45,7 +46,7 @@ export function BackupBanner() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `assetdash-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `assetdash-backup-${localDateStr()}.json`;
     a.click();
     URL.revokeObjectURL(url);
     ctx.setLastExportDate(new Date().toISOString());

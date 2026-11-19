@@ -1,5 +1,6 @@
 import type { AssetSnapshot, AssetCategory } from '../types';
 import { calculateHealthScore } from './healthScore';
+import { localDateStr } from './dateUtils';
 
 interface BuildSnapshotParams {
   assets: AssetCategory[];
@@ -19,7 +20,7 @@ export function buildSnapshot(params: BuildSnapshotParams): AssetSnapshot {
     totalMonthlyIncome, totalMonthlyExpense, monthlyNetCashFlow, snapshots,
   } = params;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const liquidAmt     = assets.find(c => c.id === 'liquid')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
   const investmentAmt = combinedAssets.find(c => c.id === 'investment')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;
   const fixedAmt      = assets.find(c => c.id === 'fixed')?.items.reduce((s, i) => s + i.amount, 0) ?? 0;

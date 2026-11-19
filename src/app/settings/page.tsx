@@ -7,6 +7,7 @@ import { useAppContext } from '../../context/AppContext';
 import { useStockContext } from '../../context/StockContext';
 import { useToast } from '../../context/ToastContext';
 import { buildBackup, applyBackup } from '../../lib/backup';
+import { localDateStr } from '../../lib/dateUtils';
 
 export default function SettingsPage() {
   const {
@@ -93,10 +94,10 @@ export default function SettingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `assetdash-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `assetdash-backup-${localDateStr()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    setLastExportDate(new Date().toISOString().split('T')[0]);
+    setLastExportDate(localDateStr());
     toast('備份已下載');
   };
 
