@@ -2,6 +2,7 @@
 
 import { AlertTriangle, AlertOctagon, X } from 'lucide-react';
 import { useState } from 'react';
+import { PLEDGE_CALL_RATIO, PLEDGE_WARN_RATIO } from '../lib/pledgeCalc';
 
 interface PledgeAlertBannerProps {
   level: 'warning' | 'danger';
@@ -25,8 +26,8 @@ export function PledgeAlertBanner({ level, platformName, ratio }: PledgeAlertBan
       <Icon className={`w-5 h-5 shrink-0 ${isDanger ? 'text-red-600' : 'text-yellow-600'}`} />
       <p className="flex-1 text-sm font-medium">
         {isDanger
-          ? `⚠️ 緊急：${platformName} 質押維持率 ${ratio.toFixed(1)}% 低於 167%，請立即補充保證金`
-          : `⚡ 注意：${platformName} 質押維持率 ${ratio.toFixed(1)}% 低於 200%，建議提高維持率`}
+          ? `⚠️ 緊急：${platformName} 質押維持率 ${ratio.toFixed(1)}% 已低於追繳線 ${PLEDGE_CALL_RATIO}%，請立即補繳擔保品或還款`
+          : `⚡ 注意：${platformName} 質押維持率 ${ratio.toFixed(1)}% 低於警戒線 ${PLEDGE_WARN_RATIO}%，建議補繳擔保品或部分還款`}
       </p>
       <button
         onClick={() => setDismissed(true)}

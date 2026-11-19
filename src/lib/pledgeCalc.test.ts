@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { computePledgeRatios, getPledgeAlertLevel, buildReportPledgeRatios } from './pledgeCalc';
+import {
+  computePledgeRatios,
+  computeCollateralByPlatform,
+  getPledgeAlertLevel,
+  buildReportPledgeRatios,
+  simulatePledge,
+  simulatePortfolio,
+  repaymentForTargetRatio,
+  collateralForTargetRatio,
+  dropPctToRatio,
+} from './pledgeCalc';
 import type { StakingItem, StockItem, StockQuote } from '../types';
 
 const staking: StakingItem[] = [
@@ -28,19 +38,57 @@ describe('computePledgeRatios', () => {
   });
 });
 
+describe('computeCollateralByPlatform', () => {
+  const quotes: Record<string, StockQuote> = {
+    '2330.TW': { price: 1000, changePercent: 0, currency: 'TWD' },
+    AAPL: { price: 200, changePercent: 0, currency: 'USD' },
+  };
+
+  it('依平台加總擔保品市值,USD 換算台幣', () => {
+    const stocks: StockItem[] = [
+      { id: '1', symbol: '2330.TW', shares: 2000, avgCost: 0, collateralShares: 1000, platform: '元大' },
+      { id: '2', symbol: 'AAPL', shares: 10, avgCost: 0, collateralShares: 10, platform: ' 元大 ' },
+    ];
+    expect(computeCollateralByPlatform(stocks, quotes, 32)).toEqual({ 元大: 1000 * 1000 + 200 * 10 * 32 });
+  });
+
+  it('擔保股數超過持股數時以持股數為上限(例如 CSV 匯入的錯誤資料)', () => {
+    const stocks: StockItem[] = [
+      { id: '1', symbol: '2330.TW', shares: 1000, avgCost: 0, collateralShares: 5000, platform: '元大' },
+    ];
+    expect(computeCollateralByPlatform(stocks, quotes, 32)).toEqual({ 元大: 1000 * 1000 });
+  });
+
+  it('沒有報價或沒有擔保股數的股票不計入', () => {
+    const stocks: StockItem[] = [
+      { id: '1', symbol: 'NOQUOTE', shares: 1000, avgCost: 0, collateralShares: 1000, platform: '元大' },
+      { id: '2', symbol: '2330.TW', shares: 1000, avgCost: 0, platform: '元大' },
+    ];
+    expect(computeCollateralByPlatform(stocks, quotes, 32)).toEqual({});
+  });
+});
+
 describe('getPledgeAlertLevel', () => {
-  it('維持率 < 167% 回傳 danger', () => {
+  it('維持率 < 130%(追繳線)回傳 danger', () => {
+    expect(getPledgeAlertLevel([{ platform: 'A', ratio: 120, borrowValue: 100, collateralValue: 120 }]))
+      .toEqual({ level: 'danger', platform: 'A', ratio: 120 });
+  });
+
+  it('130% <= 維持率 < 166%(警戒線)回傳 warning,與畫面/報表/模擬器同一套門檻', () => {
     expect(getPledgeAlertLevel([{ platform: 'A', ratio: 150, borrowValue: 100, collateralValue: 150 }]))
-      .toEqual({ level: 'danger', platform: 'A', ratio: 150 });
+      .toEqual({ level: 'warning', platform: 'A', ratio: 150 });
   });
 
-  it('167% <= 維持率 < 200% 回傳 warning', () => {
-    expect(getPledgeAlertLevel([{ platform: 'A', ratio: 180, borrowValue: 100, collateralValue: 180 }]))
-      .toEqual({ level: 'warning', platform: 'A', ratio: 180 });
-  });
-
-  it('維持率 >= 200% 回傳 null', () => {
+  it('維持率 >= 166% 回傳 null', () => {
+    expect(getPledgeAlertLevel([{ platform: 'A', ratio: 170, borrowValue: 100, collateralValue: 170 }])).toBeNull();
     expect(getPledgeAlertLevel([{ platform: 'A', ratio: 250, borrowValue: 100, collateralValue: 250 }])).toBeNull();
+  });
+
+  it('未設定擔保品(市值 0)的平台被忽略,不會遮蔽其他平台的警示', () => {
+    expect(getPledgeAlertLevel([
+      { platform: '未設定', ratio: 0, borrowValue: 100, collateralValue: 0 },
+      { platform: 'B', ratio: 150, borrowValue: 100, collateralValue: 150 },
+    ])).toEqual({ level: 'warning', platform: 'B', ratio: 150 });
   });
 
   it('沒有任何借款 > 0 的平台時回傳 null', () => {
@@ -79,5 +127,165 @@ describe('buildReportPledgeRatios', () => {
     expect(r.isRed).toBe(false);
     expect(r.isYellow).toBe(false);
     expect(r.buffer).toBe(Math.round(2000000 - 1000000 * 1.3));
+  });
+});
+
+describe('simulatePledge', () => {
+  it('無任何調整時等於現況維持率', () => {
+    const r = simulatePledge(1_500_000, 1_000_000);
+    expect(r.ratio).toBe(150);
+    expect(r.status).toBe('warn');
+    expect(r.isCleared).toBe(false);
+  });
+
+  it('手動還款會降低借款餘額並拉高維持率', () => {
+    const r = simulatePledge(1_500_000, 1_000_000, { repayAmount: 200_000 });
+    expect(r.borrowValue).toBe(800_000);
+    expect(r.ratio).toBeCloseTo(187.5);
+    expect(r.status).toBe('safe');
+  });
+
+  it('還款金額超過借款餘額時以還清處理', () => {
+    const r = simulatePledge(1_500_000, 1_000_000, { repayAmount: 9_999_999 });
+    expect(r.isCleared).toBe(true);
+    expect(r.borrowValue).toBe(0);
+    expect(r.ratio).toBe(0);
+    expect(r.status).toBe('safe');
+  });
+
+  it('補繳擔保品在跌幅之後才計入', () => {
+    const r = simulatePledge(1_000_000, 1_000_000, { dropPct: 50, addCollateral: 300_000 });
+    expect(r.collateralValue).toBe(800_000);
+    expect(r.ratio).toBe(80);
+  });
+
+  it('跌幅、還款、補繳可同時作用', () => {
+    const r = simulatePledge(2_000_000, 1_000_000, { dropPct: 30, repayAmount: 300_000, addCollateral: 100_000 });
+    expect(r.collateralValue).toBe(1_500_000);
+    expect(r.borrowValue).toBe(700_000);
+    expect(r.ratio).toBeCloseTo(214.29, 1);
+  });
+
+  it('跌幅低於追繳線時回傳 danger 與缺口', () => {
+    const r = simulatePledge(1_300_000, 1_000_000, { dropPct: 20 });
+    expect(r.ratio).toBe(104);
+    expect(r.status).toBe('danger');
+    expect(r.shortage).toBe(260_000);
+  });
+
+  it('負數還款與負數補繳視為 0', () => {
+    const r = simulatePledge(1_500_000, 1_000_000, { repayAmount: -500_000, addCollateral: -500_000 });
+    expect(r.ratio).toBe(150);
+  });
+});
+
+describe('repaymentForTargetRatio / collateralForTargetRatio', () => {
+  it('回推達到目標維持率所需的還款金額', () => {
+    expect(repaymentForTargetRatio(1_500_000, 1_000_000, 200)).toBe(250_000);
+  });
+
+  it('已達目標時還款需求為 0', () => {
+    expect(repaymentForTargetRatio(2_500_000, 1_000_000, 200)).toBe(0);
+  });
+
+  it('回推達到目標維持率所需補繳的擔保品市值', () => {
+    expect(collateralForTargetRatio(1_500_000, 1_000_000, 200)).toBe(500_000);
+  });
+
+  it('無借款時兩者皆為 0', () => {
+    expect(repaymentForTargetRatio(1_000_000, 0, 200)).toBe(0);
+    expect(collateralForTargetRatio(1_000_000, 0, 200)).toBe(0);
+  });
+});
+
+describe('dropPctToRatio', () => {
+  it('計算還能跌幾 % 才碰到追繳線', () => {
+    expect(dropPctToRatio(2_600_000, 1_000_000, 130)).toBe(50);
+  });
+
+  it('已低於目標線時回 0', () => {
+    expect(dropPctToRatio(1_000_000, 1_000_000, 130)).toBe(0);
+  });
+});
+
+describe('simulatePortfolio', () => {
+  const accounts = [
+    { platform: '元大', collateralValue: 2_000_000, borrowValue: 1_000_000 },
+    { platform: '永豐', collateralValue: 1_400_000, borrowValue: 1_000_000 },
+  ];
+
+  it('共同跌幅下逐一算出各帳戶維持率', () => {
+    const r = simulatePortfolio(accounts, 30);
+    expect(r.accounts.map(a => Math.round(a.after.ratio))).toEqual([140, 98]);
+    expect(r.breached).toEqual(['永豐']);
+    expect(r.worst?.platform).toBe('永豐');
+  });
+
+  it('合併維持率以所有帳戶加總計算', () => {
+    const r = simulatePortfolio(accounts, 30);
+    expect(r.total.before.ratio).toBe(170);
+    expect(r.total.after.ratio).toBe(119);
+  });
+
+  it('合計缺口只累加落入追繳區的帳戶', () => {
+    const r = simulatePortfolio(accounts, 30);
+    expect(r.totalShortage).toBe(1_300_000 - 980_000);
+  });
+
+  it('可針對個別平台加上還款與補繳', () => {
+    const r = simulatePortfolio(accounts, 30, { 永豐: { repayAmount: 400_000 } });
+    const sinopac = r.accounts.find(a => a.platform === '永豐')!;
+    expect(sinopac.after.borrowValue).toBe(600_000);
+    expect(Math.round(sinopac.after.ratio)).toBe(163);
+    expect(r.breached).toEqual([]);
+  });
+
+  it('個別平台補繳擔保品:計入該帳戶與合併維持率,也反映在距追繳', () => {
+    const r = simulatePortfolio(accounts, 30, { 永豐: { addCollateral: 300_000 } });
+    const sinopac = r.accounts.find(a => a.platform === '永豐')!;
+    // 1.4M 跌 30% = 980,000,再補繳 300,000 → 1,280,000 / 1,000,000
+    expect(sinopac.after.ratio).toBe(128);
+    expect(r.total.after.collateralValue).toBe(1_400_000 + 980_000 + 300_000);
+    // 距追繳:(1.4M + 0.3M - 1.3M) / 1.4M
+    expect(sinopac.dropPctToCall).toBeCloseTo(28.57, 1);
+  });
+
+  it('沒有借款的帳戶不納入模擬', () => {
+    const r = simulatePortfolio([...accounts, { platform: '空帳戶', collateralValue: 500_000, borrowValue: 0 }], 10);
+    expect(r.accounts.map(a => a.platform)).toEqual(['元大', '永豐']);
+  });
+
+  it('個別帳戶還款超過其借款時,合併維持率只扣除該帳戶的借款(不會被高估)', () => {
+    const r = simulatePortfolio(accounts, 0, { 元大: { repayAmount: 5_000_000 } });
+    expect(r.accounts.find(a => a.platform === '元大')!.after.isCleared).toBe(true);
+    expect(r.total.after.borrowValue).toBe(1_000_000);
+    expect(r.total.after.isCleared).toBe(false);
+    expect(r.total.after.ratio).toBe(340);
+  });
+
+  it('距追繳的跌幅會反映手動還款', () => {
+    const r = simulatePortfolio(accounts, 0, { 永豐: { repayAmount: 400_000 } });
+    const sinopac = r.accounts.find(a => a.platform === '永豐')!;
+    // 借款 600,000 → 追繳線 780,000;擔保品 1,400,000 還能跌 (1.4M - 0.78M) / 1.4M
+    expect(sinopac.dropPctToCall).toBeCloseTo(44.29, 1);
+  });
+
+  it('已還清的帳戶距追繳為 100%(不會被追繳)', () => {
+    const r = simulatePortfolio(accounts, 0, { 永豐: { repayAmount: 1_000_000 } });
+    expect(r.accounts.find(a => a.platform === '永豐')!.dropPctToCall).toBe(100);
+  });
+
+  it('有借款但未設定擔保品的帳戶不納入模擬,另外列在 unconfigured', () => {
+    const r = simulatePortfolio([...accounts, { platform: '未設定', collateralValue: 0, borrowValue: 500_000 }], 10);
+    expect(r.accounts.map(a => a.platform)).toEqual(['元大', '永豐']);
+    expect(r.unconfigured).toEqual(['未設定']);
+    expect(r.breached).not.toContain('未設定');
+  });
+
+  it('無帳戶時回傳空結果', () => {
+    const r = simulatePortfolio([], 20);
+    expect(r.accounts).toEqual([]);
+    expect(r.worst).toBeNull();
+    expect(r.total.after.isCleared).toBe(true);
   });
 });

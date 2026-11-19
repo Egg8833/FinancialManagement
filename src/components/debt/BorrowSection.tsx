@@ -6,6 +6,7 @@ import { SectionHeader } from './SectionHeader';
 import { StakingRow } from './StakingRow';
 import { QuotaBar } from './QuotaBar';
 import { PledgeRatioCard } from './PledgeRatioCard';
+import { PortfolioDropSimulator } from './PortfolioDropSimulator';
 
 export function BorrowSection({ pledgePlatforms, borrowByPlatform, collateralByPlatform, borrowingLimits, setBorrowingLimits, onAdd, onUpdate, onDelete }: {
   pledgePlatforms: string[];
@@ -62,6 +63,14 @@ export function BorrowSection({ pledgePlatforms, borrowByPlatform, collateralByP
       {pledgePlatforms.length === 0 && !isAdding && (
         <div className="py-8 text-center text-gray-400 text-sm bg-white rounded-2xl border border-dashed border-gray-200">尚無質押借款項目</div>
       )}
+
+      <PortfolioDropSimulator
+        accounts={pledgePlatforms.map(platform => ({
+          platform,
+          borrowValue: (borrowByPlatform[platform] ?? []).reduce((s, i) => s + i.value, 0),
+          collateralValue: collateralByPlatform[platform] || 0,
+        }))}
+      />
 
       {pledgePlatforms.map(platform => {
         const items = borrowByPlatform[platform];
