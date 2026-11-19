@@ -27,9 +27,10 @@ export function PortfolioDropSimulator({ accounts }: { accounts: PledgeAccount[]
 
   const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
   const hidden = (n: number) => (showValues ? fmt(n) : '****');
-  const setRepay = (platform: string, v: string) =>
-    setAdjustments(prev => ({ ...prev, [platform]: { ...prev[platform], repayAmount: Math.max(0, Number(v) || 0) } }));
-  const hasAdjustments = Object.values(adjustments).some(a => (a.repayAmount ?? 0) > 0);
+  const setAdjustment = (platform: string, key: 'repayAmount' | 'addCollateral', v: string) =>
+    setAdjustments(prev => ({ ...prev, [platform]: { ...prev[platform], [key]: Math.max(0, Number(v) || 0) } }));
+  const setRepay = (platform: string, v: string) => setAdjustment(platform, 'repayAmount', v);
+  const hasAdjustments = Object.values(adjustments).some(a => (a.repayAmount ?? 0) > 0 || (a.addCollateral ?? 0) > 0);
 
   const totalTone = tone(result.total.after.status);
   /** 全部帳戶中最早被追繳的那一個，決定整體還能跌多少。 */
@@ -50,7 +51,7 @@ export function PortfolioDropSimulator({ accounts }: { accounts: PledgeAccount[]
         </div>
         {hasAdjustments && (
           <button onClick={() => setAdjustments({})} className="inline-flex items-center gap-1 text-[10px] text-indigo-500 hover:text-indigo-700 font-medium transition-colors">
-            <RotateCcw className="w-3 h-3" /> 清除所有還款
+            <RotateCcw className="w-3 h-3" /> 清除所有試算
           </button>
         )}
       </div>
@@ -129,21 +130,22 @@ export function PortfolioDropSimulator({ accounts }: { accounts: PledgeAccount[]
 
       {/* 各帳戶明細 */}
       <div className="overflow-x-auto -mx-1 px-1">
-        <table className="w-full text-xs min-w-[640px]">
+        <table className="w-full text-xs min-w-[760px]">
           <thead>
             <tr className="text-[10px] text-gray-400 text-left">
               <th className="font-medium pb-2 pl-2">平台</th>
               <th className="font-medium pb-2 text-right">目前維持率</th>
               <th className="font-medium pb-2 text-right">跌 {dropPct}% 後</th>
-              <th className="font-medium pb-2 text-right" title="已計入該帳戶的手動還款試算">距追繳</th>
+              <th className="font-medium pb-2 text-right" title="已計入該帳戶的還款 / 補繳試算">距追繳</th>
               <th className="font-medium pb-2 text-right">缺口 / 緩衝</th>
-              <th className="font-medium pb-2 text-right pr-2">手動還款試算</th>
+              <th className="font-medium pb-2 text-right pr-2">還款 / 補繳試算</th>
             </tr>
           </thead>
           <tbody>
             {result.accounts.map(a => {
               const t = tone(a.after.status);
               const repay = adjustments[a.platform]?.repayAmount ?? 0;
+              const add = adjustments[a.platform]?.addCollateral ?? 0;
               return (
                 <tr key={a.platform} className={`${t.row} border-t border-white`}>
                   <td className="py-2.5 pl-2 rounded-l-lg">
@@ -171,8 +173,18 @@ export function PortfolioDropSimulator({ accounts }: { accounts: PledgeAccount[]
                         type="number" min={0} inputMode="numeric"
                         value={repay === 0 ? '' : repay}
                         onChange={e => setRepay(a.platform, e.target.value)}
-                        placeholder="0"
-                        className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs tabular-nums text-right bg-white"
+                        placeholder="還款"
+                        aria-label={`${a.platform} 手動還款試算`}
+                        className="w-24 border border-sky-200 rounded-lg px-2 py-1 text-xs tabular-nums text-right bg-white placeholder:text-sky-300"
+                      />
+                      <input
+                        type="number" min={0} inputMode="numeric"
+                        value={add === 0 ? '' : add}
+                        onChange={e => setAdjustment(a.platform, 'addCollateral', e.target.value)}
+                        placeholder="補繳"
+                        aria-label={`${a.platform} 補繳擔保品試算`}
+                        title="補繳的擔保品視為跌幅發生後才匯入，不隨跌幅縮水"
+                        className="w-24 border border-emerald-200 rounded-lg px-2 py-1 text-xs tabular-nums text-right bg-white placeholder:text-emerald-300"
                       />
                       {a.after.status === 'danger' && !a.after.isCleared && (
                         <button
@@ -180,7 +192,7 @@ export function PortfolioDropSimulator({ accounts }: { accounts: PledgeAccount[]
                           className="px-1.5 py-1 text-[10px] font-bold rounded bg-sky-100 text-sky-600 hover:bg-sky-200 transition-colors whitespace-nowrap"
                           title={`自動填入回到 ${PLEDGE_CALL_RATIO}% 所需的還款金額`}
                         >
-                          補到 {PLEDGE_CALL_RATIO}%
+                          還款補到 {PLEDGE_CALL_RATIO}%
                         </button>
                       )}
                     </div>

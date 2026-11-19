@@ -26,7 +26,7 @@ import { LoanSection } from '../../components/debt/LoanSection';
 import { BorrowSection } from '../../components/debt/BorrowSection';
 import { StakingSection } from '../../components/debt/StakingSection';
 import { PaymentDueDialog } from '../../components/debt/PaymentDueDialog';
-import { computePledgeRatios, getPledgeAlertLevel } from '../../lib/pledgeCalc';
+import { computePledgeRatios, computeCollateralByPlatform, getPledgeAlertLevel } from '../../lib/pledgeCalc';
 
 export default function BorrowingPage() {
   const {
@@ -96,19 +96,10 @@ export default function BorrowingPage() {
 
   const pledgePlatforms = useMemo(() => Object.keys(borrowByPlatform), [borrowByPlatform]);
 
-  const collateralByPlatform = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const item of stockItems) {
-      if (!item.collateralShares) continue;
-      const quote = stockQuotes[item.symbol];
-      if (!quote) continue;
-      const value = quote.price * item.collateralShares;
-      const twdValue = quote.currency === 'USD' ? value * usdToTwd : value;
-      const p = (item.platform || '未分類').trim();
-      map[p] = (map[p] || 0) + twdValue;
-    }
-    return map;
-  }, [stockItems, stockQuotes, usdToTwd]);
+  const collateralByPlatform = useMemo(
+    () => computeCollateralByPlatform(stockItems, stockQuotes, usdToTwd),
+    [stockItems, stockQuotes, usdToTwd]
+  );
 
   const pledgeRatios = useMemo(
     () => computePledgeRatios(stakingItems, stockItems, stockQuotes, usdToTwd),

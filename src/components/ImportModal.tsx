@@ -80,7 +80,8 @@ function parseStocks(rows: string[][]): ParseResult<ParsedStock> {
       data: {
         symbol, shares, avgCost,
         platform: platform || undefined,
-        collateralShares: collateralShares !== undefined && !isNaN(collateralShares) && collateralShares >= 0 ? collateralShares : undefined,
+        // 擔保股數不可超過持股數
+        collateralShares: collateralShares !== undefined && !isNaN(collateralShares) && collateralShares >= 0 ? Math.min(collateralShares, shares) : undefined,
         sector,
         notes: notes || undefined,
         purchaseDate: purchaseDate || undefined,

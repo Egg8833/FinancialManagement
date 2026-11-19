@@ -22,6 +22,29 @@ export interface PledgeRatio {
   collateralValue: number;
 }
 
+/**
+ * 各平台擔保品市值(TWD)。擔保股數以持股數為上限(防範 CSV 匯入或舊資料的錯誤值);
+ * 沒有報價的股票不計入。債務頁與 computePledgeRatios 共用這一份計算。
+ */
+export function computeCollateralByPlatform(
+  stockItems: StockItem[],
+  stockQuotes: Record<string, StockQuote>,
+  usdToTwd: number,
+): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const item of stockItems) {
+    const shares = Math.min(item.collateralShares ?? 0, item.shares ?? 0);
+    if (shares <= 0) continue;
+    const quote = stockQuotes[item.symbol];
+    if (!quote) continue;
+    const value = quote.price * shares;
+    const twdValue = quote.currency === 'USD' ? value * usdToTwd : value;
+    const p = (item.platform || '未分類').trim();
+    map[p] = (map[p] || 0) + twdValue;
+  }
+  return map;
+}
+
 export function computePledgeRatios(
   stakingItems: StakingItem[],
   stockItems: StockItem[],
@@ -36,16 +59,7 @@ export function computePledgeRatios(
     borrowByPlatform[p].push(item);
   }
 
-  const collateralByPlatform: Record<string, number> = {};
-  for (const item of stockItems) {
-    if (!item.collateralShares) continue;
-    const quote = stockQuotes[item.symbol];
-    if (!quote) continue;
-    const value = quote.price * item.collateralShares;
-    const twdValue = quote.currency === 'USD' ? value * usdToTwd : value;
-    const p = (item.platform || '未分類').trim();
-    collateralByPlatform[p] = (collateralByPlatform[p] || 0) + twdValue;
-  }
+  const collateralByPlatform = computeCollateralByPlatform(stockItems, stockQuotes, usdToTwd);
 
   return Object.keys(borrowByPlatform).map(platform => {
     const items = borrowByPlatform[platform];

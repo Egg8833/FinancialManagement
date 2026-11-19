@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   computePledgeRatios,
+  computeCollateralByPlatform,
   getPledgeAlertLevel,
   buildReportPledgeRatios,
   simulatePledge,
@@ -34,6 +35,36 @@ describe('computePledgeRatios', () => {
     const usdQuotes: Record<string, StockQuote> = { AAPL: { price: 200, changePercent: 0, currency: 'USD' } };
     const result = computePledgeRatios(staking, usdStock, usdQuotes, 32);
     expect(result[0].collateralValue).toBe(200 * 100 * 32);
+  });
+});
+
+describe('computeCollateralByPlatform', () => {
+  const quotes: Record<string, StockQuote> = {
+    '2330.TW': { price: 1000, changePercent: 0, currency: 'TWD' },
+    AAPL: { price: 200, changePercent: 0, currency: 'USD' },
+  };
+
+  it('依平台加總擔保品市值,USD 換算台幣', () => {
+    const stocks: StockItem[] = [
+      { id: '1', symbol: '2330.TW', shares: 2000, avgCost: 0, collateralShares: 1000, platform: '元大' },
+      { id: '2', symbol: 'AAPL', shares: 10, avgCost: 0, collateralShares: 10, platform: ' 元大 ' },
+    ];
+    expect(computeCollateralByPlatform(stocks, quotes, 32)).toEqual({ 元大: 1000 * 1000 + 200 * 10 * 32 });
+  });
+
+  it('擔保股數超過持股數時以持股數為上限(例如 CSV 匯入的錯誤資料)', () => {
+    const stocks: StockItem[] = [
+      { id: '1', symbol: '2330.TW', shares: 1000, avgCost: 0, collateralShares: 5000, platform: '元大' },
+    ];
+    expect(computeCollateralByPlatform(stocks, quotes, 32)).toEqual({ 元大: 1000 * 1000 });
+  });
+
+  it('沒有報價或沒有擔保股數的股票不計入', () => {
+    const stocks: StockItem[] = [
+      { id: '1', symbol: 'NOQUOTE', shares: 1000, avgCost: 0, collateralShares: 1000, platform: '元大' },
+      { id: '2', symbol: '2330.TW', shares: 1000, avgCost: 0, platform: '元大' },
+    ];
+    expect(computeCollateralByPlatform(stocks, quotes, 32)).toEqual({});
   });
 });
 
@@ -207,6 +238,16 @@ describe('simulatePortfolio', () => {
     expect(sinopac.after.borrowValue).toBe(600_000);
     expect(Math.round(sinopac.after.ratio)).toBe(163);
     expect(r.breached).toEqual([]);
+  });
+
+  it('個別平台補繳擔保品:計入該帳戶與合併維持率,也反映在距追繳', () => {
+    const r = simulatePortfolio(accounts, 30, { 永豐: { addCollateral: 300_000 } });
+    const sinopac = r.accounts.find(a => a.platform === '永豐')!;
+    // 1.4M 跌 30% = 980,000,再補繳 300,000 → 1,280,000 / 1,000,000
+    expect(sinopac.after.ratio).toBe(128);
+    expect(r.total.after.collateralValue).toBe(1_400_000 + 980_000 + 300_000);
+    // 距追繳:(1.4M + 0.3M - 1.3M) / 1.4M
+    expect(sinopac.dropPctToCall).toBeCloseTo(28.57, 1);
   });
 
   it('沒有借款的帳戶不納入模擬', () => {
