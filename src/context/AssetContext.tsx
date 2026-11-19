@@ -4,7 +4,7 @@ import { createContext, useContext, ReactNode, useMemo, useCallback } from 'reac
 import type { AssetCategory, AssetItem, LiabilityItem, AssetSnapshot, StakingItem, LoanItem } from '../types';
 import { useRepositories } from './RepositoryContext';
 import { useSyncedCollection } from '../hooks/useSyncedCollection';
-import { mergeSnapshot } from '../lib/snapshotMerge';
+import { planSnapshotSave, persistSnapshotSave } from '../lib/snapshotMerge';
 import { ConflictError } from '../repositories/types';
 import { useToast } from './ToastContext';
 import { buildCombinedAssets, buildCombinedLiabilities, computeTotalAssets, computeTotalLiabilities } from '../lib/assetCalc';
@@ -152,9 +152,10 @@ export function AssetProvider({
 
   // ── 快照操作 ─────────────────────────────────────────────────
   const saveSnapshot = useCallback((snap: AssetSnapshot) => {
-    const next = mergeSnapshot(snapshots, snap);
-    // 同日去重/裁切會刪舊列;為簡化與穩健,快照一律整批同步
-    snapCol.apply(next, r => r.replaceAll(next));
+    // 增量寫入(新增一筆 + 刪除同日/超量的舊筆),不可用 replaceAll:
+    // 前端狀態若過期,整批覆蓋會刪光雲端歷史快照。
+    const { next, removeIds } = planSnapshotSave(snapshots, snap);
+    snapCol.apply(next, r => persistSnapshotSave(r, snap, removeIds));
   }, [snapshots, snapCol]);
 
   const removeSnapshot = useCallback((id: string) => {
