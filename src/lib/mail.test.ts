@@ -26,6 +26,25 @@ describe('buildPledgeAlertHtml', () => {
   });
 });
 
+describe('質押警示信門檻文字與畫面一致(130% 追繳線 / 166% 警戒線)', () => {
+  const data = (isDanger: boolean, ratio: number) => ({
+    isDanger, platformName: '元大', ratio,
+    pledgeData: [{ platform: '元大', ratio, borrowValue: 1, collateralValue: 1 }],
+  });
+
+  it('danger 提及追繳線 130%,不再出現 167%', () => {
+    const html = buildPledgeAlertHtml(data(true, 120));
+    expect(html).toContain('130%');
+    expect(html).not.toContain('167%');
+  });
+
+  it('warning 提及警戒線 166%,不再出現 200%', () => {
+    const html = buildPledgeAlertHtml(data(false, 150));
+    expect(html).toContain('166%');
+    expect(html).not.toContain('200%');
+  });
+});
+
 describe('HTML 跳脫(防止使用者輸入的文字注入信件 HTML)', () => {
   const payload = (name: string) => ({
     totalAssets: 1, totalLiabilities: 0, netWorth: 1,

@@ -70,11 +70,11 @@ describe('computeUserReport', () => {
     // 負債 = 房貸 2,000,000 + 質押借款 1,000,000
     expect(result.reportPayload.totalLiabilities).toBe(3_000_000);
     expect(result.reportSchedule).toBe('weekly');
-    // 擔保品市值 1,500,000 / 借款 1,000,000 * 100 = 150% < 167% → danger,且已開啟 enablePledgeTracking
-    expect(result.pledgeAlert).toMatchObject({ level: 'danger', platform: '元大', ratio: 150 });
+    // 擔保品市值 1,500,000 / 借款 1,000,000 * 100 = 150%,落在 130%~166% 警戒區 → warning
+    expect(result.pledgeAlert).toMatchObject({ level: 'warning', platform: '元大', ratio: 150 });
   });
 
-  it('質押追蹤已固定開啟:即使雲端沒有 enablePledgeTracking 設定,維持率觸發 danger 仍回傳 pledgeAlert', async () => {
+  it('質押追蹤已固定開啟:即使雲端沒有 enablePledgeTracking 設定,維持率落入警戒區仍回傳 pledgeAlert', async () => {
     await assetsStore.create(db, 'u1', 'investment', {
       id: 'investment', title: '投資', description: '', colorClass: '', bgClass: '', updatedAt: '', items: [],
     });
@@ -100,8 +100,8 @@ describe('computeUserReport', () => {
 
     const result = await computeUserReport(db, 'u1');
 
-    // 維持率 150% < 167% → danger,與前端行為一致(SettingsContext enablePledgeTracking 固定為 true)
-    expect(result.pledgeAlert).toMatchObject({ level: 'danger', platform: '元大', ratio: 150 });
+    // 維持率 150% 落在警戒區 → warning,與前端行為一致(SettingsContext enablePledgeTracking 固定為 true)
+    expect(result.pledgeAlert).toMatchObject({ level: 'warning', platform: '元大', ratio: 150 });
     // 報表本身的質押資料同樣包含該平台
     expect(result.reportPayload.pledgeRatioData).toEqual([
       expect.objectContaining({ platform: '元大', ratio: 150 }),

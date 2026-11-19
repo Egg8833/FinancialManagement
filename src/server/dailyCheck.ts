@@ -81,8 +81,8 @@ export async function runDailyCheck(deps: DailyCheckDeps): Promise<DailyCheckSum
           pledgeData: result.pledgeAlert.pledgeData,
         });
         const subject = isDanger
-          ? `[緊急] 質押維持率 ${result.pledgeAlert.ratio.toFixed(1)}% — 請立即補倉`
-          : `[注意] 質押維持率 ${result.pledgeAlert.ratio.toFixed(1)}% — 建議補充保證金`;
+          ? `[緊急] 質押維持率 ${result.pledgeAlert.ratio.toFixed(1)}% 已低於追繳線 — 請立即補繳或還款`
+          : `[注意] 質押維持率 ${result.pledgeAlert.ratio.toFixed(1)}% 已進入警戒區 — 建議補繳擔保品`;
         await deps.sendEmail({ to: user.email, subject, html });
         await setAppStateValue(db, user.id, 'pledgeAlertLastSent', {
           ...result.pledgeAlertLastSent,

@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { PLEDGE_CALL_RATIO, PLEDGE_WARN_RATIO, pledgeStatusOf } from './pledgeCalc';
 
 let _transporter: nodemailer.Transporter | null = null;
 
@@ -313,8 +314,8 @@ export function generateAssetReportHtml(data: ReportPayload): string {
       const bufferBg = p.isRed ? '#fef2f2' : '#f0fdf4';
       const bufferLabel = p.isRed ? '追繳缺口' : '安全緩衝';
       const bufferDesc = p.isRed
-        ? '擔保品市值低於追繳門檻的差額，需補充此金額才能回到安全線 (130%)。'
-        : '擔保品市值跌超過此金額後，維持率將低於 130% 並觸發追繳。數字越大代表越安全。';
+        ? `擔保品市值低於追繳門檻的差額，需補充此金額才能回到追繳線 (${PLEDGE_CALL_RATIO}%)。`
+        : `擔保品市值跌超過此金額後，維持率將低於 ${PLEDGE_CALL_RATIO}% 並觸發追繳。數字越大代表越安全。`;
       const bufferValue = p.isRed
         ? `-${p.shortage.toLocaleString('en-US')}`
         : `+${p.buffer.toLocaleString('en-US')}`;
@@ -387,7 +388,7 @@ export function buildPledgeAlertHtml(data: {
   const dateStr = new Date().toLocaleDateString('zh-TW', {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
-  const ratioColor = (r: number) => r < 167 ? '#dc2626' : r < 200 ? '#d97706' : '#059669';
+  const ratioColor = (r: number) => { const st = pledgeStatusOf(r); return st === 'danger' ? '#dc2626' : st === 'warn' ? '#d97706' : '#059669'; };
 
   const rows = pledgeData.map(p => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #e5e7eb;">
@@ -402,12 +403,12 @@ export function buildPledgeAlertHtml(data: {
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI','Microsoft JhengHei',sans-serif;">
 <div style="max-width:600px;margin:20px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
   <div style="background:${headerBg};border-bottom:3px solid ${borderColor};padding:24px 28px;">
-    <div style="font-size:20px;font-weight:700;color:${headerColor};">${isDanger ? '⚠️ 緊急：質押維持率警示' : '⚡ 注意：質押維持率提醒'}</div>
+    <div style="font-size:20px;font-weight:700;color:${headerColor};">${isDanger ? '⚠️ 緊急：質押維持率已低於追繳線' : '⚡ 注意：質押維持率進入警戒區'}</div>
     <p style="margin:6px 0 0;font-size:13px;color:#6b7280;">${dateStr}</p>
   </div>
   <div style="padding:24px 28px;">
-    <p style="font-size:15px;color:#374151;margin:0 0 12px;">您的質押帳戶 <strong>${esc(platformName)}</strong> 維持率已${isDanger ? '低於 167%' : '低於 200%'}，目前為 <strong style="color:${headerColor};">${ratio.toFixed(1)}%</strong>。</p>
-    <p style="font-size:14px;color:#374151;margin:0 0 20px;">${isDanger ? '⚠️ 請立即補充保證金或部分還款，以避免強制平倉。' : '建議您適時補充擔保品，以提高安全緩衝。'}</p>
+    <p style="font-size:15px;color:#374151;margin:0 0 12px;">您的質押帳戶 <strong>${esc(platformName)}</strong> 維持率已${isDanger ? `低於追繳線 ${PLEDGE_CALL_RATIO}%` : `低於警戒線 ${PLEDGE_WARN_RATIO}%`}，目前為 <strong style="color:${headerColor};">${ratio.toFixed(1)}%</strong>。</p>
+    <p style="font-size:14px;color:#374151;margin:0 0 20px;">${isDanger ? '⚠️ 請立即補繳擔保品或部分還款，以避免被處分擔保品。' : `建議適時補繳擔保品或部分還款，避免跌破追繳線 ${PLEDGE_CALL_RATIO}%。`}</p>
     <div style="background:#f9fafb;border-radius:10px;padding:16px;">
       <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:12px;">各平台質押狀況</div>
       ${rows}
