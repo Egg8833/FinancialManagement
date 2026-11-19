@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Plus, Trash2, Check, X, RefreshCw, ArrowUpDown, AlertTriangle, Info } from 'lucide-react';
 import { useAppContext, type DividendRecord, type StockItem, type StockQuote } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { localDateStr } from '../lib/dateUtils';
 
 // ─── 計算輔助 ─────────────────────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ function AddDividendRow({
   onConfirm: (record: Omit<DividendRecord, 'id' | 'source'>) => void;
   onCancel: () => void;
 }) {
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(() => localDateStr());
   const [dps, setDps] = useState('');
   const [shares, setShares] = useState(String(currentShares));
   const [type, setType] = useState<'cash' | 'stock'>('cash');

@@ -1,12 +1,13 @@
 import YahooFinance from 'yahoo-finance2';
 import { getStockNameMap } from './twse-names';
+import { createTtlCache } from './ttlCache';
 
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 export type QuoteResult = Record<string, { price: number; changePercent: number; currency: string; shortName?: string }>;
 
 const CACHE_TTL_MS = 60_000;
-const quoteCache = new Map<string, { data: QuoteResult; expiresAt: number }>();
+const quoteCache = createTtlCache<QuoteResult>({ maxEntries: 500, ttlMs: CACHE_TTL_MS });
 const inflightMap = new Map<string, Promise<QuoteResult>>();
 
 async function fetchQuotes(symbols: string[]): Promise<QuoteResult> {
@@ -42,8 +43,8 @@ export async function getQuotes(symbols: string[]): Promise<{ data: QuoteResult;
   const cacheKey = [...symbols].sort().join(',');
 
   const cached = quoteCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) {
-    return { data: cached.data, stale: false };
+  if (cached?.fresh) {
+    return { data: cached.value, stale: false };
   }
 
   const existing = inflightMap.get(cacheKey);
@@ -56,11 +57,11 @@ export async function getQuotes(symbols: string[]): Promise<{ data: QuoteResult;
 
   try {
     const result = await fetchPromise;
-    quoteCache.set(cacheKey, { data: result, expiresAt: Date.now() + CACHE_TTL_MS });
+    quoteCache.set(cacheKey, result);
     return { data: result, stale: false };
   } catch (error) {
     const stale = quoteCache.get(cacheKey);
-    if (stale) return { data: stale.data, stale: true };
+    if (stale) return { data: stale.value, stale: true };
     throw error;
   } finally {
     inflightMap.delete(cacheKey);

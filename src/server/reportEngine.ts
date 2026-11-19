@@ -28,7 +28,6 @@ interface UserFinancialData {
   reportSchedule: 'none' | 'weekly' | 'monthly';
   lastReportSent: string;
   pledgeAlertLastSent: Record<'warning' | 'danger', string>;
-  enablePledgeTracking: boolean;
 }
 
 async function loadAppState(db: Db, userId: string): Promise<Record<string, unknown>> {
@@ -60,7 +59,6 @@ async function loadUserFinancialData(db: Db, userId: string): Promise<UserFinanc
     reportSchedule: (state.reportSchedule as 'none' | 'weekly' | 'monthly') ?? 'none',
     lastReportSent: (state.lastReportSent as string) ?? '',
     pledgeAlertLastSent: (state.pledgeAlertLastSent as Record<'warning' | 'danger', string>) ?? { warning: '', danger: '' },
-    enablePledgeTracking: (state.enablePledgeTracking as boolean) ?? false,
   };
 }
 
@@ -109,7 +107,8 @@ export async function computeUserReport(db: Db, userId: string): Promise<UserRep
   const monthlyNetCashFlow = totalMonthlyIncome - totalMonthlyExpense;
 
   const pledgeRatios = computePledgeRatios(fin.stakingItems, fin.stockItems, stockQuotes, fin.usdToTwd);
-  const alert = fin.enablePledgeTracking ? getPledgeAlertLevel(pledgeRatios) : null;
+  // 質押擔保品追蹤已固定開啟(與前端 SettingsContext 一致),不再讀取舊的 enablePledgeTracking 設定
+  const alert = getPledgeAlertLevel(pledgeRatios);
 
   const reportPayload: ReportPayload = {
     totalAssets, totalLiabilities, netWorth,

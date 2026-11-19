@@ -3,14 +3,17 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { Heart, PiggyBank, ShieldCheck, CreditCard, TrendingUp, Wallet, BarChart2, Target, ArrowRight } from 'lucide-react';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine,
-} from 'recharts';
+import dynamic from 'next/dynamic';
 import { useAppContext } from '../../context/AppContext';
 import { calculateHealthScore, type HealthScoreResult, type MetricResult } from '../../lib/healthScore';
-import { Skeleton } from '../../components/ui/Skeleton';
+import { Skeleton, ChartSkeleton } from '../../components/ui/Skeleton';
 import type { LucideIcon } from 'lucide-react';
+
+// 圖表(recharts)延後載入,縮小首次載入的 JS
+const HealthScoreTrendChart = dynamic(
+  () => import('../../components/HealthScoreTrendChart').then(m => ({ default: m.HealthScoreTrendChart })),
+  { loading: () => <ChartSkeleton height="h-44" />, ssr: false }
+);
 
 const GRADE_BG: Record<HealthScoreResult['grade'], string> = {
   '優秀': 'from-emerald-400 via-teal-500 to-cyan-600',
@@ -297,34 +300,7 @@ export default function HealthPage() {
       {hasScoreTrend && (
         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm mb-8">
           <h2 className="text-base font-bold text-gray-900 mb-4">健康分數歷史趨勢</h2>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={scoreTrend} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-              <Tooltip
-                formatter={(v: unknown) => [`${v} 分`, '健康分數']}
-                contentStyle={{ borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 12 }}
-              />
-              {/* 等級參考線 */}
-              {[
-                { y: 90, label: '優秀', color: '#10b981' },
-                { y: 75, label: '良好', color: '#3b82f6' },
-                { y: 60, label: '普通', color: '#eab308' },
-              ].map(ref => (
-                <ReferenceLine
-                  key={ref.y} y={ref.y}
-                  stroke={ref.color} strokeDasharray="4 2"
-                  label={{ value: ref.label, position: 'insideTopRight', fontSize: 9, fill: ref.color }}
-                />
-              ))}
-              <Line
-                type="monotone" dataKey="score"
-                stroke="#6366f1" strokeWidth={2.5} dot={{ r: 3, fill: '#6366f1' }}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <HealthScoreTrendChart data={scoreTrend} />
           <p className="text-xs text-gray-400 mt-2 text-center">每日自動快照時記錄，顯示最近 {scoreTrend.length} 筆</p>
         </div>
       )}

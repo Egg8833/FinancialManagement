@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef } from 'react';
-import * as XLSX from 'xlsx';
 import { X, Upload, Download, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
@@ -34,7 +33,9 @@ type ParseResult<T> = {
 
 // ─── File reader ──────────────────────────────────────────────────────────────
 
-function readFileAsRows(file: File): Promise<string[][]> {
+// xlsx 套件很大(~400KB),只在使用者真的選了檔案時才載入
+async function readFileAsRows(file: File): Promise<string[][]> {
+  const XLSX = await import('xlsx');
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {

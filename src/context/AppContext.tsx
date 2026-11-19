@@ -19,6 +19,7 @@ import { useRepositories } from './RepositoryContext';
 import { useAppStateContext } from './AppStateContext';
 import { buildSnapshot } from '../lib/snapshotUtils';
 import { computeMonthlyIncome, computeMonthlyExpense } from '../lib/cashflowCalc';
+import { localDateStr } from '../lib/dateUtils';
 
 const STORAGE_SCHEMA_VERSION = 1;
 
@@ -260,7 +261,7 @@ function AppContextBridge({
     if (sessionStatus === 'loading') return;
     if (assetsLoading) return;
     if (stockItems.length > 0 && !lastUpdated) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateStr();
     const last = snapshots[snapshots.length - 1];
     if (last?.date === today) return;
     if (totalAssets === 0 && netWorth === 0) return;

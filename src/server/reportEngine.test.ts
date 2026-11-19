@@ -74,7 +74,7 @@ describe('computeUserReport', () => {
     expect(result.pledgeAlert).toMatchObject({ level: 'danger', platform: '元大', ratio: 150 });
   });
 
-  it('enablePledgeTracking 為預設值 false(未開啟)時,即使維持率會觸發 danger 也不回傳 pledgeAlert', async () => {
+  it('質押追蹤已固定開啟:即使雲端沒有 enablePledgeTracking 設定,維持率觸發 danger 仍回傳 pledgeAlert', async () => {
     await assetsStore.create(db, 'u1', 'investment', {
       id: 'investment', title: '投資', description: '', colorClass: '', bgClass: '', updatedAt: '', items: [],
     });
@@ -91,7 +91,7 @@ describe('computeUserReport', () => {
     });
     await appStateStore.create(db, 'u1', 'usdToTwd', { id: 'usdToTwd', value: 32 });
     await appStateStore.create(db, 'u1', 'reportSchedule', { id: 'reportSchedule', value: 'weekly' });
-    // enablePledgeTracking 未設定 → 預設 false(與前端 SettingsContext 預設值一致)
+    // enablePledgeTracking 未設定(前端已固定開啟、不再寫入此鍵)
 
     vi.mocked(getQuotes).mockResolvedValue({
       data: { '2330.TW': { price: 1500, changePercent: 1, currency: 'TWD', shortName: '台積電' } },
@@ -100,9 +100,9 @@ describe('computeUserReport', () => {
 
     const result = await computeUserReport(db, 'u1');
 
-    // 維持率仍為 150% < 167%,但 enablePledgeTracking 關閉時不應寄出警示信
-    expect(result.pledgeAlert).toBeNull();
-    // 報表本身的質押資料不受影響,徽章顯示邏輯獨立於寄信開關
+    // 維持率 150% < 167% → danger,與前端行為一致(SettingsContext enablePledgeTracking 固定為 true)
+    expect(result.pledgeAlert).toMatchObject({ level: 'danger', platform: '元大', ratio: 150 });
+    // 報表本身的質押資料同樣包含該平台
     expect(result.reportPayload.pledgeRatioData).toEqual([
       expect.objectContaining({ platform: '元大', ratio: 150 }),
     ]);

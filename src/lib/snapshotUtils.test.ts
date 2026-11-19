@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { buildSnapshot } from './snapshotUtils';
 import type { AssetCategory } from '../types';
 
@@ -38,16 +38,18 @@ describe('buildSnapshot', () => {
     expect(snap.investment).toBe(99999);
   });
 
-  it('id 帶有 snap- 前綴，date 為今天（ISO 日期）', () => {
-    const today = new Date().toISOString().split('T')[0];
+  it('id 帶有 snap- 前綴，date 為今天的「本地」日期（台灣清晨不會變成前一天）', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 2, 10, 7, 0, 0)); // 本地 2026-03-10 07:00
     const snap = buildSnapshot({
       assets: [], combinedAssets: [],
       totalAssets: 0, totalLiabilities: 0, netWorth: 0,
       totalMonthlyIncome: 0, totalMonthlyExpense: 0, monthlyNetCashFlow: 0,
       snapshots: [],
     });
+    vi.useRealTimers();
     expect(snap.id.startsWith('snap-')).toBe(true);
-    expect(snap.date).toBe(today);
+    expect(snap.date).toBe('2026-03-10');
   });
 
   it('healthScore 為 calculateHealthScore 算出的 0-100 分數', () => {

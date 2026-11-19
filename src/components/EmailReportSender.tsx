@@ -1,104 +1,33 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { Mail, Send, CheckCircle, AlertCircle, Loader2, X } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
-import type { ReportPayload } from '../lib/mail';
-import { computePledgeRatios, buildReportPledgeRatios } from '../lib/pledgeCalc';
+import { localDateStr } from '../lib/dateUtils';
 
+/**
+ * 手動寄送資產報表:僅限登入使用者,收件人固定為登入帳號的 Email,
+ * 報表內容由伺服器依雲端資料計算(見 src/server/sendReport.ts)。
+ */
 export function EmailReportSender() {
   const ctx = useAppContext();
   const { toast } = useToast();
+  const { data: session, status } = useSession();
+  const accountEmail = session?.user?.email ?? '';
+  const isLoggedIn = status === 'authenticated';
   const [isOpen, setIsOpen] = useState(false);
-  const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setEmail(ctx.userEmail);
-    } else {
-      setResult(null);
-    }
-  }, [isOpen, ctx.userEmail]);
-
-  const buildReportData = (): ReportPayload => {
-    const usdToTwd = ctx.usdToTwd;
-
-    return {
-      totalAssets: ctx.totalAssets,
-      totalLiabilities: ctx.totalLiabilities,
-      netWorth: ctx.netWorth,
-      totalMonthlyIncome: ctx.totalMonthlyIncome,
-      totalMonthlyExpense: ctx.totalMonthlyExpense,
-      monthlyNetCashFlow: ctx.monthlyNetCashFlow,
-      usdToTwd,
-      combinedAssets: ctx.combinedAssets.map(cat => ({
-        title: cat.title,
-        items: cat.items.map(i => ({ name: i.name, amount: i.amount })),
-      })),
-      combinedLiabilities: ctx.combinedLiabilities.map(item => ({
-        name: item.name,
-        description: item.description,
-        amount: item.amount,
-      })),
-      loans: ctx.loans.map(loan => ({
-        name: loan.name,
-        bank: loan.bank,
-        principal: loan.principal,
-        interestRate: loan.interestRate,
-        monthlyPayment: loan.monthlyPayment,
-        remainingPeriods: loan.remainingPeriods,
-      })),
-      // 質押資料
-      stakingItems: ctx.stakingItems.map(item => ({
-        name: item.name,
-        protocol: item.protocol,
-        value: item.value,
-        apy: item.apy,
-        stakingType: item.stakingType,
-        monthlyInterest: item.value * item.apy / 100 / 12,
-        borrowDate: item.borrowDate,
-        repayDate: item.repayDate,
-      })),
-      // 持股資料（avgCost = 總成本，非每股均價）
-      stockItems: ctx.stockItems.map(stock => {
-        const quote = ctx.stockQuotes[stock.symbol];
-        const currentPrice = quote?.price || 0;
-        const currency = quote?.currency || 'TWD';
-        const changePercent = quote?.changePercent || 0;
-        const marketValueRaw = currentPrice * stock.shares;
-        const marketValueTWD = currency === 'USD' ? marketValueRaw * usdToTwd : marketValueRaw;
-        // avgCost 為總成本，需換算為 TWD
-        const costBasis = currency === 'USD' ? stock.avgCost * usdToTwd : stock.avgCost;
-        const unrealizedPnL = marketValueTWD - costBasis;
-        const unrealizedPnLPct = costBasis > 0 ? (unrealizedPnL / costBasis) * 100 : 0;
-        return {
-          symbol: stock.symbol,
-          shortName: quote?.shortName,
-          platform: stock.platform,
-          shares: stock.shares,
-          avgCost: stock.avgCost,
-          currentPrice,
-          currency,
-          changePercent,
-          marketValueTWD: Math.round(marketValueTWD),
-          costBasis: Math.round(costBasis),
-          unrealizedPnL: Math.round(unrealizedPnL),
-          unrealizedPnLPct,
-        };
-      }),
-      // 質押維持率（按平台分組）
-      pledgeRatioData: buildReportPledgeRatios(computePledgeRatios(ctx.stakingItems, ctx.stockItems, ctx.stockQuotes, usdToTwd)),
-      generatedAt: new Date().toISOString(),
-    };
-  };
-
+    if (!isOpen) setResult(null);
+  }, [isOpen]);
 
   const handleSend = async () => {
-    if (!email || !email.includes('@')) {
-      setResult({ success: false, message: '請輸入有效的 Email 地址' });
+    if (!isLoggedIn) {
+      setResult({ success: false, message: '請先登入後再寄送報表' });
       return;
     }
     if (ctx.assetsLoading) {
@@ -110,21 +39,13 @@ export function EmailReportSender() {
     setResult(null);
 
     try {
-      const res = await fetch('/api/cron/send-asset-report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientEmail: email,
-          reportData: buildReportData(),
-        }),
-      });
-
-      const data = await res.json();
+      const res = await fetch('/api/user/report', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok && data.success) {
         setResult({ success: true, message: data.message || '報表寄送成功！' });
         toast('📧 資產報表已寄出');
-        ctx.setLastReportSent(new Date().toLocaleDateString('en-CA'));
+        ctx.setLastReportSent(localDateStr());
       } else {
         setResult({ success: false, message: data.error || '寄送失敗' });
         toast(data.error || '寄送失敗', 'error');
@@ -174,17 +95,18 @@ export function EmailReportSender() {
             將目前的資產狀況報表以電子郵件寄送。報表內容包含資產、負債、現金流及貸款明細。
           </p>
 
-          {/* Email Input */}
+          {/* Recipient (fixed to the signed-in account) */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1.5">收件人 Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
-              disabled={sending}
-            />
+            {isLoggedIn ? (
+              <div className="w-full border border-gray-100 bg-gray-50 rounded-lg px-3 py-2.5 text-sm text-gray-700">
+                {accountEmail || '（此帳號沒有 Email）'}
+              </div>
+            ) : (
+              <div className="w-full rounded-lg px-3 py-2.5 text-sm bg-amber-50 text-amber-700">
+                寄送報表需要登入，報表會寄到你登入帳號的 Email。
+              </div>
+            )}
           </div>
 
           {/* Preview Info */}
@@ -234,7 +156,7 @@ export function EmailReportSender() {
           </button>
           <button
             onClick={handleSend}
-            disabled={sending || !email || ctx.assetsLoading}
+            disabled={sending || !isLoggedIn || !accountEmail || ctx.assetsLoading}
             title={ctx.assetsLoading ? '雲端資料載入中，請稍候' : undefined}
             className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >

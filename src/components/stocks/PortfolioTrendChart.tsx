@@ -5,6 +5,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { type StockItem } from '../../context/AppContext';
+import { localDateStr } from '../../lib/dateUtils';
 
 type TimeRange = '1W' | '1M' | '3M' | '6M' | '1Y';
 
@@ -36,8 +37,8 @@ export function PortfolioTrendChart({ stockItems, usdToTwd }: { stockItems: Stoc
 
     const days = RANGES.find(r => r.key === range)!.days;
     const now = new Date();
-    const p2 = now.toISOString().slice(0, 10);
-    const p1 = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const p2 = localDateStr(now);
+    const p1 = localDateStr(new Date(now.getTime() - days * 24 * 60 * 60 * 1000));
 
     setLoading(true);
     setError(null);

@@ -3,6 +3,7 @@
 import { createContext, useContext, ReactNode, useMemo } from 'react';
 import { useSyncedState } from '../hooks/useSyncedState';
 import type { LoanItem, StakingItem } from '../types';
+import { addMonthsToDateStr } from '../lib/dateUtils';
 
 interface LoanContextType {
   loans: LoanItem[];
@@ -58,9 +59,7 @@ export function LoanProvider({ children }: { children: ReactNode }) {
       if (loan.id !== id || loan.loanType !== 'installment' || loan.remainingPeriods <= 0) return loan;
       let nextDate: string | undefined;
       if (loan.nextPaymentDate) {
-        const d = new Date(loan.nextPaymentDate);
-        d.setMonth(d.getMonth() + 1);
-        nextDate = d.toISOString().split('T')[0];
+        nextDate = addMonthsToDateStr(loan.nextPaymentDate, 1);
       }
       const interest = Math.round(loan.principal * loan.interestRate / 100 / 12);
       const principalReduction = loan.monthlyPayment - interest;
@@ -78,9 +77,7 @@ export function LoanProvider({ children }: { children: ReactNode }) {
       if (loan.id !== id || loan.loanType !== 'installment') return loan;
       let prevDate: string | undefined;
       if (loan.nextPaymentDate) {
-        const d = new Date(loan.nextPaymentDate);
-        d.setMonth(d.getMonth() - 1);
-        prevDate = d.toISOString().split('T')[0];
+        prevDate = addMonthsToDateStr(loan.nextPaymentDate, -1);
       }
       const interest = Math.round(loan.principal * loan.interestRate / 100 / 12);
       const principalReduction = loan.monthlyPayment - interest;

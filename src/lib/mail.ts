@@ -28,6 +28,17 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
   return info;
 }
 
+/** 跳脫 HTML 特殊字元;信件中所有使用者輸入的文字都必須經過此函式。 */
+export function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+const esc = escapeHtml;
+
 // ── Types ──
 export type ReportAssetCategory = {
   title: string;
@@ -185,10 +196,10 @@ export function generateAssetReportHtml(data: ReportPayload): string {
     <div style="font-size:14px;font-weight:700;color:#374151;margin-bottom:12px;">📦 資產明細</div>
     <table style="width:100%;border-collapse:collapse;font-size:13px;">
       ${data.combinedAssets.map(cat => `
-        <tr><td colspan="2" style="padding:8px 12px;background:#f3f4f6;font-weight:700;color:#374151;border-radius:6px;">${cat.title}</td></tr>
+        <tr><td colspan="2" style="padding:8px 12px;background:#f3f4f6;font-weight:700;color:#374151;border-radius:6px;">${esc(cat.title)}</td></tr>
         ${cat.items.map(item => `
           <tr>
-            <td style="padding:6px 12px;color:#4b5563;border-bottom:1px solid #f3f4f6;">${item.name}</td>
+            <td style="padding:6px 12px;color:#4b5563;border-bottom:1px solid #f3f4f6;">${esc(item.name)}</td>
             <td style="padding:6px 12px;text-align:right;font-weight:600;color:#374151;border-bottom:1px solid #f3f4f6;">${fmt(item.amount)}</td>
           </tr>
         `).join('')}
@@ -203,8 +214,8 @@ export function generateAssetReportHtml(data: ReportPayload): string {
       ${data.combinedLiabilities.map(item => `
         <tr>
           <td style="padding:6px 12px;color:#4b5563;border-bottom:1px solid #f3f4f6;">
-            ${item.name}
-            ${item.description ? `<div style="font-size:11px;color:#9ca3af;">${item.description}</div>` : ''}
+            ${esc(item.name)}
+            ${item.description ? `<div style="font-size:11px;color:#9ca3af;">${esc(item.description)}</div>` : ''}
           </td>
           <td style="padding:6px 12px;text-align:right;font-weight:600;color:#dc2626;border-bottom:1px solid #f3f4f6;">${fmt(item.amount)}</td>
         </tr>
@@ -225,7 +236,7 @@ export function generateAssetReportHtml(data: ReportPayload): string {
       </tr>
       ${data.loans.map(loan => `
         <tr>
-          <td style="padding:6px 8px;border-bottom:1px solid #f3f4f6;">${loan.name}（${loan.bank}）</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #f3f4f6;">${esc(loan.name)}（${esc(loan.bank)}）</td>
           <td style="padding:6px 8px;text-align:right;border-bottom:1px solid #f3f4f6;">${fmt(loan.principal)}</td>
           <td style="padding:6px 8px;text-align:right;border-bottom:1px solid #f3f4f6;">${fmt(loan.monthlyPayment)}</td>
           <td style="padding:6px 8px;text-align:right;border-bottom:1px solid #f3f4f6;">${loan.remainingPeriods} 期</td>
@@ -274,9 +285,9 @@ export function generateAssetReportHtml(data: ReportPayload): string {
         return `
           <tr style="border-bottom:1px solid #f3f4f6;">
             <td style="padding:8px 10px;">
-              <div style="font-weight:700;color:#1f2937;">${displaySymbol}</div>
-              ${stock.shortName ? `<div style="font-size:11px;color:#9ca3af;">${stock.shortName}</div>` : ''}
-              <div style="font-size:11px;color:#9ca3af;">${sharesDisplay}${stock.platform ? ` · ${stock.platform}` : ''}</div>
+              <div style="font-weight:700;color:#1f2937;">${esc(displaySymbol)}</div>
+              ${stock.shortName ? `<div style="font-size:11px;color:#9ca3af;">${esc(stock.shortName)}</div>` : ''}
+              <div style="font-size:11px;color:#9ca3af;">${sharesDisplay}${stock.platform ? ` · ${esc(stock.platform)}` : ''}</div>
             </td>
             <td style="padding:8px 10px;text-align:right;font-weight:600;color:#374151;">${priceDisplay}</td>
             <td style="padding:8px 10px;text-align:right;font-weight:600;color:${changeColor};">${fmtPct(stock.changePercent)}</td>
@@ -314,7 +325,7 @@ export function generateAssetReportHtml(data: ReportPayload): string {
             <td style="vertical-align:middle;">
               <span style="display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${badgeBg};color:${statusColor};">${statusText}</span>
               <span style="font-size:13px;font-weight:600;color:#374151;margin-left:8px;">質押維持率</span>
-              <span style="font-size:11px;color:#9ca3af;background:#f3f4f6;padding:2px 8px;border-radius:20px;margin-left:6px;">${p.platform}</span>
+              <span style="font-size:11px;color:#9ca3af;background:#f3f4f6;padding:2px 8px;border-radius:20px;margin-left:6px;">${esc(p.platform)}</span>
             </td>
             <td style="text-align:right;vertical-align:middle;">
               <span style="font-size:26px;font-weight:700;color:${p.totalCollateralValueTWD > 0 ? statusColor : '#d1d5db'};">${p.totalCollateralValueTWD > 0 ? p.ratio.toFixed(1) + '%' : '—'}</span>
@@ -380,7 +391,7 @@ export function buildPledgeAlertHtml(data: {
 
   const rows = pledgeData.map(p => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px;border-bottom:1px solid #e5e7eb;">
-      <span style="font-size:13px;color:#374151;">${p.platform}</span>
+      <span style="font-size:13px;color:#374151;">${esc(p.platform)}</span>
       <span style="font-size:14px;font-weight:700;color:${ratioColor(p.ratio)};">${p.ratio > 0 ? p.ratio.toFixed(1) + '%' : '—'}</span>
     </div>
   `).join('');
@@ -395,7 +406,7 @@ export function buildPledgeAlertHtml(data: {
     <p style="margin:6px 0 0;font-size:13px;color:#6b7280;">${dateStr}</p>
   </div>
   <div style="padding:24px 28px;">
-    <p style="font-size:15px;color:#374151;margin:0 0 12px;">您的質押帳戶 <strong>${platformName}</strong> 維持率已${isDanger ? '低於 167%' : '低於 200%'}，目前為 <strong style="color:${headerColor};">${ratio.toFixed(1)}%</strong>。</p>
+    <p style="font-size:15px;color:#374151;margin:0 0 12px;">您的質押帳戶 <strong>${esc(platformName)}</strong> 維持率已${isDanger ? '低於 167%' : '低於 200%'}，目前為 <strong style="color:${headerColor};">${ratio.toFixed(1)}%</strong>。</p>
     <p style="font-size:14px;color:#374151;margin:0 0 20px;">${isDanger ? '⚠️ 請立即補充保證金或部分還款，以避免強制平倉。' : '建議您適時補充擔保品，以提高安全緩衝。'}</p>
     <div style="background:#f9fafb;border-radius:10px;padding:16px;">
       <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:12px;">各平台質押狀況</div>
