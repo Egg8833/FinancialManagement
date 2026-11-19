@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import YahooFinance from 'yahoo-finance2';
+import { createTtlCache } from '../../../lib/ttlCache';
+import { isValidSymbol, DATE_RE } from '../../../lib/symbolValidation';
 
 const yf = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
 
 type DividendEntry = { date: string; dividendPerShare: number };
 
-const cache = new Map<string, { data: DividendEntry[]; expiresAt: number }>();
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const cache = createTtlCache<DividendEntry[]>({ maxEntries: 300, ttlMs: CACHE_TTL_MS });
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -16,15 +18,18 @@ export async function GET(request: Request) {
   if (!symbol) {
     return NextResponse.json({ error: 'Missing symbol' }, { status: 400 });
   }
+  if (!isValidSymbol(symbol)) {
+    return NextResponse.json({ error: 'Invalid symbol' }, { status: 400 });
+  }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) {
+  if (!DATE_RE.test(from)) {
     return NextResponse.json({ error: 'Invalid from date. Use YYYY-MM-DD format.' }, { status: 400 });
   }
 
   const cacheKey = `${symbol}:${from}`;
   const cached = cache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) {
-    return NextResponse.json(cached.data);
+  if (cached?.fresh) {
+    return NextResponse.json(cached.value);
   }
 
   try {
@@ -40,11 +45,11 @@ export async function GET(request: Request) {
         dividendPerShare: h.dividends as number,
       }));
 
-    cache.set(cacheKey, { data: dividends, expiresAt: Date.now() + CACHE_TTL_MS });
+    cache.set(cacheKey, dividends);
     return NextResponse.json(dividends);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('Error fetching dividends:', message);
-    return NextResponse.json({ error: 'Failed to fetch dividends', details: message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch dividends' }, { status: 500 });
   }
 }

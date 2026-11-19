@@ -6,6 +6,7 @@ export async function GET(request: Request) {
   const code = searchParams.get('code')?.trim();
 
   if (!code) return NextResponse.json({ error: 'Missing code' }, { status: 400 });
+  if (!/^[A-Za-z0-9]{1,10}$/.test(code)) return NextResponse.json({ error: 'Invalid code' }, { status: 400 });
 
   try {
     const name = await getChineseName(code);

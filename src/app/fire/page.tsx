@@ -13,13 +13,34 @@ import { SwrSensitivityCard } from './SwrSensitivityCard';
 import { MonteCarloSection } from './MonteCarloSection';
 
 export default function FirePage() {
+  const { assetsLoading } = useAppContext();
+
+  // 雲端資料載入完成前不掛載計算機:計算機以 fireSettings 初始化本地 state,
+  // 若在載入前掛載,會以預設值初始化並被持久化 effect 寫回雲端,覆蓋使用者已儲存的設定。
+  if (assetsLoading) {
+    return (
+      <>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">FIRE 退休規劃計算機</h1>
+          <p className="text-sm text-gray-500 mt-1">Financial Independence, Retire Early — 預測你的財務自由時間點</p>
+        </div>
+        <div className="bg-white border border-gray-100 rounded-2xl p-10 shadow-sm text-center text-sm text-gray-400">
+          雲端資料載入中…
+        </div>
+      </>
+    );
+  }
+  return <FireCalculator />;
+}
+
+function FireCalculator() {
   const {
     netWorth, monthlyNetCashFlow, totalMonthlyExpense,
-    showValues, fireSettings, setFireSettings, assetsLoading,
+    showValues, fireSettings, setFireSettings,
   } = useAppContext();
 
   const [activeTab, setActiveTab] = useState<'single' | 'compare'>('single');
-  // Initialize with persisted settings or defaults
+  // 以已載入的設定初始化(FirePage 保證此時資料已載入完成)
   const [currentAge, setCurrentAge] = useState(fireSettings.currentAge);
   const [targetRetirementAge, setTargetRetirementAge] = useState(fireSettings.targetRetirementAge);
   const [currentNetWorth, setCurrentNetWorth] = useState(fireSettings.currentNetWorth ?? Math.max(0, netWorth));
@@ -31,27 +52,18 @@ export default function FirePage() {
   const [taxRate, setTaxRate] = useState(fireSettings.taxRate || 0);
   const [extraMonthly, setExtraMonthly] = useState(0);
 
-  // 若使用者在雲端資料尚未載入完成時就進入本頁，起始淨資產/現金流會先以 0 掛載；
-  // 待雲端資料載入完成（assetsLoading true→false）時自動補回真實數值一次，
-  // 避免整頁計算「卡」在錯誤的 0 起點（currentNetWorth 等欄位本身不會被持久化）。
-  const wasLoadingRef = useRef(assetsLoading);
-  useEffect(() => {
-    const wasLoading = wasLoadingRef.current;
-    wasLoadingRef.current = assetsLoading;
-    if (wasLoading && !assetsLoading) {
-      setCurrentNetWorth(Math.max(0, netWorth));
-      setMonthlyInvestment(Math.max(0, monthlyNetCashFlow));
-      setRetirementMonthlyExpense(totalMonthlyExpense);
-    }
-  }, [assetsLoading, netWorth, monthlyNetCashFlow, totalMonthlyExpense]);
-
   // Persistence effect
   // 不持久化 currentNetWorth/monthlyInvestment/retirementMonthlyExpense：
   // 這些欄位選填，故意不寫入以免固定住每天變動的淨資產，改由掛載時讀取即時 netWorth。
+  // 只在值真的改變時才寫入(掛載時不寫,避免無謂的雲端請求)。
+  const fireSettingsRef = useRef(fireSettings);
+  fireSettingsRef.current = fireSettings;
   useEffect(() => {
-    setFireSettings({
-      currentAge, targetRetirementAge, annualReturnRate, inflationRate, swr, taxRate,
-    });
+    const next = { currentAge, targetRetirementAge, annualReturnRate, inflationRate, swr, taxRate };
+    const prev = fireSettingsRef.current;
+    const changed = (Object.keys(next) as (keyof typeof next)[]).some(k => prev[k] !== next[k]);
+    if (!changed) return;
+    setFireSettings(s => ({ ...s, ...next }));
   }, [currentAge, targetRetirementAge, annualReturnRate, inflationRate, swr, taxRate, setFireSettings]);
 
   const formatAmount = (val: number) => showValues ? formatTWD(val) : '****';

@@ -3,6 +3,10 @@ import { users, appState } from '../db/schema';
 import { createEntityStore } from './entityStore';
 import { generateAssetReportHtml, buildPledgeAlertHtml } from '../lib/mail';
 import type { UserReportResult } from './reportEngine';
+import { forEachWithConcurrency } from '../lib/concurrency';
+
+/** 同時處理的使用者數(每位使用者要查 DB + 報價 + 寄信;序列處理在使用者變多時會超過 cron 的 60 秒上限) */
+const DAILY_CHECK_CONCURRENCY = 5;
 
 const appStateStore = createEntityStore(appState);
 
@@ -50,9 +54,9 @@ export async function runDailyCheck(deps: DailyCheckDeps): Promise<DailyCheckSum
 
   const summary: DailyCheckSummary = { processed: 0, reportsSent: 0, alertsSent: 0, failures: [] };
 
-  for (const user of allUsers) {
+  await forEachWithConcurrency(allUsers, DAILY_CHECK_CONCURRENCY, async (user) => {
     summary.processed += 1;
-    if (!user.email) continue;
+    if (!user.email) return;
 
     try {
       const result = await deps.computeUserReport(db, user.id);
@@ -92,7 +96,7 @@ export async function runDailyCheck(deps: DailyCheckDeps): Promise<DailyCheckSum
       console.error(`[daily-check] user ${user.id} failed`, error);
       summary.failures.push({ userId: user.id, error: error.message });
     }
-  }
+  });
 
   return summary;
 }

@@ -25,3 +25,6 @@ dist-ssr
 .next/
 tsconfig.tsbuildinfo
 .env
+
+# Claude Code 本機設定(個人權限/路徑,不應提交)
+.claude/settings.local.json

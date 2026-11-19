@@ -73,3 +73,39 @@ describe('remoteRepository 版本管理', () => {
     await expect(repo.remove('nope')).rejects.toThrow('API 錯誤(404)');
   });
 });
+
+describe('remoteRepository 同一筆資料的寫入序列化', () => {
+  const patchCount = () =>
+    (fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls
+      .filter(([, init]) => init?.method === 'PATCH').length;
+
+  it('同一 id 連續 update(不等待)不會誤判為版本衝突', async () => {
+    const repo = createRemoteRepository<{ id: string; name: string }>('/api/user/items');
+    await repo.getAll();
+    await repo.create({ id: 'a', name: '甲' });
+    await expect(Promise.all([
+      repo.update({ id: 'a', name: '乙' }),
+      repo.update({ id: 'a', name: '丙' }),
+    ])).resolves.toBeDefined();
+    expect((serverRows[0].data as { name: string }).name).toBe('丙');
+  });
+
+  it('create 尚未完成就 update 同一 id:依序執行成功', async () => {
+    const repo = createRemoteRepository<{ id: string; name: string }>('/api/user/items');
+    await repo.getAll();
+    await Promise.all([
+      repo.create({ id: 'a', name: '甲' }),
+      repo.update({ id: 'a', name: '乙' }),
+    ]);
+    expect((serverRows[0].data as { name: string }).name).toBe('乙');
+  });
+
+  it('排隊中的多次 update 只送出最新一筆(合併中間值)', async () => {
+    const repo = createRemoteRepository<{ id: string; name: string }>('/api/user/items');
+    await repo.getAll();
+    await repo.create({ id: 'a', name: '0' });
+    await Promise.all(['1', '2', '3', '4', '5'].map(n => repo.update({ id: 'a', name: n })));
+    expect((serverRows[0].data as { name: string }).name).toBe('5');
+    expect(patchCount()).toBeLessThanOrEqual(2);
+  });
+});

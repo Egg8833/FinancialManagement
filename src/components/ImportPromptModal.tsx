@@ -153,7 +153,8 @@ export function ImportPromptModal() {
           </button>
           <button
             onClick={handleImport}
-            disabled={importing}
+            disabled={importing || !appState.ready}
+            title={!appState.ready ? '雲端資料載入中，請稍候' : undefined}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50"
           >
             {importing ? '匯入中…' : '匯入資料'}
